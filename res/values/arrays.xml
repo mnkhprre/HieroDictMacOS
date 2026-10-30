@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="pref_translit_schemes">
+        <item>Gardiner &amp; Faulkner</item>
+        <item>Allen</item>
+        <item>Erman &amp; Grapow</item>
+        <item>Leiden</item>
+    </string-array>
+    <string-array name="pref_translit_values">
+        <item>@string/pref_translit_gardiner</item>
+        <item>@string/pref_translit_allen</item>
+        <item>@string/pref_translit_german</item>
+        <item>@string/pref_translit_leiden</item>
+    </string-array>
+</resources>

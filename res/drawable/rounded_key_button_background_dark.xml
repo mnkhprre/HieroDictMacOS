@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="@color/colorKeyBackgroundLight" />
+    <corners android:radius="6.0dp" />
+    <padding android:top="15.0dp" android:bottom="10.0dp" />
+</shape>

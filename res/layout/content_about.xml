@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView android:layout_width="match_parent" android:layout_height="match_parent"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <LinearLayout android:orientation="vertical" android:padding="16.0dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+        <TextView android:textSize="16.0sp" android:autoLink="email" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/about_header" />
+        <TextView android:textSize="16.0sp" android:id="@id/about_version" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16.0dp" />
+        <TextView android:textSize="16.0sp" android:autoLink="web" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16.0dp" android:text="@string/about_text" />
+        <TextView android:textSize="14.0sp" android:autoLink="web" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16.0dp" android:text="@string/incl_projects" />
+        <Button android:id="@id/about_legal_notices_button" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16.0dp" android:text="@string/legal_notices" style="@style/Widget.Material3.Button.TextButton" />
+    </LinearLayout>
+</ScrollView>

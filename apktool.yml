@@ -1,0 +1,25 @@
+version: 3.0.3
+apkFileName: HieroDict_1.0_APKPure.apk
+usesFramework:
+  ids:
+  - 1
+sdkInfo:
+  minSdkVersion: 27
+  targetSdkVersion: 34
+versionInfo:
+  versionCode: 10
+  versionName: 1.0
+resourcesInfo:
+  packageId: 127
+doNotCompress:
+- arsc
+- png
+- so
+- webp
+- assets/dexopt/baseline.prof
+- assets/dexopt/baseline.profm
+- res/raw/data_aa.bin
+- res/raw/data_ab.bin
+- res/raw/data_ac.bin
+- res/raw/data_ad.bin
+- res/raw/data_ae.bin

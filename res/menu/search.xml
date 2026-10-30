@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu
+  xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item android:icon="@drawable/ic_menu_glyph" android:id="@id/action_search_glyph" android:orderInCategory="100" android:title="@string/action_search_glyph" app:showAsAction="ifRoom" />
+    <item android:icon="@drawable/ic_menu_translit" android:id="@id/action_search_translit" android:orderInCategory="100" android:title="@string/action_search_translit" app:showAsAction="ifRoom" />
+    <item android:icon="@drawable/ic_menu_text" android:id="@id/action_search_text" android:orderInCategory="100" android:title="@string/action_search_code" app:showAsAction="ifRoom" />
+    <item android:icon="@drawable/ic_menu_help" android:id="@id/action_search_help" android:orderInCategory="100" android:title="@string/action_search_help" app:showAsAction="ifRoom" />
+</menu>

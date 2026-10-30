@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout android:orientation="vertical" android:layout_width="match_parent" android:layout_height="match_parent"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <View android:background="@android:color/transparent" android:layout_width="match_parent" android:layout_height="?actionBarSize" />
+    <androidx.recyclerview.widget.RecyclerView android:scrollbarSize="5.0dp" android:scrollbarThumbVertical="@color/colorPrimary" android:gravity="center" android:layout_gravity="center_horizontal" android:id="@id/sign_category_list" android:scrollbars="vertical" android:layout_width="match_parent" android:layout_height="match_parent" android:layout_marginLeft="20.0dp" android:layout_marginRight="20.0dp" android:horizontalSpacing="10.0dp" android:verticalSpacing="10.0dp" android:stretchMode="columnWidth" android:columnWidth="90.0dp" android:numColumns="auto_fit" android:scrollIndicators="right" />
+</LinearLayout>

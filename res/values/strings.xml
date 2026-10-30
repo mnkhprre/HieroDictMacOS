@@ -1,0 +1,334 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="abc_action_bar_up_description">Navigate up</string>
+    <string name="abc_action_mode_done">Done</string>
+    <string name="abc_capital_off">OFF</string>
+    <string name="abc_capital_on">ON</string>
+    <string name="abc_menu_alt_shortcut_label">Alt+</string>
+    <string name="abc_menu_ctrl_shortcut_label">Ctrl+</string>
+    <string name="abc_menu_delete_shortcut_label">delete</string>
+    <string name="abc_menu_enter_shortcut_label">enter</string>
+    <string name="abc_menu_function_shortcut_label">Function+</string>
+    <string name="abc_menu_meta_shortcut_label">Meta+</string>
+    <string name="abc_menu_shift_shortcut_label">Shift+</string>
+    <string name="abc_menu_space_shortcut_label">space</string>
+    <string name="abc_menu_sym_shortcut_label">Sym+</string>
+    <string name="abc_prepend_shortcut_label">Menu+</string>
+    <string name="abc_search_hint">Search…</string>
+    <string name="abc_searchview_description_clear">Clear query</string>
+    <string name="abc_searchview_description_search">Search</string>
+    <string name="abc_searchview_description_submit">Submit query</string>
+    <string name="abc_searchview_description_voice">Voice search</string>
+    <string name="abc_toolbar_collapse_description">Collapse</string>
+    <string name="about_header">"HieroDict, an Ancient Egyptian dictionary app
+Written by Jan Brands, apps@ultramagic.net
+Copyright © 2017-2024 Jan Brands
+All rights reserved."</string>
+    <string name="about_text">"This app would not have been possible without the efforts of:
+
+ "<b>Mark Vygus</b>" for his digital Ancient Egyptian word list (which he generously provided for this app), compiled using Luca Brigatti’s HieroWords program available at http://hierowords.weebly.com
+
+ "<b>George Douros</b>" for his Abydos font (free for any use), available at http://users.teilar.gr/~g1951d
+
+ "<b>Zoran Miskovic</b>" for porting the code to the latest Android version and creating the new design
+
+ "<b>Ana Prinse</b>" for the design of the new app icon
+
+ "<b>Angela Mann</b>" for the dedication to her moderating work on GlyphStudy and managing study sections. She was there when I made my first steps into Ancient Egyptian. She is sorely missed.
+ "</string>
+    <string name="action_collapse_all">Collapse all</string>
+    <string name="action_expand_all">Expand all</string>
+    <string name="action_search_code">Gardiner code</string>
+    <string name="action_search_glyph">Hieroglyphs</string>
+    <string name="action_search_help">Help</string>
+    <string name="action_search_translit">Transliterated</string>
+    <string name="androidx_startup">androidx.startup</string>
+    <string name="app_name">HieroDict</string>
+    <string name="bottom_sheet_behavior">com.google.android.material.bottomsheet.BottomSheetBehavior</string>
+    <string name="bottomsheet_action_collapse">Collapse the bottom sheet</string>
+    <string name="bottomsheet_action_expand">Expand the bottom sheet</string>
+    <string name="bottomsheet_action_expand_halfway">Expand halfway</string>
+    <string name="bottomsheet_drag_handle_clicked">Drag handle double-tapped</string>
+    <string name="bottomsheet_drag_handle_content_description">Drag handle</string>
+    <string name="changelog_text">"• Ported to the latest Android SDK version
+• Improved displaying of hieroglyphs
+• A new hieroglyph sign list showing all available hieroglyphs
+• Various minor fixes and updates"</string>
+    <string name="changelog_title">Recent changes</string>
+    <string name="character_counter_content_description">Characters entered %1$d of %2$d</string>
+    <string name="character_counter_overflowed_content_description">Character limit exceeded %1$d of %2$d</string>
+    <string name="character_counter_pattern">%1$d/%2$d</string>
+    <string name="clear_text_end_icon_content_description">Clear text</string>
+    <string name="copy">Copy</string>
+    <string name="dialog_button_ok">OK</string>
+    <string name="error_a11y_label">Error: invalid</string>
+    <string name="error_icon_content_description">Error</string>
+    <string name="expand_button_title">Advanced</string>
+    <string name="exposed_dropdown_menu_content_description">Show dropdown menu</string>
+    <string name="header_label">Searching for:</string>
+    <string name="header_no_results">No results</string>
+    <string name="header_results">results</string>
+    <string name="header_single_result">Only 1 result</string>
+    <string name="header_sorted_by_code">sorted by Gardiner code</string>
+    <string name="header_sorted_by_english">sorted by English translation</string>
+    <string name="header_sorted_by_translit">sorted by transliteration</string>
+    <string name="help_match_text"><b>Exact match:</b>" The search results contain exactly the search string you entered. No hieroglyphs or characters can follow or precede the search the string. 
+"<b>Prefix match:</b>" Other hieroglyphs or characters may follow the search string in the search results. 
+"<b>Substring match:</b> Other hieroglyphs or characters may precede or follow the search string in the search results. <i>This is the default setting.</i>" 
+"<b>In-order match:</b>" Other hieroglyphs may precede, follow or stand in between the hieroglyphs of the search string. 
+"<b>Any-order match:</b>" The search results contain the hieroglyphs of the search string in any order. 
+
+Often, the option \"substring match\" will return the desired results. By choosing \"exact match\" or \"prefix match\" you can restrict the amount of results. You can also cast a wider net and get more diverse results by using \"in-order match\" or \"any-order match\" (these options only apply when searching for hieroglyphs). 
+
+Search results always include matches with variants of the hieroglyphs (Gardiner codes with a letter after the number) in the search string, except for specific variants of a hieroglyph that are specified in the search string. "</string>
+    <string name="help_match_title">Search results matching</string>
+    <string name="help_pref_translit_key">help_translit</string>
+    <string name="help_pref_translit_scheme">About transliteration schemes</string>
+    <string name="help_pref_translit_text">The app supports the display of multiple commonly used transliteration methods. However, the different transliteration methods cannot always be converted into each other perfectly. Particularly the letters <i>ἰ</i>, <i>j</i> and <i>y</i> are used in different ways. Internally, the app uses the Gardiner scheme. (You can enter transliterations in any way you like, independently of this setting.)</string>
+    <string name="help_pref_translit_title">About transliteration schemes</string>
+    <string name="help_search_text">"You can search for hieroglyphs, transliterations and English translations. Choose the corresponding icon in the title bar menu to switch to the desired search mode. 
+"<b>Searching for hieroglyphs:</b>" There are three different keyboards for entering hieroglyphs: by transliteration, by Gardiner Code and by browsing through the list. You can select the different keyboards by swiping left or right over the keyboard or by tapping on the keyboard title. (Keys that are not applicable are shown as faded out.) When you see the hieroglyph you are looking for, tap on it to add it to your search string. 
+On the transliteration keyboard, when you long-press on a key, it will enter the corresponding uniliteral hieroglyph directly. (When you long-press on a hieroglyph directly, more information will be shown about it.) 
+Press on the backspace key to undo your last action. When you have entered the hieroglyphs you want to search for, tap on the search key to show the search results. 
+"<b>Searching for transliterations:</b>" Enter the transliteration you are looking for and tap the search icon to show the search results. While you are typing, the screen will start showing dictionary entries starting with what you typed. You can tap on one of the options shown to immediately show the results for that entry. 
+"<b>Searching for English translations:</b> Type the text you are looking for and then tap the search icon to display the results. </string>
+    <string name="help_search_title">Searching</string>
+    <string name="hide_bottom_view_on_scroll_behavior">com.google.android.material.behavior.HideBottomViewOnScrollBehavior</string>
+    <string name="incl_projects">"This app includes the following third-party components:
+
+• SqliteRE (Regex-Encryption) from https://github.com/mobi-life/sqlitere
+• sqlite3 (public domain)
+• sqlite3-pcre (public domain) from http://git.altlinux.org/people/at/packages/?p=sqlite3-pcre.git
+• PCRE 8.37 (BSD 3-clause)
+• Android native and java helper classes: https://sqlite.org/android/doc/trunk/www/index.wiki
+• Encryption Module from https://github.com/rindeal/SQLite3-Encryption"</string>
+    <string name="item_view_role_description">Tab</string>
+    <string name="keyboard_shortcut_add_code">Add currently selected Gardiner code</string>
+    <string name="keyboard_shortcut_clear_search_string">Delete search string</string>
+    <string name="keyboard_shortcut_dict_group_header">Dictionary shortcuts</string>
+    <string name="keyboard_shortcut_dictionary_group_header">Sorting, matching and filtering shortcuts</string>
+    <string name="keyboard_shortcut_glyph_browse_group_header">Hieroglyph browsing shortcuts</string>
+    <string name="keyboard_shortcut_glyph_code_group_header">Gardiner code shortcuts</string>
+    <string name="keyboard_shortcut_goto_next_category">Show next Gardiner category</string>
+    <string name="keyboard_shortcut_goto_previous_category">Show previous Gardiner category</string>
+    <string name="keyboard_shortcut_goto_search">Goto search screen</string>
+    <string name="keyboard_shortcut_keyboards_group_header">Keyboard selection shortcuts</string>
+    <string name="keyboard_shortcut_search_complete">Perform search</string>
+    <string name="keyboard_shortcut_search_english">Search English text</string>
+    <string name="keyboard_shortcut_search_group_header">Search shortcuts</string>
+    <string name="keyboard_shortcut_search_hieroglyphs">Search hieroglyphs</string>
+    <string name="keyboard_shortcut_search_transliteration">Search transliteration</string>
+    <string name="keyboard_shortcut_show_biliterals">Show biliteral hieroglyphs</string>
+    <string name="keyboard_shortcut_show_diagonal_glyphs">Show diagonal hieroglyphs</string>
+    <string name="keyboard_shortcut_show_horizontal_glyphs">Show horizontal hieroglyphs</string>
+    <string name="keyboard_shortcut_show_round_glyphs">Show round hieroglyphs</string>
+    <string name="keyboard_shortcut_show_small_glyphs">Show small hieroglyphs</string>
+    <string name="keyboard_shortcut_show_uniliterals">Show uniliteral hieroglyphs</string>
+    <string name="keyboard_shortcut_show_vertical_glyphs">Show vertical hieroglyphs</string>
+    <string name="keyboard_shortcut_switch_browse_keyboard">Switch to browsing keyboard</string>
+    <string name="keyboard_shortcut_switch_gardiner_keyboard">Switch to Gardiner code keyboard</string>
+    <string name="keyboard_shortcut_switch_translit_keyboard">Switch to transliteration keyboard</string>
+    <string name="label_browse_keyboard">Browse</string>
+    <string name="label_gardinercode_keyboard">Code</string>
+    <string name="label_translit_keyboard">Translit</string>
+    <string name="legal_notices">Legal notices</string>
+    <string name="licenses">"PCRE LICENCE
+ ------------
+ 
+ PCRE is a library of functions to support regular expressions whose syntax and semantics are as close as possible to those of the Perl 5 language.
+ 
+ Release 8 of PCRE is distributed under the terms of the BSD licence, as specified below. The documentation for PCRE, supplied in the doc directory, is distributed under the same terms as the software itself. The data in the testdata directory is not copyrighted and is in the public domain.
+ 
+ The basic library functions are written in C and are freestanding. Also included in the distribution is a set of C++ wrapper functions, and a just-in-time compiler that can be used to optimize pattern matching. These are both optional features that can be omitted when the library is built.
+ 
+ 
+ THE BASIC LIBRARY FUNCTIONS
+ ---------------------------
+ 
+ Written by: Philip Hazel
+ Email local part: ph10
+ Email domain: cam.ac.uk
+ 
+ University of Cambridge Computing Service,
+ Cambridge, England.
+ 
+ Copyright (c) 1997-2015 University of Cambridge
+ All rights reserved.
+ 
+ 
+ PCRE JUST-IN-TIME COMPILATION SUPPORT
+ -------------------------------------
+ 
+ Written by: Zoltan Herczeg
+ Email local part: hzmester
+ Emain domain: freemail.hu
+ 
+ Copyright(c) 2010-2015 Zoltan Herczeg
+ All rights reserved.
+ 
+ 
+ STACK-LESS JUST-IN-TIME COMPILER
+ --------------------------------
+ 
+ Written by: Zoltan Herczeg
+ Email local part: hzmester
+ Emain domain: freemail.hu
+ 
+ Copyright(c) 2009-2015 Zoltan Herczeg
+ All rights reserved.
+ 
+ 
+ THE C++ WRAPPER FUNCTIONS
+ -------------------------
+ 
+ Contributed by: Google Inc.
+ 
+ Copyright (c) 2007-2012, Google Inc.
+ All rights reserved.
+ 
+ 
+ THE BSD LICENCE
+ -----------------
+ 
+ Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+ 
+ * Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+ 
+ * Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+ 
+ * Neither the name of the University of Cambridge nor the name of Google Inc. nor the names of their contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+ 
+ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS AS IS AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ 
+ End
+ 
+ 
+ 
+ wxWindows Library Licence, Version 3.1
+ ======================================
+ 
+ Copyright (c) 1998-2005 Julian Smart, Robert Roebling et al
+ 
+ Everyone is permitted to copy and distribute verbatim copies of this licence document, but changing it is not allowed.
+ 
+ WXWINDOWS LIBRARY LICENCE
+ TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
+ 
+ This library is free software; you can redistribute it and/or modify it under the terms of the GNU Library General Public Licence as published by the Free Software Foundation; either version 2 of the Licence, or (at your option) any later version.
+ 
+ This library is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Library General Public Licence for more details.
+ 
+ You should have received a copy of the GNU Library General Public Licence along with this software, usually in a file named COPYING.LIB. If not, write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
+ 
+ EXCEPTION NOTICE
+ 
+ 1. As a special exception, the copyright holders of this library give permission for additional uses of the text contained in this release of the library as licenced under the wxWindows Library Licence, applying either version 3.1 of the Licence, or (at your option) any later version of the Licence as published by the copyright holders of version 3.1 of the Licence document.
+ 
+ 2. The exception is that you may use, copy, link, modify and distribute under your own terms, binary object code versions of works based on the Library.
+ 
+ 3. If you copy code from files distributed under the terms of the GNU General Public Licence or the GNU Library General Public Licence into a copy of this library, as this licence permits, the exception does not apply to the code that you add in this way. To avoid misleading anyone as to the status of such modified files, you must delete this exception notice from such code and/or adjust the licensing conditions notice accordingly.
+ 
+ 4. If you write modifications of your own for this library, it is your choice whether to permit this exception to apply to your modifications. If you do not wish that, you must delete the exception notice from such code and/or adjust the licensing conditions notice accordingly."</string>
+    <string name="m3_exceed_max_badge_text_suffix">%1$s%2$s</string>
+    <string name="m3_ref_typeface_brand_regular">sans-serif</string>
+    <string name="m3_ref_typeface_plain_medium">sans-serif-medium</string>
+    <string name="m3_ref_typeface_plain_regular">sans-serif</string>
+    <string name="m3_sys_motion_easing_emphasized">path(M 0,0 C 0.05, 0, 0.133333, 0.06, 0.166666, 0.4 C 0.208333, 0.82, 0.25, 1, 1, 1)</string>
+    <string name="m3_sys_motion_easing_emphasized_path_data">M 0,0 C 0.05, 0, 0.133333, 0.06, 0.166666, 0.4 C 0.208333, 0.82, 0.25, 1, 1, 1</string>
+    <string name="m3_sys_motion_easing_legacy_accelerate">cubic-bezier(0.4, 0, 1, 1)</string>
+    <string name="m3_sys_motion_easing_legacy_decelerate">cubic-bezier(0, 0, 0.2, 1)</string>
+    <string name="m3_sys_motion_easing_linear">cubic-bezier(0, 0, 1, 1)</string>
+    <string name="m3_sys_motion_easing_standard">cubic-bezier(0.2, 0, 0, 1)</string>
+    <string name="material_clock_display_divider">:</string>
+    <string name="material_clock_toggle_content_description">Select AM or PM</string>
+    <string name="material_motion_easing_accelerated">cubic-bezier(0.4, 0.0, 1.0, 1.0)</string>
+    <string name="material_motion_easing_decelerated">cubic-bezier(0.0, 0.0, 0.2, 1.0)</string>
+    <string name="material_motion_easing_emphasized">path(M 0,0 C 0.05, 0, 0.133333, 0.06, 0.166666, 0.4 C 0.208333, 0.82, 0.25, 1, 1, 1)</string>
+    <string name="material_motion_easing_linear">cubic-bezier(0.0, 0.0, 1.0, 1.0)</string>
+    <string name="material_motion_easing_standard">cubic-bezier(0.4, 0.0, 0.2, 1.0)</string>
+    <string name="material_timepicker_am">AM</string>
+    <string name="material_timepicker_pm">PM</string>
+    <string name="menu_filter_results">Filter search results</string>
+    <string name="menu_match_exact">Exact match</string>
+    <string name="menu_match_help">About matching</string>
+    <string name="menu_match_method">Search method</string>
+    <string name="menu_match_order">In-order match</string>
+    <string name="menu_match_prefix">Prefix match</string>
+    <string name="menu_match_random">Any-order match</string>
+    <string name="menu_match_substring">Substring match</string>
+    <string name="menu_show_adjectives">Show only adjectives</string>
+    <string name="menu_show_all">Show all</string>
+    <string name="menu_show_names">Show only names &amp; titles</string>
+    <string name="menu_show_nouns">Show only nouns</string>
+    <string name="menu_show_verbs">Show only verbs</string>
+    <string name="menu_sort_glyph">Sort by Gardiner code</string>
+    <string name="menu_sort_order">Sort order</string>
+    <string name="menu_sort_text">Sort by English translation</string>
+    <string name="menu_sort_translit">Sort by transliteration</string>
+    <string name="mtrl_badge_numberless_content_description">New notification</string>
+    <string name="mtrl_checkbox_button_icon_path_checked">M14,18.2 11.4,15.6 10,17 14,21 22,13 20.6,11.6z</string>
+    <string name="mtrl_checkbox_button_icon_path_group_name">icon</string>
+    <string name="mtrl_checkbox_button_icon_path_indeterminate">M13.4,15 11,15 11,17 13.4,17 21,17 21,15z</string>
+    <string name="mtrl_checkbox_button_icon_path_name">icon path</string>
+    <string name="mtrl_checkbox_button_path_checked">M23,7H9C7.9,7,7,7.9,7,9v14c0,1.1,0.9,2,2,2h14c1.1,0,2-0.9,2-2V9C25,7.9,24.1,7,23,7z</string>
+    <string name="mtrl_checkbox_button_path_group_name">button</string>
+    <string name="mtrl_checkbox_button_path_name">button path</string>
+    <string name="mtrl_checkbox_button_path_unchecked">M23,7H9C7.9,7,7,7.9,7,9v14c0,1.1,0.9,2,2,2h14c1.1,0,2-0.9,2-2V9C25,7.9,24.1,7,23,7z M23,23H9V9h14V23z</string>
+    <string name="mtrl_checkbox_state_description_checked">Checked</string>
+    <string name="mtrl_checkbox_state_description_indeterminate">Partially checked</string>
+    <string name="mtrl_checkbox_state_description_unchecked">Not checked</string>
+    <string name="mtrl_chip_close_icon_content_description">Remove %1$s</string>
+    <string name="mtrl_exceed_max_badge_number_content_description">More than %1$d new notifications</string>
+    <string name="mtrl_exceed_max_badge_number_suffix">%1$d%2$s</string>
+    <string name="mtrl_picker_a11y_next_month">Change to next month</string>
+    <string name="mtrl_picker_a11y_prev_month">Change to previous month</string>
+    <string name="mtrl_picker_cancel">Cancel</string>
+    <string name="mtrl_picker_confirm">OK</string>
+    <string name="mtrl_picker_day_of_week_column_header">%1$s</string>
+    <string name="mtrl_picker_navigate_to_current_year_description">Navigate to current year %1$d</string>
+    <string name="mtrl_picker_navigate_to_year_description">Navigate to year %1$d</string>
+    <string name="mtrl_picker_save">Save</string>
+    <string name="mtrl_picker_toggle_to_calendar_input_mode">Switch to calendar input mode</string>
+    <string name="mtrl_picker_toggle_to_day_selection">Tap to switch to Calendar view</string>
+    <string name="mtrl_picker_toggle_to_text_input_mode">Switch to text input mode</string>
+    <string name="mtrl_picker_toggle_to_year_selection">Tap to switch to year view</string>
+    <string name="mtrl_switch_thumb_group_name">circle_group</string>
+    <string name="mtrl_switch_thumb_path_checked">M4,16 A12,12 0 0,1 16,4 H16 A12,12 0 0,1 16,28 H16 A12,12 0 0,1 4,16</string>
+    <string name="mtrl_switch_thumb_path_morphing">M0,16 A11,11 0 0,1 11,5 H21 A11,11 0 0,1 21,27 H11 A11,11 0 0,1 0,16</string>
+    <string name="mtrl_switch_thumb_path_name">circle</string>
+    <string name="mtrl_switch_thumb_path_pressed">M2,16 A14,14 0 0,1 16,2 H16 A14,14 0 0,1 16,30 H16 A14,14 0 0,1 2,16</string>
+    <string name="mtrl_switch_thumb_path_unchecked">M8,16 A8,8 0 0,1 16,8 H16 A8,8 0 0,1 16,24 H16 A8,8 0 0,1 8,16</string>
+    <string name="mtrl_switch_track_decoration_path">M1,16 A15,15 0 0,1 16,1 H36 A15,15 0 0,1 36,31 H16 A15,15 0 0,1 1,16</string>
+    <string name="mtrl_switch_track_path">M0,16 A16,16 0 0,1 16,0 H36 A16,16 0 0,1 36,32 H16 A16,16 0 0,1 0,16</string>
+    <string name="navigation_drawer_close">Close navigation drawer</string>
+    <string name="navigation_drawer_open">Open navigation drawer</string>
+    <string name="navigation_drawer_title1">HIERO</string>
+    <string name="navigation_drawer_title2">DICT</string>
+    <string name="not_set">Not set</string>
+    <string name="password_toggle_content_description">Show password</string>
+    <string name="path_password_eye">M12,4.5C7,4.5 2.73,7.61 1,12c1.73,4.39 6,7.5 11,7.5s9.27,-3.11 11,-7.5c-1.73,-4.39 -6,-7.5 -11,-7.5zM12,17c-2.76,0 -5,-2.24 -5,-5s2.24,-5 5,-5 5,2.24 5,5 -2.24,5 -5,5zM12,9c-1.66,0 -3,1.34 -3,3s1.34,3 3,3 3,-1.34 3,-3 -1.34,-3 -3,-3z</string>
+    <string name="path_password_eye_mask_strike_through">M2,4.27 L19.73,22 L22.27,19.46 L4.54,1.73 L4.54,1 L23,1 L23,23 L1,23 L1,4.27 Z</string>
+    <string name="path_password_eye_mask_visible">M2,4.27 L2,4.27 L4.54,1.73 L4.54,1.73 L4.54,1 L23,1 L23,23 L1,23 L1,4.27 Z</string>
+    <string name="path_password_strike_through">M3.27,4.27 L19.74,20.74</string>
+    <string name="pref_category_j">config_category_J</string>
+    <string name="pref_show_mdc">config_show_MdC</string>
+    <string name="pref_show_rtl">config_show_RTL</string>
+    <string name="pref_translit_allen">0</string>
+    <string name="pref_translit_gardiner">1</string>
+    <string name="pref_translit_german">2</string>
+    <string name="pref_translit_leiden">3</string>
+    <string name="pref_translit_scheme">config_translit_scheme</string>
+    <string name="preference_copied">\"%1$s\" copied to clipboard.</string>
+    <string name="search_for">Search for:</string>
+    <string name="side_sheet_accessibility_pane_title">Side Sheet</string>
+    <string name="summary_collapsed_preference_list">%1$s, %2$s</string>
+    <string name="title_about_menu">About</string>
+    <string name="title_about_title">About HieroDict</string>
+    <string name="title_activity_search">Search</string>
+    <string name="title_activity_sign_category">Sign list</string>
+    <string name="title_dictionary">Dictionary</string>
+    <string name="title_settings">Settings</string>
+    <string name="v7_preference_off">OFF</string>
+    <string name="v7_preference_on">ON</string>
+    <string name="yodh_egypt">i̓</string>
+</resources>

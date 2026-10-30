@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout android:orientation="vertical" android:layout_width="match_parent" android:layout_height="wrap_content" android:layoutDirection="ltr"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <LinearLayout android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="0.0dp" android:layout_weight="1.0">
+        <Button android:id="@id/key_browse_q" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:layout_marginLeft="2.0dp" android:layout_weight="1.0" style="@style/keyboard_button" />
+        <Button android:id="@id/key_browse_w" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:layout_weight="1.0" style="@style/keyboard_button" />
+        <Button android:id="@id/key_browse_e" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:layout_weight="1.0" style="@style/keyboard_button" />
+        <Button android:id="@id/key_browse_r" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:layout_weight="1.0" style="@style/keyboard_button" />
+        <Button android:id="@id/key_browse_t" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:layout_weight="1.0" style="@style/keyboard_button" />
+        <Button android:id="@id/key_browse_y" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:layout_weight="1.0" style="@style/keyboard_button" />
+        <Button android:id="@id/key_browse_u" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:layout_weight="1.0" style="@style/keyboard_button" />
+        <Button android:id="@id/key_browse_i" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:layout_weight="1.0" style="@style/keyboard_button" />
+        <Button android:id="@id/key_browse_o" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:layout_weight="1.0" style="@style/keyboard_button" />
+        <Button android:id="@id/key_browse_p" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:layout_marginRight="2.0dp" android:layout_weight="1.0" style="@style/keyboard_button" />
+    </LinearLayout>
+    <LinearLayout android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="0.0dp" android:layout_weight="1.0">
+        <View android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:layout_marginLeft="2.0dp" android:layout_weight="1.0" />
+        <Button android:id="@id/key_browse_a" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:layout_weight="2.0" style="@style/keyboard_button" />
+        <Button android:id="@id/key_browse_s" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:layout_weight="2.0" style="@style/keyboard_button" />
+        <Button android:id="@id/key_browse_d" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:layout_weight="2.0" style="@style/keyboard_button" />
+        <Button android:id="@id/key_browse_f" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:layout_weight="2.0" style="@style/keyboard_button" />
+        <Button android:id="@id/key_browse_g" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:layout_weight="2.0" style="@style/keyboard_button" />
+        <Button android:id="@id/key_browse_h" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:layout_weight="2.0" style="@style/keyboard_button" />
+        <Button android:id="@id/key_browse_j" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:layout_weight="2.0" style="@style/keyboard_button" />
+        <Button android:id="@id/key_browse_k" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:layout_weight="2.0" style="@style/keyboard_button" />
+        <Button android:id="@id/key_browse_l" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:layout_weight="2.0" style="@style/keyboard_button" />
+        <View android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:layout_marginRight="2.0dp" android:layout_weight="1.0" />
+    </LinearLayout>
+    <LinearLayout android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="0.0dp" android:layout_weight="1.0">
+        <View android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:layout_marginLeft="2.0dp" android:layout_weight="1.5" />
+        <Button android:id="@id/key_browse_z" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:layout_weight="2.0" style="@style/keyboard_button" />
+        <Button android:id="@id/key_browse_x" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:layout_weight="2.0" style="@style/keyboard_button" />
+        <Button android:id="@id/key_browse_c" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:layout_weight="2.0" style="@style/keyboard_button" />
+        <Button android:id="@id/key_browse_v" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:layout_weight="2.0" style="@style/keyboard_button" />
+        <Button android:id="@id/key_browse_b" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:layout_weight="2.0" style="@style/keyboard_button" />
+        <Button android:id="@id/key_browse_n" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:layout_weight="2.0" style="@style/keyboard_button" />
+        <Button android:id="@id/key_browse_m" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:layout_weight="2.0" style="@style/keyboard_button" />
+        <androidx.appcompat.widget.AppCompatImageButton android:id="@id/key_browse_backspace" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:layout_marginRight="2.0dp" android:src="@drawable/ic_keyboard_backspace" android:scaleType="centerInside" android:layout_weight="3.0" style="@style/keyboard_img_button" />
+    </LinearLayout>
+    <LinearLayout android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="0.0dp" android:layout_weight="1.0">
+        <androidx.appcompat.widget.AppCompatImageButton android:id="@id/key_browse_vertical" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:src="@drawable/ic_keyboard_vertical" android:scaleType="fitCenter" android:layout_weight="1.0" style="@style/keyboard_img_button" />
+        <androidx.appcompat.widget.AppCompatImageButton android:id="@id/key_browse_horizontal" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:src="@drawable/ic_keyboard_horizontal" android:scaleType="fitCenter" android:layout_weight="1.0" style="@style/keyboard_img_button" />
+        <androidx.appcompat.widget.AppCompatImageButton android:id="@id/key_browse_small" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:src="@drawable/ic_keyboard_small" android:scaleType="centerInside" android:layout_weight="1.0" style="@style/keyboard_img_button" />
+        <androidx.appcompat.widget.AppCompatImageButton android:id="@id/key_browse_round" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:src="@drawable/ic_keyboard_round" android:scaleType="centerInside" android:layout_weight="1.0" style="@style/keyboard_img_button" />
+        <androidx.appcompat.widget.AppCompatImageButton android:id="@id/key_browse_diagonal" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:src="@drawable/ic_keyboard_diagonal" android:scaleType="centerInside" android:layout_weight="1.0" style="@style/keyboard_img_button" />
+        <Button android:textSize="@dimen/keyboard_glyph_text_size" android:id="@id/key_browse_1" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:text="①" android:layout_weight="1.0" style="@style/keyboard_button" />
+        <Button android:textSize="@dimen/keyboard_glyph_text_size" android:id="@id/key_browse_2" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:text="②" android:layout_weight="1.0" style="@style/keyboard_button" />
+        <androidx.appcompat.widget.AppCompatImageButton android:id="@id/key_browse_search" android:layout_width="0.0dp" android:layout_height="@dimen/keyboard_button_height" android:layout_marginRight="2.0dp" android:src="@drawable/ic_keyboard_search" android:scaleType="fitCenter" android:layout_weight="1.7" style="@style/keyboard_img_button" />
+    </LinearLayout>
+</LinearLayout>
