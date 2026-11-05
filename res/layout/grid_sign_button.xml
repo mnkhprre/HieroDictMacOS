@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<LinearLayout android:gravity="center|top" android:layout_gravity="center_horizontal" android:orientation="horizontal" android:layout_width="wrap_content" android:layout_height="50.0dp" android:layout_marginLeft="20.0dp" android:layout_marginTop="10.0dp" android:layout_marginRight="10.0dp" android:layout_marginBottom="0.0dp"
-  xmlns:android="http://schemas.android.com/apk/res/android">
-    <TextView android:textSize="74.0sp" android:gravity="center_horizontal" android:layout_gravity="center" android:id="@id/sign_glyph" android:layout_width="40.0dp" android:layout_height="wrap_content" android:textAlignment="center" />
-    <LinearLayout android:layout_gravity="center" android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="wrap_content">
-        <TextView android:textSize="21.0sp" android:textStyle="bold" android:gravity="center_horizontal" android:layout_gravity="center" android:id="@id/sign_title_category" android:layout_width="40.0dp" android:layout_height="wrap_content" android:layout_marginLeft="5.0dp" android:layout_marginRight="5.0dp" android:layout_marginStart="5.0dp" android:layout_marginEnd="5.0dp" />
-        <TextView android:textSize="17.0sp" android:layout_gravity="center" android:id="@id/sign_title_description" android:layout_width="wrap_content" android:layout_height="wrap_content" />
-    </LinearLayout>
-</LinearLayout>

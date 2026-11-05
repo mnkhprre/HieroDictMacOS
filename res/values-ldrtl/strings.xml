@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="mirror_glyphs">Display hieroglyphs left-to-right</string>
-    <string name="mirror_glyphs_off">Show RTL hieroglyphs</string>
-    <string name="mirror_glyphs_on">Show LTR hieroglyphs</string>
-</resources>

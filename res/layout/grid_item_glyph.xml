@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<LinearLayout android:gravity="bottom" android:layout_gravity="center_horizontal" android:orientation="vertical" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginLeft="1.0dp" android:layout_marginTop="0.0dp" android:layout_marginRight="1.0dp" android:layout_marginBottom="@dimen/glyph_grid_bottom_margin"
-  xmlns:android="http://schemas.android.com/apk/res/android">
-    <net.ultramagic.hiero.box.HieroView android:layout_gravity="center_horizontal" android:id="@id/glyph_view" android:layout_width="match_parent" android:layout_height="wrap_content" />
-    <net.ultramagic.hiero.view.TranslitTextView android:textSize="@dimen/glyph_grid_translit_text_size" android:gravity="center_horizontal" android:id="@id/glyph_translit" android:visibility="gone" android:layout_width="match_parent" android:layout_height="wrap_content" />
-    <TextView android:textSize="12.0sp" android:gravity="center_horizontal" android:id="@id/glyph_gard_code" android:layout_width="match_parent" android:layout_height="wrap_content" />
-</LinearLayout>
