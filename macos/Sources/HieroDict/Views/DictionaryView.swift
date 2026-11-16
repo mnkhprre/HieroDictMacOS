@@ -88,6 +88,7 @@ struct DictionaryView: View {
                             glyphScale: glyphScale,
                             signLookup: store.signCache,
                             useQuadrat: store.useQuadratLayout,
+                            showGrid: store.showQuadratGuides,
                             onToggleFavorite: { store.toggleFavorite(id: entry.id) }
                         )
                         .tag(entry.id)
@@ -104,6 +105,7 @@ private struct DictionaryWordRow: View {
     let glyphScale: GlyphScale
     let signLookup: [String: GardinerSign]
     let useQuadrat: Bool
+    let showGrid: Bool
     let onToggleFavorite: () -> Void
 
     var body: some View {
@@ -113,7 +115,8 @@ private struct DictionaryWordRow: View {
                 fontSize: glyphScale.listFontSize,
                 mdc: entry.mdc,
                 signLookup: signLookup,
-                useQuadrat: useQuadrat
+                useQuadrat: useQuadrat,
+                showGrid: showGrid
             )
 
             VStack(alignment: .leading, spacing: 3) {

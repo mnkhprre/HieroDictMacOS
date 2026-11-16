@@ -93,10 +93,24 @@ final class SQLiteDatabaseStore {
                 FROM entries
                 WHERE translit LIKE '%' || ? || '%'
                    OR translitRaw LIKE '%' || ? || '%'
-                   OR mdc LIKE '%' || ? || '%'
-                ORDER BY id ASC
+                ORDER BY CASE
+                    WHEN translit = ? OR translitRaw = ? THEN 0
+                    WHEN translit GLOB ? || '*' OR translitRaw GLOB ? || '*' THEN 1
+                    WHEN translit LIKE ? || '%' OR translitRaw LIKE ? || '%' THEN 2
+                    WHEN INSTR(translit, ?) > 0 OR INSTR(translitRaw, ?) > 0 THEN 3
+                    ELSE 4
+                END, id ASC
                 """
-                return queryEntries(sql: sql, bindings: [trimmed, trimmed, trimmed])
+                return queryEntries(
+                    sql: sql,
+                    bindings: [
+                        trimmed, trimmed,
+                        trimmed, trimmed,
+                        trimmed, trimmed,
+                        trimmed, trimmed,
+                        trimmed, trimmed
+                    ]
+                )
 
             case .gardiner:
                 let sql = """

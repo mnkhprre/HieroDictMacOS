@@ -6,10 +6,11 @@ struct WordInspectorView: View {
     let glyphScale: GlyphScale
     let signLookup: [String: GardinerSign]
     let useQuadrat: Bool
+    let showGrid: Bool
     let onClose: () -> Void
     let onToggleFavorite: (Int) -> Void
     let onSignSelected: (String) -> Void
-    let onOpenInStackStudio: (HieroEntry) -> Void
+    let onOpenInStackStudio: (HieroEntry, Int) -> Void
     let getSignDetails: (String) -> GardinerSign?
 
     @State private var copiedBadgeText: String? = nil
@@ -47,7 +48,8 @@ struct WordInspectorView: View {
                                 mdc: entry.mdc,
                                 fallbackGlyph: entry.glyph,
                                 signLookup: signLookup,
-                                quadratSize: glyphScale.detailFontSize * 1.15
+                                quadratSize: glyphScale.detailFontSize * 1.15,
+                                showGrid: showGrid
                             )
                             .frame(minWidth: 220)
                         }
@@ -151,6 +153,52 @@ struct WordInspectorView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
+                let squares = QuadratEngine.splitSquares(mdc: entry.mdc)
+                if !squares.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("IMAGINARY SQUARES (\(squares.count))")
+                            .font(.system(size: 11, weight: .bold))
+                            .tracking(1)
+                            .foregroundStyle(.secondary)
+
+                        FlowLayout(spacing: 8) {
+                            ForEach(Array(squares.enumerated()), id: \.offset) { idx, sqMdc in
+                                Button {
+                                    onOpenInStackStudio(entry, idx)
+                                } label: {
+                                    VStack(spacing: 4) {
+                                        Text("Q\(idx + 1)")
+                                            .font(.system(size: 9, weight: .bold))
+                                            .foregroundStyle(.secondary)
+                                        QuadratWordView(
+                                            mdc: sqMdc,
+                                            fallbackGlyph: nil,
+                                            signLookup: signLookup,
+                                            quadratSize: 36,
+                                            showGrid: true
+                                        )
+                                        Text(sqMdc)
+                                            .font(.system(size: 10, design: .monospaced))
+                                            .foregroundStyle(AppTheme.slateAccent)
+                                    }
+                                    .padding(8)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                            .fill(AppTheme.glyphTileBackground)
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                            .stroke(AppTheme.subtleBorder, lineWidth: 1)
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                                .help("Inspect or remix Square Q\(idx + 1)")
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
                 HStack(spacing: 10) {
                     Button {
                         copyToPasteboard(entry.glyph, feedback: "Copied hieroglyphs")
@@ -173,7 +221,7 @@ struct WordInspectorView: View {
                 }
 
                 Button {
-                    onOpenInStackStudio(entry)
+                    onOpenInStackStudio(entry, 0)
                 } label: {
                     Label("Open in Imaginary Stacks", systemImage: "square.stack.3d.up")
                         .frame(maxWidth: .infinity)

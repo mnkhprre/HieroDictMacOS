@@ -8,14 +8,17 @@ struct QuadratWordView: View {
     var direction: ReadingDirection = .ltr
     var frame: EnclosureFrame = .none
     var showGrid: Bool = false
+    var selectedSquareIndex: Int? = nil
+    var onSelectSquare: ((Int) -> Void)? = nil
 
-    private var quadrats: [QuadratNode] {
+    private var quadrats: [(originalIndex: Int, node: QuadratNode)] {
         let parsed = QuadratEngine.parseQuadrats(
             mdc: mdc,
             fallbackGlyph: fallbackGlyph,
             signLookup: signLookup
         )
-        return direction == .rtl ? Array(parsed.reversed()) : parsed
+        let enumerated = parsed.enumerated().map { (originalIndex: $0.offset, node: $0.element) }
+        return direction == .rtl ? Array(enumerated.reversed()) : enumerated
     }
 
     var body: some View {
@@ -25,15 +28,15 @@ struct QuadratWordView: View {
                     .font(.hiero(size: quadratSize * 0.72))
                     .foregroundStyle(.primary)
             } else if direction == .vertical {
-                VStack(spacing: quadratSize * 0.14) {
-                    ForEach(quadrats) { node in
-                        quadratCell(node)
+                VStack(spacing: max(3, quadratSize * 0.12)) {
+                    ForEach(quadrats, id: \.originalIndex) { item in
+                        quadratCell(item.node, originalIndex: item.originalIndex)
                     }
                 }
             } else {
-                HStack(spacing: quadratSize * 0.14) {
-                    ForEach(quadrats) { node in
-                        quadratCell(node)
+                HStack(spacing: max(3, quadratSize * 0.12)) {
+                    ForEach(quadrats, id: \.originalIndex) { item in
+                        quadratCell(item.node, originalIndex: item.originalIndex)
                     }
                 }
             }
@@ -60,23 +63,46 @@ struct QuadratWordView: View {
     }
 
     @ViewBuilder
-    private func quadratCell(_ node: QuadratNode) -> some View {
-        QuadratNodeRenderer(
+    private func quadratCell(_ node: QuadratNode, originalIndex: Int) -> some View {
+        let isSelected = selectedSquareIndex == originalIndex
+        let cell = QuadratNodeRenderer(
             node: node,
             width: quadratSize,
             height: quadratSize,
-            globalFlip: direction == .rtl
+            globalFlip: direction == .rtl,
+            showSubGrid: showGrid
         )
         .frame(width: quadratSize, height: quadratSize)
         .background {
-            if showGrid {
+            if isSelected {
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .fill(AppTheme.slateAccent.opacity(0.14))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            .stroke(AppTheme.slateAccent, lineWidth: 2)
+                    )
+            } else if showGrid {
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .strokeBorder(AppTheme.slateAccent.opacity(0.38), style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
-                    .background(
+                    .fill(AppTheme.slateAccent.opacity(0.04))
+                    .overlay(
                         RoundedRectangle(cornerRadius: 4, style: .continuous)
-                            .fill(AppTheme.slateAccent.opacity(0.05))
+                            .strokeBorder(
+                                AppTheme.slateAccent.opacity(0.45),
+                                style: StrokeStyle(lineWidth: 1, dash: [3, 2])
+                            )
                     )
             }
+        }
+
+        if let onSelectSquare {
+            Button {
+                onSelectSquare(originalIndex)
+            } label: {
+                cell
+            }
+            .buttonStyle(.plain)
+        } else {
+            cell
         }
     }
 }
@@ -86,20 +112,19 @@ private struct QuadratNodeRenderer: View {
     let width: CGFloat
     let height: CGFloat
     let globalFlip: Bool
+    let showSubGrid: Bool
 
     var body: some View {
         switch node {
         case .atom(let atom):
-            let baseSize = min(width, height) * 0.86
             let isFlipped = globalFlip != atom.mirrored
-            Text(atom.glyph)
-                .font(.hiero(size: max(10, baseSize)))
-                .foregroundStyle(.primary)
-                .minimumScaleFactor(0.45)
-                .lineLimit(1)
-                .rotationEffect(.degrees(atom.rotationDegrees))
-                .scaleEffect(x: isFlipped ? -1 : 1, y: 1)
-                .frame(width: width, height: height)
+            QuadratGlyphVectorView(
+                glyph: atom.glyph,
+                width: width,
+                height: height,
+                rotationDegrees: atom.rotationDegrees,
+                isFlipped: isFlipped
+            )
 
         case .ligature(_, let children):
             ZStack {
@@ -109,44 +134,105 @@ private struct QuadratNodeRenderer: View {
                         node: child,
                         width: width * factor,
                         height: height * factor,
-                        globalFlip: globalFlip
+                        globalFlip: globalFlip,
+                        showSubGrid: false
                     )
                 }
             }
             .frame(width: width, height: height)
 
         case .vertical(_, let children):
-            let count = max(1, children.count)
             let spacing = max(1, height * 0.04)
-            let tierHeight = max(8, (height - spacing * CGFloat(count - 1)) / CGFloat(count))
+            let availableHeight = max(8, height - spacing * CGFloat(max(0, children.count - 1)))
+            let weights = children.map { naturalHeightWeight(for: $0) }
+            let totalWeight = max(0.1, weights.reduce(0, +))
+
             VStack(spacing: spacing) {
-                ForEach(children) { child in
+                ForEach(Array(children.enumerated()), id: \.offset) { idx, child in
+                    let tierHeight = max(6, availableHeight * (weights[idx] / totalWeight))
                     QuadratNodeRenderer(
                         node: child,
                         width: width,
                         height: tierHeight,
-                        globalFlip: globalFlip
+                        globalFlip: globalFlip,
+                        showSubGrid: showSubGrid
                     )
+                    .overlay {
+                        if showSubGrid && children.count > 1 {
+                            Rectangle()
+                                .strokeBorder(
+                                    AppTheme.slateAccent.opacity(0.22),
+                                    style: StrokeStyle(lineWidth: 0.7, dash: [2, 2])
+                                )
+                        }
+                    }
                 }
             }
             .frame(width: width, height: height)
 
         case .horizontal(_, let children):
             let ordered = globalFlip ? Array(children.reversed()) : children
-            let count = max(1, ordered.count)
             let spacing = max(1, width * 0.04)
-            let cellWidth = max(8, (width - spacing * CGFloat(count - 1)) / CGFloat(count))
+            let availableWidth = max(8, width - spacing * CGFloat(max(0, ordered.count - 1)))
+            let weights = ordered.map { naturalWidthWeight(for: $0) }
+            let totalWeight = max(0.1, weights.reduce(0, +))
+
             HStack(spacing: spacing) {
-                ForEach(ordered) { child in
+                ForEach(Array(ordered.enumerated()), id: \.offset) { idx, child in
+                    let cellWidth = max(6, availableWidth * (weights[idx] / totalWeight))
                     QuadratNodeRenderer(
                         node: child,
                         width: cellWidth,
                         height: height,
-                        globalFlip: globalFlip
+                        globalFlip: globalFlip,
+                        showSubGrid: showSubGrid
                     )
+                    .overlay {
+                        if showSubGrid && ordered.count > 1 {
+                            Rectangle()
+                                .strokeBorder(
+                                    AppTheme.slateAccent.opacity(0.22),
+                                    style: StrokeStyle(lineWidth: 0.7, dash: [2, 2])
+                                )
+                        }
+                    }
                 }
             }
             .frame(width: width, height: height)
+        }
+    }
+
+    private func naturalHeightWeight(for node: QuadratNode) -> CGFloat {
+        switch node {
+        case .atom(let atom):
+            let rawAspect = QuadratGlyphMetricsCache.shared.aspectRatio(for: atom.glyph)
+            let effective = abs(atom.rotationDegrees.truncatingRemainder(dividingBy: 180)) == 90
+                ? (1.0 / max(rawAspect, 0.2))
+                : rawAspect
+            return min(max(effective, 0.30), 1.45)
+        case .ligature(_, let children):
+            return children.map { naturalHeightWeight(for: $0) }.max() ?? 1.0
+        case .horizontal(_, let children):
+            return children.map { naturalHeightWeight(for: $0) }.max() ?? 0.6
+        case .vertical(_, let children):
+            return min(children.map { naturalHeightWeight(for: $0) }.reduce(0, +), 2.0)
+        }
+    }
+
+    private func naturalWidthWeight(for node: QuadratNode) -> CGFloat {
+        switch node {
+        case .atom(let atom):
+            let rawAspect = QuadratGlyphMetricsCache.shared.aspectRatio(for: atom.glyph)
+            let effective = abs(atom.rotationDegrees.truncatingRemainder(dividingBy: 180)) == 90
+                ? rawAspect
+                : (1.0 / max(rawAspect, 0.2))
+            return min(max(effective, 0.40), 1.6)
+        case .ligature(_, let children):
+            return children.map { naturalWidthWeight(for: $0) }.max() ?? 1.0
+        case .vertical(_, let children):
+            return children.map { naturalWidthWeight(for: $0) }.max() ?? 0.8
+        case .horizontal(_, let children):
+            return min(children.map { naturalWidthWeight(for: $0) }.reduce(0, +), 2.0)
         }
     }
 }

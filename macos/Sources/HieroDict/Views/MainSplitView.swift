@@ -95,13 +95,14 @@ struct MainSplitView: View {
                     glyphScale: glyphScale,
                     signLookup: store.signCache,
                     useQuadrat: store.useQuadratLayout,
+                    showGrid: store.showQuadratGuides,
                     onClose: { store.selectWord(nil) },
                     onToggleFavorite: { store.toggleFavorite(id: $0) },
                     onSignSelected: { code in
                         store.filterBySign(code)
                     },
-                    onOpenInStackStudio: { selected in
-                        store.openInStackStudio(selected)
+                    onOpenInStackStudio: { selected, squareIndex in
+                        store.openInStackStudio(selected, focusedSquareIndex: squareIndex)
                     },
                     getSignDetails: { code in
                         store.signDetails(for: code)
@@ -121,6 +122,19 @@ struct MainSplitView: View {
                     )
                 }
                 .help("Toggle MdC Quadrat Stacking")
+            }
+
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    store.showQuadratGuides.toggle()
+                } label: {
+                    Label(
+                        "Square Guides",
+                        systemImage: store.showQuadratGuides ? "square.dashed.inset.filled" : "square.dashed"
+                    )
+                }
+                .disabled(!store.useQuadratLayout)
+                .help("Show Imaginary Square Guides")
             }
 
             ToolbarItem(placement: .primaryAction) {

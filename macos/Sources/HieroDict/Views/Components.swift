@@ -6,9 +6,17 @@ struct HieroGlyphBox: View {
     var mdc: String? = nil
     var signLookup: [String: GardinerSign] = [:]
     var useQuadrat: Bool = false
+    var showGrid: Bool = false
     var minWidth: CGFloat = 88
-    var maxWidth: CGFloat = 152
+    var maxWidth: CGFloat = 240
     var verticalPadding: CGFloat = 8
+
+    private var adaptedQuadratSize: CGFloat {
+        let count = QuadratEngine.splitSquares(mdc: mdc ?? "").count
+        if count >= 6 { return fontSize * 0.92 }
+        if count >= 4 { return fontSize * 1.02 }
+        return fontSize * 1.15
+    }
 
     var body: some View {
         Group {
@@ -17,7 +25,8 @@ struct HieroGlyphBox: View {
                     mdc: mdc,
                     fallbackGlyph: glyph,
                     signLookup: signLookup,
-                    quadratSize: fontSize * 1.15
+                    quadratSize: adaptedQuadratSize,
+                    showGrid: showGrid
                 )
             } else {
                 Text(glyph.isEmpty ? "—" : glyph)

@@ -7,7 +7,7 @@ struct ImaginaryStacksView: View {
 
     @State private var selectedOperator: QuadratOp = .stackVertical
     @State private var selectedCategoryCode: String = "A"
-    @State private var quadratScale: CGFloat = 68
+    @State private var quadratScale: CGFloat = 76
     @State private var statusBanner: String? = nil
 
     var body: some View {
@@ -18,6 +18,10 @@ struct ImaginaryStacksView: View {
 
                     canvasPreviewCard
 
+                    squareSequencerStrip
+
+                    selectedSquareTemplateEditor
+
                     mdcEditorBar
 
                     lexiconMatchStrip
@@ -26,10 +30,10 @@ struct ImaginaryStacksView: View {
                 }
                 .padding(16)
             }
-            .frame(minWidth: 520, maxWidth: .infinity)
+            .frame(minWidth: 540, maxWidth: .infinity)
 
             presetsAndSavedSidebar
-                .frame(minWidth: 230, idealWidth: 260, maxWidth: 300)
+                .frame(minWidth: 230, idealWidth: 265, maxWidth: 310)
         }
         .onAppear {
             if let first = store.categories.first?.code {
@@ -40,9 +44,9 @@ struct ImaginaryStacksView: View {
 
     private var canvasHeaderControls: some View {
         HStack(spacing: 10) {
-            TextField("Stack Title", text: $store.composerTitle)
+            TextField("Composition Title", text: $store.composerTitle)
                 .textFieldStyle(.roundedBorder)
-                .frame(maxWidth: 240)
+                .frame(maxWidth: 220)
 
             Picker("Direction", selection: $store.composerDirection) {
                 ForEach(ReadingDirection.allCases) { dir in
@@ -60,18 +64,18 @@ struct ImaginaryStacksView: View {
             .pickerStyle(.segmented)
             .frame(width: 210)
 
-            Toggle("Grid", isOn: $store.composerShowGrid)
+            Toggle("Square Grid", isOn: $store.composerShowGrid)
                 .toggleStyle(.checkbox)
 
             Spacer()
 
             HStack(spacing: 6) {
-                Image(systemName: "textformat.size.smaller")
+                Image(systemName: "square.resize.down")
                     .foregroundStyle(.secondary)
                     .font(.caption)
-                Slider(value: $quadratScale, in: 40...108, step: 4)
+                Slider(value: $quadratScale, in: 44...116, step: 4)
                     .frame(width: 90)
-                Image(systemName: "textformat.size.larger")
+                Image(systemName: "square.resize.up")
                     .foregroundStyle(.secondary)
                     .font(.caption)
             }
@@ -89,7 +93,11 @@ struct ImaginaryStacksView: View {
                         quadratSize: quadratScale,
                         direction: store.composerDirection,
                         frame: store.composerFrame,
-                        showGrid: store.composerShowGrid
+                        showGrid: store.composerShowGrid,
+                        selectedSquareIndex: store.composerSquares.isEmpty ? nil : store.selectedSquareIndex,
+                        onSelectSquare: { index in
+                            store.selectSquare(index)
+                        }
                     )
                     .padding(24)
                 }
@@ -108,7 +116,7 @@ struct ImaginaryStacksView: View {
                 Button {
                     store.generateRandomImaginaryStack()
                 } label: {
-                    Label("Random Stack", systemImage: "wand.and.stars")
+                    Label("Random Squares", systemImage: "wand.and.stars")
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(AppTheme.slateAccent)
@@ -179,6 +187,210 @@ struct ImaginaryStacksView: View {
         }
     }
 
+    private var squareSequencerStrip: some View {
+        let squares = store.composerSquares
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("IMAGINARY SQUARES (\(squares.count))")
+                    .font(.system(size: 11, weight: .bold))
+                    .tracking(0.8)
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+
+                Button {
+                    store.addNewSquare()
+                } label: {
+                    Label("Add Square", systemImage: "plus.square")
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+
+                Button {
+                    store.duplicateSelectedSquare()
+                } label: {
+                    Label("Duplicate", systemImage: "plus.square.on.square")
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(squares.isEmpty)
+
+                Button {
+                    store.moveSelectedSquare(offset: -1)
+                } label: {
+                    Image(systemName: "chevron.left")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(store.selectedSquareIndex <= 0)
+
+                Button {
+                    store.moveSelectedSquare(offset: 1)
+                } label: {
+                    Image(systemName: "chevron.right")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(store.selectedSquareIndex >= squares.count - 1)
+
+                Button(role: .destructive) {
+                    store.deleteSelectedSquare()
+                } label: {
+                    Image(systemName: "trash")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(squares.isEmpty)
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(Array(squares.enumerated()), id: \.offset) { idx, sqMdc in
+                        let isSelected = idx == store.selectedSquareIndex
+                        Button {
+                            store.selectSquare(idx)
+                        } label: {
+                            VStack(spacing: 4) {
+                                Text("Q\(idx + 1)")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundStyle(isSelected ? AppTheme.slateAccent : .secondary)
+
+                                QuadratWordView(
+                                    mdc: sqMdc,
+                                    fallbackGlyph: nil,
+                                    signLookup: store.signCache,
+                                    quadratSize: 40,
+                                    direction: store.composerDirection,
+                                    showGrid: true
+                                )
+
+                                Text(sqMdc)
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 8)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .fill(isSelected ? AppTheme.slateAccent.opacity(0.12) : AppTheme.cardBackground)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .stroke(isSelected ? AppTheme.slateAccent : AppTheme.subtleBorder, lineWidth: isSelected ? 1.8 : 1)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color(nsColor: .windowBackgroundColor))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(AppTheme.subtleBorder, lineWidth: 1)
+        )
+    }
+
+    private var selectedSquareTemplateEditor: some View {
+        let squares = store.composerSquares
+        let activeSquareMdc = squares.indices.contains(store.selectedSquareIndex)
+            ? squares[store.selectedSquareIndex]
+            : ""
+        let slots = QuadratEngine.squareTokens(squareMdc: activeSquareMdc)
+
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("SQUARE Q\(min(store.selectedSquareIndex + 1, max(1, squares.count))) LAYOUT & SLOTS")
+                    .font(.system(size: 11, weight: .bold))
+                    .tracking(0.8)
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+
+                if store.selectedSlotIndex != nil {
+                    Button("Clear Slot Selection") {
+                        store.selectedSlotIndex = nil
+                    }
+                    .buttonStyle(.link)
+                    .font(.system(size: 11))
+                }
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(SquareTemplate.allCases) { template in
+                        Button(template.rawValue) {
+                            store.applyTemplateToSelectedSquare(template)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                }
+            }
+
+            if !slots.isEmpty {
+                HStack(spacing: 8) {
+                    Text("Target Slot:")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+
+                    ForEach(Array(slots.enumerated()), id: \.offset) { idx, token in
+                        let isSlotSelected = store.selectedSlotIndex == idx
+                        let cleanCode = token.split(separator: "\\").first.map(String.init) ?? token
+                        let signGlyph = store.signCache[cleanCode.uppercased()]?.glyph
+                            ?? QuadratEngine.mnemonicMap[cleanCode]
+                            ?? cleanCode
+                        Button {
+                            store.selectedSlotIndex = isSlotSelected ? nil : idx
+                        } label: {
+                            HStack(spacing: 5) {
+                                Text("S\(idx + 1)")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundStyle(.secondary)
+                                QuadratGlyphVectorView(
+                                    glyph: signGlyph,
+                                    width: 20,
+                                    height: 20,
+                                    rotationDegrees: 0,
+                                    isFlipped: false
+                                )
+                                Text(token)
+                                    .font(.system(size: 11, design: .monospaced))
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .fill(isSlotSelected ? AppTheme.slateAccent.opacity(0.16) : AppTheme.cardBackground)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .stroke(isSlotSelected ? AppTheme.slateAccent : AppTheme.subtleBorder, lineWidth: isSlotSelected ? 1.5 : 1)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color(nsColor: .windowBackgroundColor))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(AppTheme.subtleBorder, lineWidth: 1)
+        )
+    }
+
     private var mdcEditorBar: some View {
         HStack(spacing: 10) {
             Text("MdC:")
@@ -220,7 +432,8 @@ struct ImaginaryStacksView: View {
                                         mdc: entry.mdc,
                                         fallbackGlyph: entry.glyph,
                                         signLookup: store.signCache,
-                                        quadratSize: 24
+                                        quadratSize: 26,
+                                        showGrid: store.composerShowGrid
                                     )
                                     VStack(alignment: .leading, spacing: 1) {
                                         Text(entry.displayTranslit)
@@ -309,7 +522,7 @@ struct ImaginaryStacksView: View {
                             )
                         }
                         .buttonStyle(.plain)
-                        .help("\(sign.code) — \(sign.name) (\(selectedOperator.label))")
+                        .help("\(sign.code) — \(sign.name)")
                     }
                 }
             }
@@ -342,9 +555,10 @@ struct ImaginaryStacksView: View {
                                 mdc: preset.mdc,
                                 fallbackGlyph: nil,
                                 signLookup: store.signCache,
-                                quadratSize: 28,
+                                quadratSize: 30,
                                 direction: preset.direction,
-                                frame: preset.frame
+                                frame: preset.frame,
+                                showGrid: true
                             )
                             Text(preset.subtitle)
                                 .font(.system(size: 11))
@@ -368,7 +582,7 @@ struct ImaginaryStacksView: View {
                     Divider()
                         .padding(.vertical, 4)
 
-                    Text("SAVED STACKS (\(store.savedStacks.count))")
+                    Text("SAVED SQUARES (\(store.savedStacks.count))")
                         .font(.system(size: 11, weight: .bold))
                         .tracking(0.8)
                         .foregroundStyle(.secondary)
@@ -404,9 +618,10 @@ struct ImaginaryStacksView: View {
                                     mdc: saved.mdc,
                                     fallbackGlyph: nil,
                                     signLookup: store.signCache,
-                                    quadratSize: 28,
+                                    quadratSize: 30,
                                     direction: saved.direction,
-                                    frame: saved.frame
+                                    frame: saved.frame,
+                                    showGrid: true
                                 )
                             }
                             .buttonStyle(.plain)
@@ -503,6 +718,6 @@ private struct BoxCentered<Content: View>: View {
             }
             Spacer(minLength: 0)
         }
-        .frame(minWidth: 460, minHeight: 190)
+        .frame(minWidth: 480, minHeight: 190)
     }
 }

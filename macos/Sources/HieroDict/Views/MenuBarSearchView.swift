@@ -206,8 +206,9 @@ struct MenuBarSearchView: View {
                                     mdc: entry.mdc,
                                     signLookup: store.signCache,
                                     useQuadrat: store.useQuadratLayout,
+                                    showGrid: store.showQuadratGuides,
                                     minWidth: 68,
-                                    maxWidth: 110,
+                                    maxWidth: 140,
                                     verticalPadding: 5
                                 )
 
@@ -284,7 +285,8 @@ struct MenuBarSearchView: View {
                             mdc: entry.mdc,
                             fallbackGlyph: entry.glyph,
                             signLookup: store.signCache,
-                            quadratSize: 48
+                            quadratSize: 48,
+                            showGrid: store.showQuadratGuides
                         )
                     } else {
                         Text(entry.glyph.isEmpty ? "—" : entry.glyph)

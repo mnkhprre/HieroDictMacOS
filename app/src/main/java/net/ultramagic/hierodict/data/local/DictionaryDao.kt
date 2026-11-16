@@ -31,8 +31,10 @@ interface DictionaryDao {
         "SELECT * FROM entries " +
             "WHERE translit LIKE '%' || :query || '%' " +
             "OR translitRaw LIKE '%' || :query || '%' " +
-            "OR mdc LIKE '%' || :query || '%' " +
-            "ORDER BY id ASC"
+            "ORDER BY CASE " +
+            "WHEN translit = :query OR translitRaw = :query THEN 0 " +
+            "WHEN translit LIKE :query || '%' OR translitRaw LIKE :query || '%' THEN 1 " +
+            "ELSE 2 END, id ASC"
     )
     fun searchTranslit(query: String): Flow<List<WordEntity>>
 

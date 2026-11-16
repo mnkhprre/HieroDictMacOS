@@ -42,7 +42,7 @@ struct GardinerCategory: Identifiable, Hashable {
 enum SidebarSection: String, CaseIterable, Identifiable {
     case search = "Search"
     case dictionary = "Dictionary"
-    case stacks = "Imaginary Stacks"
+    case stacks = "Imaginary Squares"
     case signList = "Sign List"
     case about = "About"
 

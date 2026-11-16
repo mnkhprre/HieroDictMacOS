@@ -100,7 +100,8 @@ struct SearchView: View {
                                     entry: entry,
                                     glyphScale: glyphScale,
                                     signLookup: store.signCache,
-                                    useQuadrat: store.useQuadratLayout
+                                    useQuadrat: store.useQuadratLayout,
+                                    showGrid: store.showQuadratGuides
                                 )
                                 .tag(entry.id)
                             }
@@ -204,6 +205,7 @@ private struct SearchResultRow: View {
     let glyphScale: GlyphScale
     let signLookup: [String: GardinerSign]
     let useQuadrat: Bool
+    let showGrid: Bool
 
     var body: some View {
         HStack(spacing: 12) {
@@ -212,7 +214,8 @@ private struct SearchResultRow: View {
                 fontSize: glyphScale.listFontSize,
                 mdc: entry.mdc,
                 signLookup: signLookup,
-                useQuadrat: useQuadrat
+                useQuadrat: useQuadrat,
+                showGrid: showGrid
             )
 
             VStack(alignment: .leading, spacing: 3) {

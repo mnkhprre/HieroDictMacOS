@@ -77,6 +77,52 @@ struct SavedStack: Identifiable, Hashable {
     let createdAt: Date
 }
 
+enum SquareTemplate: String, CaseIterable, Identifiable {
+    case single = "Single"
+    case stack2 = "Top : Bottom"
+    case stack3 = "3 Tiers"
+    case side2 = "Side * Side"
+    case topTwoBottom = "Top : 2 Side"
+    case twoTopBottom = "2 Side : Bottom"
+    case grid2x2 = "2 × 2"
+
+    var id: String { rawValue }
+
+    var slotCount: Int {
+        switch self {
+        case .single: return 1
+        case .stack2, .side2: return 2
+        case .stack3, .topTwoBottom, .twoTopBottom: return 3
+        case .grid2x2: return 4
+        }
+    }
+
+    func format(slots: [String]) -> String {
+        let padded = (0..<slotCount).map { idx -> String in
+            if idx < slots.count, !slots[idx].isEmpty {
+                return slots[idx]
+            }
+            return ["S34", "N35", "X1", "Z1"][idx % 4]
+        }
+        switch self {
+        case .single:
+            return padded[0]
+        case .stack2:
+            return "\(padded[0]):\(padded[1])"
+        case .stack3:
+            return "\(padded[0]):\(padded[1]):\(padded[2])"
+        case .side2:
+            return "\(padded[0])*\(padded[1])"
+        case .topTwoBottom:
+            return "\(padded[0]):\(padded[1])*\(padded[2])"
+        case .twoTopBottom:
+            return "\(padded[0])*\(padded[1]):\(padded[2])"
+        case .grid2x2:
+            return "\(padded[0])*\(padded[1]):\(padded[2])*\(padded[3])"
+        }
+    }
+}
+
 enum QuadratEngine {
     static let mnemonicMap: [String: String] = [
         "1": "𓏤", "A": "𓄿", "Ab": "𓍋", "Aw": "𓄫", "Ax": "𓅜",
@@ -282,6 +328,65 @@ enum QuadratEngine {
             return String(trimmed[..<idx])
         }
         return ""
+    }
+
+    static func splitSquares(mdc: String) -> [String] {
+        mdc.trimmingCharacters(in: .whitespacesAndNewlines)
+            .split(separator: "-", omittingEmptySubsequences: true)
+            .map(String.init)
+    }
+
+    static func joinSquares(_ squares: [String]) -> String {
+        squares
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: "-")
+    }
+
+    static func squareTokens(squareMdc: String) -> [String] {
+        extractRawTokens(from: squareMdc)
+    }
+
+    static func replaceSlot(inSquare squareMdc: String, slotIndex: Int, withCode code: String) -> String {
+        var currentIndex = 0
+        var result = ""
+        var token = ""
+        var replaced = false
+
+        func flushToken() {
+            guard !token.isEmpty else { return }
+            if currentIndex == slotIndex {
+                result += code
+                replaced = true
+            } else {
+                result += token
+            }
+            currentIndex += 1
+            token = ""
+        }
+
+        for ch in squareMdc {
+            if ch == ":" || ch == "*" || ch == "&" {
+                flushToken()
+                result.append(ch)
+            } else {
+                token.append(ch)
+            }
+        }
+        flushToken()
+
+        if !replaced {
+            if result.isEmpty {
+                return code
+            }
+            return "\(result):\(code)"
+        }
+        return result
+    }
+
+    static func applyTemplate(_ template: SquareTemplate, toSquare squareMdc: String) -> String {
+        let existing = extractRawTokens(from: squareMdc)
+        return template.format(slots: existing)
     }
 
     private static func toggleR180(_ token: String) -> String {
