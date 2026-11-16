@@ -2,29 +2,34 @@ package net.ultramagic.hierodict.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val EgyptianBlue = Color(0xFF153B5D)
-val EgyptianBlueLight = Color(0xFF285E8C)
-val EgyptianGold = Color(0xFFC69223)
-val EgyptianGoldLight = Color(0xFFDFAB3E)
-val EgyptianGoldContainer = Color(0xFFFBF0D6)
-val EgyptianGoldContainerDark = Color(0xFF382C10)
+val SlatePrimaryLight = Color(0xFF1B4965)
+val SlateOnPrimaryLight = Color.White
+val SlatePrimaryContainerLight = Color(0xFFD6E6F2)
+val SlateOnPrimaryContainerLight = Color(0xFF0B2536)
 
-val PapyrusLight = Color(0xFFFAF7F0)
-val PapyrusCardLight = Color(0xFFFFFFFF)
-val PapyrusSurfaceVariant = Color(0xFFF0EAE0)
-val PapyrusDark = Color(0xFF141210)
-val PapyrusCardDark = Color(0xFF1F1B17)
-val PapyrusSurfaceVariantDark = Color(0xFF2A2520)
+val SlateSecondaryLight = Color(0xFF5C6B73)
+val SlateSecondaryContainerLight = Color(0xFFE7EDF1)
+val SlateOnSecondaryContainerLight = Color(0xFF1D2D35)
 
-val EgyptianRed = Color(0xFFA43825)
-val EgyptianTurquoise = Color(0xFF1B7F79)
+val NeutralBackgroundLight = Color(0xFFFAFAFA)
+val NeutralSurfaceLight = Color(0xFFFFFFFF)
+val NeutralSurfaceVariantLight = Color(0xFFF1F3F5)
+val NeutralOnSurfaceLight = Color(0xFF1A1C1E)
+val NeutralOnSurfaceVariantLight = Color(0xFF5A6066)
+val NeutralOutlineLight = Color(0xFFD0D5DD)
 
-val PrimaryBlueLight = EgyptianBlue
-val OnPrimaryLight = Color.White
-val PrimaryContainerLight = Color(0xFFD6E4F0)
-val OnPrimaryContainerLight = Color(0xFF0A2238)
+val SlatePrimaryDark = Color(0xFF8AB4F8)
+val SlateOnPrimaryDark = Color(0xFF0D2840)
+val SlatePrimaryContainerDark = Color(0xFF183D5B)
+val SlateOnPrimaryContainerDark = Color(0xFFD6E6F2)
 
-val PrimaryBlueDark = Color(0xFF90CAF9)
-val OnPrimaryDark = Color(0xFF0D253D)
-val PrimaryContainerDark = Color(0xFF1A3E60)
-val OnPrimaryContainerDark = Color(0xFFD6E4F0)
+val SlateSecondaryDark = Color(0xFFA8B5BD)
+val SlateSecondaryContainerDark = Color(0xFF283238)
+val SlateOnSecondaryContainerDark = Color(0xFFE1E8EC)
+
+val NeutralBackgroundDark = Color(0xFF121315)
+val NeutralSurfaceDark = Color(0xFF1C1D20)
+val NeutralSurfaceVariantDark = Color(0xFF282A2E)
+val NeutralOnSurfaceDark = Color(0xFFE6E8EA)
+val NeutralOnSurfaceVariantDark = Color(0xFFB0B5BA)
+val NeutralOutlineDark = Color(0xFF3E4248)

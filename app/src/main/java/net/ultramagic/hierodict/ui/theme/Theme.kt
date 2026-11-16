@@ -8,39 +8,39 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 private val DarkColorScheme = darkColorScheme(
-    primary = PrimaryBlueDark,
-    onPrimary = OnPrimaryDark,
-    primaryContainer = PrimaryContainerDark,
-    onPrimaryContainer = OnPrimaryContainerDark,
-    secondary = EgyptianGoldLight,
+    primary = SlatePrimaryDark,
+    onPrimary = SlateOnPrimaryDark,
+    primaryContainer = SlatePrimaryContainerDark,
+    onPrimaryContainer = SlateOnPrimaryContainerDark,
+    secondary = SlateSecondaryDark,
     onSecondary = Color.Black,
-    secondaryContainer = EgyptianGoldContainerDark,
-    onSecondaryContainer = EgyptianGoldContainer,
-    background = PapyrusDark,
-    onBackground = Color(0xFFE8E2D9),
-    surface = PapyrusCardDark,
-    onSurface = Color(0xFFE8E2D9),
-    surfaceVariant = PapyrusSurfaceVariantDark,
-    onSurfaceVariant = Color(0xFFCBC4BA),
-    outline = Color(0xFF5A524A)
+    secondaryContainer = SlateSecondaryContainerDark,
+    onSecondaryContainer = SlateOnSecondaryContainerDark,
+    background = NeutralBackgroundDark,
+    onBackground = NeutralOnSurfaceDark,
+    surface = NeutralSurfaceDark,
+    onSurface = NeutralOnSurfaceDark,
+    surfaceVariant = NeutralSurfaceVariantDark,
+    onSurfaceVariant = NeutralOnSurfaceVariantDark,
+    outline = NeutralOutlineDark
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = PrimaryBlueLight,
-    onPrimary = OnPrimaryLight,
-    primaryContainer = PrimaryContainerLight,
-    onPrimaryContainer = OnPrimaryContainerLight,
-    secondary = EgyptianGold,
+    primary = SlatePrimaryLight,
+    onPrimary = SlateOnPrimaryLight,
+    primaryContainer = SlatePrimaryContainerLight,
+    onPrimaryContainer = SlateOnPrimaryContainerLight,
+    secondary = SlateSecondaryLight,
     onSecondary = Color.White,
-    secondaryContainer = EgyptianGoldContainer,
-    onSecondaryContainer = Color(0xFF432C03),
-    background = PapyrusLight,
-    onBackground = Color(0xFF201B17),
-    surface = PapyrusCardLight,
-    onSurface = Color(0xFF201B17),
-    surfaceVariant = PapyrusSurfaceVariant,
-    onSurfaceVariant = Color(0xFF564F46),
-    outline = Color(0xFFC8BFB4)
+    secondaryContainer = SlateSecondaryContainerLight,
+    onSecondaryContainer = SlateOnSecondaryContainerLight,
+    background = NeutralBackgroundLight,
+    onBackground = NeutralOnSurfaceLight,
+    surface = NeutralSurfaceLight,
+    onSurface = NeutralOnSurfaceLight,
+    surfaceVariant = NeutralSurfaceVariantLight,
+    onSurfaceVariant = NeutralOnSurfaceVariantLight,
+    outline = NeutralOutlineLight
 )
 
 @Composable

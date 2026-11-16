@@ -1,6 +1,7 @@
 package net.ultramagic.hierodict.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -22,10 +24,10 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.UnfoldLess
 import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material3.Button
@@ -53,29 +55,25 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.ultramagic.hierodict.data.GardinerCategory
 import net.ultramagic.hierodict.data.GardinerSign
-import net.ultramagic.hierodict.ui.theme.EgyptianBlue
-import net.ultramagic.hierodict.ui.theme.EgyptianGold
 import net.ultramagic.hierodict.ui.theme.HieroFontFamily
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SignListScreen(
     categories: List<GardinerCategory>,
-    onBack: () -> Unit,
-    onFilterWordsBySign: (String) -> Unit
+    onFilterWordsBySign: (String) -> Unit,
+    onOpenSettings: () -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
     val expandedStates = remember { mutableStateMapOf<String, Boolean>() }
     var selectedSignForDetail by remember { mutableStateOf<GardinerSign?>(null) }
 
-    // Initialize first category as expanded
     remember(categories) {
         if (categories.isNotEmpty() && expandedStates.isEmpty()) {
             expandedStates[categories.first().code] = true
@@ -90,40 +88,30 @@ fun SignListScreen(
             categories.mapNotNull { cat ->
                 val matchingSigns = cat.signs.filter { sign ->
                     sign.code.lowercase().contains(q) ||
-                            sign.name.lowercase().contains(q) ||
-                            sign.meaning.lowercase().contains(q)
+                        sign.name.lowercase().contains(q) ||
+                        sign.meaning.lowercase().contains(q)
                 }
                 if (matchingSigns.isNotEmpty() || cat.title.lowercase().contains(q)) {
                     cat.copy(signs = matchingSigns, count = matchingSigns.size)
-                } else null
+                } else {
+                    null
+                }
             }
         }
     }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0.dp),
         topBar = {
             TopAppBar(
                 title = {
                     Text(
                         text = "Gardiner's Sign List",
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onPrimary
                     )
                 },
-                navigationIcon = {
-                    IconButton(
-                        onClick = onBack,
-                        modifier = Modifier.testTag("sign_list_back_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White
-                        )
-                    }
-                },
                 actions = {
-                    // Expand All action
                     IconButton(
                         onClick = {
                             categories.forEach { expandedStates[it.code] = true }
@@ -133,10 +121,9 @@ fun SignListScreen(
                         Icon(
                             imageVector = Icons.Default.UnfoldMore,
                             contentDescription = "Expand All",
-                            tint = Color.White
+                            tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
-                    // Collapse All action
                     IconButton(
                         onClick = {
                             categories.forEach { expandedStates[it.code] = false }
@@ -146,12 +133,22 @@ fun SignListScreen(
                         Icon(
                             imageVector = Icons.Default.UnfoldLess,
                             contentDescription = "Collapse All",
-                            tint = Color.White
+                            tint = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
+                    IconButton(
+                        onClick = onOpenSettings,
+                        modifier = Modifier.testTag("signs_settings_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Settings",
+                            tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = EgyptianBlue
+                    containerColor = MaterialTheme.colorScheme.primary
                 )
             )
         }
@@ -162,7 +159,6 @@ fun SignListScreen(
                 .padding(innerPadding)
                 .background(MaterialTheme.colorScheme.background)
         ) {
-            // Search Sign filter
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
@@ -173,11 +169,15 @@ fun SignListScreen(
                 placeholder = { Text("Filter signs by code or name (e.g. A1, bird, water)…", fontSize = 13.sp) },
                 singleLine = true,
                 leadingIcon = {
-                    Icon(imageVector = Icons.Default.Search, contentDescription = null, tint = EgyptianBlue)
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
                 },
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(10.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = EgyptianBlue,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
                     unfocusedBorderColor = MaterialTheme.colorScheme.outline
                 )
             )
@@ -188,7 +188,7 @@ fun SignListScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(filteredCategories, key = { it.code }) { cat ->
-                    val isExpanded = expandedStates[cat.code] ?: (searchQuery.isNotBlank())
+                    val isExpanded = expandedStates[cat.code] ?: searchQuery.isNotBlank()
                     CategoryAccordionItem(
                         category = cat,
                         isExpanded = isExpanded,
@@ -204,7 +204,6 @@ fun SignListScreen(
         }
     }
 
-    // Sign Detail Dialog / Bottom Sheet
     selectedSignForDetail?.let { sign ->
         SignDetailSheet(
             sign = sign,
@@ -227,11 +226,11 @@ private fun CategoryAccordionItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp)),
+            .clip(RoundedCornerShape(10.dp)),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(
@@ -250,13 +249,13 @@ private fun CategoryAccordionItem(
                         modifier = Modifier
                             .size(34.dp)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(EgyptianBlue),
+                            .background(MaterialTheme.colorScheme.primary),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = category.code,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onPrimary,
                             fontSize = 14.sp
                         )
                     }
@@ -289,7 +288,7 @@ private fun CategoryAccordionItem(
                         .fillMaxWidth()
                         .padding(horizontal = 10.dp, vertical = 6.dp)
                 ) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                     Spacer(modifier = Modifier.height(8.dp))
 
                     LazyVerticalGrid(
@@ -324,7 +323,7 @@ private fun SignGridCell(
             .clickable(onClick = onClick)
             .testTag("sign_cell_${sign.code}"),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
         )
     ) {
         Column(
@@ -336,7 +335,7 @@ private fun SignGridCell(
             Text(
                 text = sign.glyph,
                 fontFamily = HieroFontFamily,
-                fontSize = 28.sp,
+                fontSize = 26.sp,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(modifier = Modifier.height(2.dp))
@@ -360,7 +359,7 @@ private fun SignDetailSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
     ) {
         Column(
             modifier = Modifier
@@ -376,10 +375,9 @@ private fun SignDetailSheet(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Large Hieroglyph Display
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(RoundedCornerShape(12.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant)
                     .padding(horizontal = 28.dp, vertical = 16.dp),
                 contentAlignment = Alignment.Center
@@ -387,7 +385,7 @@ private fun SignDetailSheet(
                 Text(
                     text = sign.glyph,
                     fontFamily = HieroFontFamily,
-                    fontSize = 54.sp,
+                    fontSize = 52.sp,
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }
@@ -418,16 +416,16 @@ private fun SignDetailSheet(
                     .fillMaxWidth()
                     .testTag("find_words_with_sign_button"),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = EgyptianBlue
+                    containerColor = MaterialTheme.colorScheme.primary
                 ),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(10.dp)
             ) {
                 Icon(imageVector = Icons.Default.Search, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Search Words with Sign ${sign.code}")
             }
 
-            Spacer(modifier = Modifier.height(28.dp))
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }

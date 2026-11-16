@@ -26,8 +26,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import net.ultramagic.hierodict.ui.theme.EgyptianBlue
-import net.ultramagic.hierodict.ui.theme.EgyptianGold
 
 @Composable
 fun TranslitKeyboard(
@@ -44,7 +42,7 @@ fun TranslitKeyboard(
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surfaceVariant,
-        tonalElevation = 6.dp
+        tonalElevation = 2.dp
     ) {
         Column(
             modifier = Modifier
@@ -52,7 +50,6 @@ fun TranslitKeyboard(
                 .padding(horizontal = 4.dp, vertical = 6.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            // Row 1
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(3.dp)
@@ -66,7 +63,6 @@ fun TranslitKeyboard(
                 }
             }
 
-            // Row 2
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(3.dp)
@@ -80,7 +76,6 @@ fun TranslitKeyboard(
                 }
             }
 
-            // Row 3
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(3.dp)
@@ -92,7 +87,6 @@ fun TranslitKeyboard(
                         onClick = { onCharTyped(char) }
                     )
                 }
-                // Backspace key
                 KeyActionButton(
                     icon = {
                         Icon(
@@ -108,7 +102,6 @@ fun TranslitKeyboard(
                 )
             }
 
-            // Row 4
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -122,7 +115,7 @@ fun TranslitKeyboard(
                     text = "Clear",
                     modifier = Modifier.weight(1.5f),
                     onClick = onClear,
-                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f),
                     textColor = MaterialTheme.colorScheme.onErrorContainer
                 )
                 KeyButton(
@@ -135,13 +128,13 @@ fun TranslitKeyboard(
                         Icon(
                             imageVector = Icons.Default.Search,
                             contentDescription = "Search",
-                            tint = Color.White,
+                            tint = MaterialTheme.colorScheme.onPrimary,
                             modifier = Modifier.height(20.dp)
                         )
                     },
                     modifier = Modifier.weight(1.8f),
                     onClick = onSearch,
-                    containerColor = EgyptianBlue,
+                    containerColor = MaterialTheme.colorScheme.primary,
                     testTag = "key_search"
                 )
             }
@@ -159,7 +152,7 @@ private fun KeyButton(
 ) {
     Box(
         modifier = modifier
-            .height(44.dp)
+            .height(48.dp)
             .clip(RoundedCornerShape(6.dp))
             .background(containerColor)
             .clickable(onClick = onClick)
@@ -185,7 +178,7 @@ private fun KeyActionButton(
 ) {
     Box(
         modifier = modifier
-            .height(44.dp)
+            .height(48.dp)
             .clip(RoundedCornerShape(6.dp))
             .background(containerColor)
             .clickable(onClick = onClick)

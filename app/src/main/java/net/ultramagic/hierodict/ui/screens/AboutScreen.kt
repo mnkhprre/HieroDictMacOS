@@ -1,10 +1,12 @@
 package net.ultramagic.hierodict.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -14,7 +16,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -29,44 +31,42 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.ultramagic.hierodict.ui.components.HieroGlyphView
-import net.ultramagic.hierodict.ui.theme.EgyptianBlue
-import net.ultramagic.hierodict.ui.theme.EgyptianGold
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AboutScreen(
-    onBack: () -> Unit
+    onOpenSettings: () -> Unit
 ) {
     Scaffold(
+        contentWindowInsets = WindowInsets(0.dp),
         topBar = {
             TopAppBar(
                 title = {
                     Text(
                         text = "About HieroDict",
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onPrimary
                     )
                 },
-                navigationIcon = {
+                actions = {
                     IconButton(
-                        onClick = onBack,
-                        modifier = Modifier.testTag("about_back_button")
+                        onClick = onOpenSettings,
+                        modifier = Modifier.testTag("about_settings_button")
                     ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Settings",
+                            tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = EgyptianBlue
+                    containerColor = MaterialTheme.colorScheme.primary
                 )
             )
         }
@@ -80,11 +80,11 @@ fun AboutScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // App Banner Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = RoundedCornerShape(16.dp)
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
+                shape = RoundedCornerShape(12.dp)
             ) {
                 Column(
                     modifier = Modifier
@@ -93,11 +93,10 @@ fun AboutScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     HieroGlyphView(
-                        glyph = "𓊃𓈖𓃀𓋹𓍑𓋴",
-                        fontSize = 36.sp,
-                        showCartouche = true
+                        glyph = "𓋹𓍑𓋴",
+                        fontSize = 38.sp
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
                     Text(
                         text = "HieroDict",
                         fontSize = 22.sp,
@@ -112,16 +111,16 @@ fun AboutScreen(
                     Text(
                         text = "Version 1.0",
                         fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.outline
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
 
-            // Transliteration Guide Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = RoundedCornerShape(14.dp)
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
+                shape = RoundedCornerShape(12.dp)
             ) {
                 Column(modifier = Modifier.padding(18.dp)) {
                     Text(
@@ -129,7 +128,7 @@ fun AboutScreen(
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp,
-                        color = EgyptianGold
+                        color = MaterialTheme.colorScheme.secondary
                     )
                     Spacer(modifier = Modifier.height(10.dp))
 
@@ -171,7 +170,7 @@ fun AboutScreen(
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.width(36.dp)
+                                modifier = Modifier.width(44.dp)
                             )
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
@@ -188,17 +187,17 @@ fun AboutScreen(
                             }
                         }
                         if (idx < transLetters.size - 1) {
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
                         }
                     }
                 }
             }
 
-            // Acknowledgements Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = RoundedCornerShape(14.dp)
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
+                shape = RoundedCornerShape(12.dp)
             ) {
                 Column(modifier = Modifier.padding(18.dp)) {
                     Text(
@@ -206,16 +205,16 @@ fun AboutScreen(
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp,
-                        color = EgyptianGold
+                        color = MaterialTheme.colorScheme.secondary
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
                         text = "• James P. Allen: Middle Egyptian (2000, 3rd ed.) vocabulary & grammar notes\n" +
-                                "• Hanno Rein: HieroDict open-source dataset & JSesh integration\n" +
-                                "• Mark Vygus: Middle Egyptian Dictionary\n" +
-                                "• George Douros: Nilus & Abydos TrueType fonts for Ancient Egyptian Scripts\n" +
-                                "• Manuel de Codage (MdC) standardization for hieroglyphs\n" +
-                                "• License: Attribution-ShareAlike 2.0 Generic (CC BY-SA 2.0)",
+                            "• Hanno Rein: HieroDict open-source dataset & JSesh integration\n" +
+                            "• Mark Vygus: Middle Egyptian Dictionary\n" +
+                            "• George Douros: Nilus & Abydos TrueType fonts for Ancient Egyptian Scripts\n" +
+                            "• Manuel de Codage (MdC) standardization for hieroglyphs\n" +
+                            "• License: Attribution-ShareAlike 2.0 Generic (CC BY-SA 2.0)",
                         fontSize = 13.sp,
                         lineHeight = 20.sp,
                         color = MaterialTheme.colorScheme.onSurface

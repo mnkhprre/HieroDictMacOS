@@ -10,6 +10,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -19,7 +20,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Category
-import androidx.compose.material.icons.filled.HistoryEdu
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
@@ -31,31 +31,25 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import net.ultramagic.hierodict.data.DictionaryRepository
-import net.ultramagic.hierodict.data.HieroEntry
 import net.ultramagic.hierodict.data.NavigationDestination
+import net.ultramagic.hierodict.data.ThemePreference
 import net.ultramagic.hierodict.ui.components.WordDetailSheet
 import net.ultramagic.hierodict.ui.screens.AboutScreen
 import net.ultramagic.hierodict.ui.screens.DictionaryScreen
-import net.ultramagic.hierodict.ui.screens.HieroglyphComposerScreen
 import net.ultramagic.hierodict.ui.screens.SearchScreen
 import net.ultramagic.hierodict.ui.screens.SettingsScreen
 import net.ultramagic.hierodict.ui.screens.SignListScreen
-import net.ultramagic.hierodict.ui.theme.EgyptianBlue
-import net.ultramagic.hierodict.ui.theme.EgyptianGold
 import net.ultramagic.hierodict.ui.theme.HieroDictTheme
+import net.ultramagic.hierodict.viewmodel.HieroDictViewModel
 
 class MainActivity : ComponentActivity() {
 
@@ -68,33 +62,47 @@ class MainActivity : ComponentActivity() {
         repository = DictionaryRepository(applicationContext)
 
         setContent {
-            HieroDictTheme {
-                MainAppScreen(repository = repository)
+            val viewModel: HieroDictViewModel = viewModel(
+                factory = HieroDictViewModel.Factory(repository)
+            )
+            val themePreference by viewModel.themePreference.collectAsStateWithLifecycle()
+            val darkTheme = when (themePreference) {
+                ThemePreference.SYSTEM -> isSystemInDarkTheme()
+                ThemePreference.LIGHT -> false
+                ThemePreference.DARK -> true
+            }
+
+            HieroDictTheme(darkTheme = darkTheme) {
+                MainAppScreen(viewModel = viewModel)
             }
         }
     }
 }
 
 @Composable
-fun MainAppScreen(repository: DictionaryRepository) {
-    val isLoaded by repository.isLoaded.collectAsStateWithLifecycle()
-    val entries by repository.entries.collectAsStateWithLifecycle()
-    val categories by repository.categories.collectAsStateWithLifecycle()
+fun MainAppScreen(viewModel: HieroDictViewModel) {
+    val isLoaded by viewModel.isLoaded.collectAsStateWithLifecycle()
+    val currentScreen by viewModel.currentScreen.collectAsStateWithLifecycle()
+    val allEntries by viewModel.allEntries.collectAsStateWithLifecycle()
+    val dictionaryEntries by viewModel.dictionaryEntries.collectAsStateWithLifecycle()
+    val categories by viewModel.categories.collectAsStateWithLifecycle()
+    val searchMode by viewModel.searchMode.collectAsStateWithLifecycle()
+    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+    val searchResults by viewModel.searchResults.collectAsStateWithLifecycle()
+    val activeSignFilter by viewModel.activeSignFilter.collectAsStateWithLifecycle()
+    val selectedWord by viewModel.selectedWord.collectAsStateWithLifecycle()
+    val glyphScale by viewModel.glyphScale.collectAsStateWithLifecycle()
+    val themePreference by viewModel.themePreference.collectAsStateWithLifecycle()
 
-    var currentScreen by remember { mutableStateOf(NavigationDestination.DICTIONARY) }
-    var selectedWordForDetail by remember { mutableStateOf<HieroEntry?>(null) }
-    var activeSignFilter by remember { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(Unit) {
-        repository.loadData()
-    }
-
-    // Handle back button when on sub-screens
-    BackHandler(enabled = currentScreen != NavigationDestination.DICTIONARY) {
-        if (activeSignFilter != null) {
-            activeSignFilter = null
+    BackHandler(enabled = currentScreen != NavigationDestination.SEARCH) {
+        if (currentScreen == NavigationDestination.SETTINGS) {
+            viewModel.navigateTo(NavigationDestination.SEARCH)
+        } else {
+            if (activeSignFilter != null) {
+                viewModel.clearSignFilter()
+            }
+            viewModel.navigateTo(NavigationDestination.SEARCH)
         }
-        currentScreen = NavigationDestination.DICTIONARY
     }
 
     if (!isLoaded) {
@@ -105,7 +113,7 @@ fun MainAppScreen(repository: DictionaryRepository) {
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                CircularProgressIndicator(color = EgyptianGold)
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = "Loading Middle Egyptian Dictionary…",
@@ -119,71 +127,61 @@ fun MainAppScreen(repository: DictionaryRepository) {
 
     Scaffold(
         bottomBar = {
-            NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surface,
-                tonalElevation = 6.dp,
-                modifier = Modifier.testTag("bottom_nav_bar")
-            ) {
-                NavigationBarItem(
-                    selected = currentScreen == NavigationDestination.DICTIONARY,
-                    onClick = { currentScreen = NavigationDestination.DICTIONARY },
-                    icon = { Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = "Sözlük") },
-                    label = { Text("Kelimeler", fontSize = 11.sp) },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = EgyptianBlue,
-                        selectedTextColor = EgyptianBlue,
-                        indicatorColor = MaterialTheme.colorScheme.secondaryContainer
-                    ),
-                    modifier = Modifier.testTag("nav_dictionary")
-                )
-                NavigationBarItem(
-                    selected = currentScreen == NavigationDestination.SEARCH,
-                    onClick = { currentScreen = NavigationDestination.SEARCH },
-                    icon = { Icon(Icons.Default.Search, contentDescription = "Arama") },
-                    label = { Text("Arama", fontSize = 11.sp) },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = EgyptianBlue,
-                        selectedTextColor = EgyptianBlue,
-                        indicatorColor = MaterialTheme.colorScheme.secondaryContainer
-                    ),
-                    modifier = Modifier.testTag("nav_search")
-                )
-                NavigationBarItem(
-                    selected = currentScreen == NavigationDestination.COMPOSER,
-                    onClick = { currentScreen = NavigationDestination.COMPOSER },
-                    icon = { Icon(Icons.Default.HistoryEdu, contentDescription = "Hiyeroglif Yazıcı") },
-                    label = { Text("Yazıcı", fontSize = 11.sp) },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = EgyptianBlue,
-                        selectedTextColor = EgyptianBlue,
-                        indicatorColor = MaterialTheme.colorScheme.secondaryContainer
-                    ),
-                    modifier = Modifier.testTag("nav_composer")
-                )
-                NavigationBarItem(
-                    selected = currentScreen == NavigationDestination.SIGN_LIST,
-                    onClick = { currentScreen = NavigationDestination.SIGN_LIST },
-                    icon = { Icon(Icons.Default.Category, contentDescription = "İşaret Listesi") },
-                    label = { Text("İşaretler", fontSize = 11.sp) },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = EgyptianBlue,
-                        selectedTextColor = EgyptianBlue,
-                        indicatorColor = MaterialTheme.colorScheme.secondaryContainer
-                    ),
-                    modifier = Modifier.testTag("nav_sign_list")
-                )
-                NavigationBarItem(
-                    selected = currentScreen == NavigationDestination.ABOUT,
-                    onClick = { currentScreen = NavigationDestination.ABOUT },
-                    icon = { Icon(Icons.Default.Info, contentDescription = "Hakkında") },
-                    label = { Text("Rehber", fontSize = 11.sp) },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = EgyptianBlue,
-                        selectedTextColor = EgyptianBlue,
-                        indicatorColor = MaterialTheme.colorScheme.secondaryContainer
-                    ),
-                    modifier = Modifier.testTag("nav_about")
-                )
+            if (currentScreen != NavigationDestination.SETTINGS) {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 4.dp,
+                    modifier = Modifier.testTag("bottom_nav_bar")
+                ) {
+                    NavigationBarItem(
+                        selected = currentScreen == NavigationDestination.SEARCH,
+                        onClick = { viewModel.navigateTo(NavigationDestination.SEARCH) },
+                        icon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                        label = { Text("Search", fontSize = 11.sp) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                        ),
+                        modifier = Modifier.testTag("nav_search")
+                    )
+                    NavigationBarItem(
+                        selected = currentScreen == NavigationDestination.DICTIONARY,
+                        onClick = { viewModel.navigateTo(NavigationDestination.DICTIONARY) },
+                        icon = { Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = "Dictionary") },
+                        label = { Text("Dictionary", fontSize = 11.sp) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                        ),
+                        modifier = Modifier.testTag("nav_dictionary")
+                    )
+                    NavigationBarItem(
+                        selected = currentScreen == NavigationDestination.SIGN_LIST,
+                        onClick = { viewModel.navigateTo(NavigationDestination.SIGN_LIST) },
+                        icon = { Icon(Icons.Default.Category, contentDescription = "Sign List") },
+                        label = { Text("Sign List", fontSize = 11.sp) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                        ),
+                        modifier = Modifier.testTag("nav_sign_list")
+                    )
+                    NavigationBarItem(
+                        selected = currentScreen == NavigationDestination.ABOUT,
+                        onClick = { viewModel.navigateTo(NavigationDestination.ABOUT) },
+                        icon = { Icon(Icons.Default.Info, contentDescription = "About") },
+                        label = { Text("About", fontSize = 11.sp) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                        ),
+                        modifier = Modifier.testTag("nav_about")
+                    )
+                }
             }
         }
     ) { innerPadding ->
@@ -198,60 +196,56 @@ fun MainAppScreen(repository: DictionaryRepository) {
                 label = "ScreenTransition"
             ) { screen ->
                 when (screen) {
-                    NavigationDestination.DICTIONARY -> {
-                        DictionaryScreen(
-                            entries = entries,
-                            onWordClick = { selectedWordForDetail = it },
-                            onToggleFavorite = { repository.toggleFavorite(it) },
-                            onNavigateToSearch = { currentScreen = NavigationDestination.SEARCH },
-                            activeSignFilter = activeSignFilter,
-                            onClearSignFilter = { activeSignFilter = null }
-                        )
-                    }
                     NavigationDestination.SEARCH -> {
                         SearchScreen(
-                            repository = repository,
+                            searchMode = searchMode,
+                            searchQuery = searchQuery,
+                            searchResults = searchResults,
                             categories = categories,
-                            onBack = { currentScreen = NavigationDestination.DICTIONARY },
-                            onWordClick = { selectedWordForDetail = it }
+                            glyphScale = glyphScale,
+                            onSearchModeChange = viewModel::onSearchModeChange,
+                            onSearchQueryChange = viewModel::onSearchQueryChange,
+                            onAppendGlyph = viewModel::appendGlyph,
+                            onBackspace = viewModel::backspaceQuery,
+                            onClear = viewModel::clearQuery,
+                            onWordClick = viewModel::selectWord,
+                            onOpenSettings = { viewModel.navigateTo(NavigationDestination.SETTINGS) }
                         )
                     }
-                    NavigationDestination.COMPOSER -> {
-                        HieroglyphComposerScreen(
-                            repository = repository
+                    NavigationDestination.DICTIONARY -> {
+                        DictionaryScreen(
+                            entries = dictionaryEntries,
+                            glyphScale = glyphScale,
+                            onWordClick = viewModel::selectWord,
+                            onToggleFavorite = viewModel::toggleFavorite,
+                            onNavigateToSearch = { viewModel.navigateTo(NavigationDestination.SEARCH) },
+                            onOpenSettings = { viewModel.navigateTo(NavigationDestination.SETTINGS) },
+                            activeSignFilter = activeSignFilter,
+                            onClearSignFilter = viewModel::clearSignFilter
                         )
                     }
                     NavigationDestination.SIGN_LIST -> {
                         SignListScreen(
                             categories = categories,
-                            onBack = { currentScreen = NavigationDestination.DICTIONARY },
-                            onFilterWordsBySign = { signCode ->
-                                activeSignFilter = signCode
-                                currentScreen = NavigationDestination.DICTIONARY
-                            }
-                        )
-                    }
-                    NavigationDestination.FAVORITES -> {
-                        DictionaryScreen(
-                            entries = entries.filter { it.isFavorite },
-                            onWordClick = { selectedWordForDetail = it },
-                            onToggleFavorite = { repository.toggleFavorite(it) },
-                            onNavigateToSearch = { currentScreen = NavigationDestination.SEARCH }
+                            onFilterWordsBySign = viewModel::filterBySign,
+                            onOpenSettings = { viewModel.navigateTo(NavigationDestination.SETTINGS) }
                         )
                     }
                     NavigationDestination.ABOUT -> {
                         AboutScreen(
-                            onBack = { currentScreen = NavigationDestination.DICTIONARY }
+                            onOpenSettings = { viewModel.navigateTo(NavigationDestination.SETTINGS) }
                         )
                     }
                     NavigationDestination.SETTINGS -> {
                         SettingsScreen(
-                            onBack = { currentScreen = NavigationDestination.DICTIONARY },
-                            onClearFavorites = {
-                                entries.filter { it.isFavorite }.forEach {
-                                    repository.toggleFavorite(it.id)
-                                }
-                            }
+                            glyphScale = glyphScale,
+                            themePreference = themePreference,
+                            entryCount = allEntries.size,
+                            signCount = categories.sumOf { it.signs.size },
+                            onGlyphScaleChange = viewModel::updateGlyphScale,
+                            onThemePreferenceChange = viewModel::updateThemePreference,
+                            onBack = { viewModel.navigateTo(NavigationDestination.SEARCH) },
+                            onClearFavorites = viewModel::clearAllFavorites
                         )
                     }
                 }
@@ -259,20 +253,14 @@ fun MainAppScreen(repository: DictionaryRepository) {
         }
     }
 
-    // Word Detail Bottom Sheet with full sign anatomy
-    selectedWordForDetail?.let { entry ->
+    selectedWord?.let { entry ->
         WordDetailSheet(
             entry = entry,
-            onDismiss = { selectedWordForDetail = null },
-            onToggleFavorite = { repository.toggleFavorite(it) },
-            onSignSelected = { signCode ->
-                selectedWordForDetail = null
-                activeSignFilter = signCode
-                currentScreen = NavigationDestination.DICTIONARY
-            },
-            getSignDetails = { code ->
-                repository.getSignDetails(code)
-            }
+            glyphScale = glyphScale,
+            onDismiss = { viewModel.selectWord(null) },
+            onToggleFavorite = viewModel::toggleFavorite,
+            onSignSelected = viewModel::filterBySign,
+            getSignDetails = viewModel::getSignDetails
         )
     }
 }

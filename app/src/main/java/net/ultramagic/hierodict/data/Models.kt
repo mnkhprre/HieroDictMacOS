@@ -6,7 +6,6 @@ data class HieroEntry(
     val glyph: String,
     val translit: String,
     val translitRaw: String,
-    val pronounce: String = "",
     val translation: String,
     val meaning: String,
     val pos: String,
@@ -32,18 +31,28 @@ data class GardinerCategory(
 )
 
 enum class SearchMode(val title: String) {
-    ENGLISH("English"),
-    TRANSLIT("Translit (ꜣ, ỉ, ꜥ)"),
-    GARDINER("Gardiner Code"),
-    GLYPH("Hieroglyph Sign")
+    GLYPH("Hieroglyphs"),
+    TRANSLIT("Translit"),
+    GARDINER("Gardiner"),
+    ENGLISH("English")
 }
 
 enum class NavigationDestination {
-    DICTIONARY,
     SEARCH,
-    COMPOSER,
+    DICTIONARY,
     SIGN_LIST,
-    FAVORITES,
     ABOUT,
     SETTINGS
+}
+
+enum class GlyphScale(val label: String, val listSp: Int, val detailSp: Int) {
+    SMALL("Small (22sp)", 22, 34),
+    MEDIUM("Medium (26sp)", 26, 42),
+    LARGE("Large (32sp)", 32, 50)
+}
+
+enum class ThemePreference(val label: String) {
+    SYSTEM("System Default"),
+    LIGHT("Light"),
+    DARK("Dark")
 }

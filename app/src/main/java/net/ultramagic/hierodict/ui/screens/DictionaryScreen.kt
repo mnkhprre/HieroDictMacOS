@@ -1,5 +1,6 @@
 package net.ultramagic.hierodict.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -24,12 +26,12 @@ import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -45,65 +47,58 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import net.ultramagic.hierodict.data.GlyphScale
 import net.ultramagic.hierodict.data.HieroEntry
 import net.ultramagic.hierodict.ui.components.HieroGlyphView
-import net.ultramagic.hierodict.ui.theme.EgyptianBlue
-import net.ultramagic.hierodict.ui.theme.EgyptianGold
-import net.ultramagic.hierodict.ui.theme.EgyptianRed
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DictionaryScreen(
     entries: List<HieroEntry>,
+    glyphScale: GlyphScale,
     onWordClick: (HieroEntry) -> Unit,
     onToggleFavorite: (Int) -> Unit,
     onNavigateToSearch: () -> Unit,
+    onOpenSettings: () -> Unit,
     activeSignFilter: String? = null,
     onClearSignFilter: () -> Unit = {}
 ) {
     var selectedFilter by remember { mutableStateOf("All") }
-    val filters = listOf("All", "Favorites", "Nouns", "Verbs", "Adjectives", "Short (2-lit)")
+    val filters = listOf("All", "Favorites", "Nouns", "Verbs", "Adjectives", "2-lit")
 
-    val filteredList = remember(entries, selectedFilter, activeSignFilter) {
-        var list = entries
-        if (activeSignFilter != null) {
-            val upper = activeSignFilter.uppercase()
-            list = list.filter { e ->
-                e.gardinerCodes.any { it.uppercase() == upper } || e.mdc.uppercase().contains(upper)
-            }
-        }
+    val filteredList = remember(entries, selectedFilter) {
         when (selectedFilter) {
-            "Favorites" -> list.filter { it.isFavorite }
-            "Nouns" -> list.filter { it.pos.contains("n.") || it.pos.contains("noun") }
-            "Verbs" -> list.filter { it.pos.contains("vb.") || it.pos.contains("inf.") }
-            "Adjectives" -> list.filter { it.pos.contains("adj.") }
-            "Short (2-lit)" -> list.filter { it.pos.contains("2-lit") || it.translitRaw.length <= 2 }
-            else -> list
+            "Favorites" -> entries.filter { it.isFavorite }
+            "Nouns" -> entries.filter { it.pos.contains("n.") || it.pos.contains("noun") }
+            "Verbs" -> entries.filter { it.pos.contains("vb.") || it.pos.contains("inf.") }
+            "Adjectives" -> entries.filter { it.pos.contains("adj.") }
+            "2-lit" -> entries.filter { it.pos.contains("2-lit") || it.translitRaw.length <= 2 }
+            else -> entries
         }
     }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0.dp),
         topBar = {
             TopAppBar(
                 title = {
                     Column {
                         Text(
-                            text = "HieroDict",
+                            text = "Dictionary",
                             fontWeight = FontWeight.Bold,
                             fontSize = 20.sp,
                             color = MaterialTheme.colorScheme.onPrimary
                         )
                         Text(
-                            text = "${filteredList.size} Middle Egyptian Words",
+                            text = "${filteredList.size} Middle Egyptian words",
                             fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f)
                         )
                     }
                 },
@@ -118,24 +113,21 @@ fun DictionaryScreen(
                             tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
+                    IconButton(
+                        onClick = onOpenSettings,
+                        modifier = Modifier.testTag("dict_settings_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Settings",
+                            tint = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = EgyptianBlue
+                    containerColor = MaterialTheme.colorScheme.primary
                 )
             )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = onNavigateToSearch,
-                containerColor = EgyptianGold,
-                contentColor = Color.White,
-                modifier = Modifier.testTag("fab_start_search")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = "Search Dictionary"
-                )
-            }
         }
     ) { innerPadding ->
         Column(
@@ -144,40 +136,38 @@ fun DictionaryScreen(
                 .padding(innerPadding)
                 .background(MaterialTheme.colorScheme.background)
         ) {
-            // Active Sign Filter Banner (if filtering by specific Gardiner sign)
             if (activeSignFilter != null) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.secondaryContainer)
+                        .background(MaterialTheme.colorScheme.primaryContainer)
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "Filtering by Sign: $activeSignFilter",
+                        text = "Filtered by Sign: $activeSignFilter",
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                         fontSize = 14.sp
                     )
                     IconButton(
                         onClick = onClearSignFilter,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(28.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Clear sign filter",
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     }
                 }
             }
 
-            // Filter Chips Row
             LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(filters) { filter ->
@@ -187,8 +177,8 @@ fun DictionaryScreen(
                         onClick = { selectedFilter = filter },
                         label = { Text(filter) },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = EgyptianBlue,
-                            selectedLabelColor = Color.White
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
                         ),
                         modifier = Modifier.testTag("filter_chip_$filter")
                     )
@@ -213,12 +203,13 @@ fun DictionaryScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .testTag("dict_list_view"),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(filteredList, key = { it.id }) { entry ->
                         WordItemCard(
                             entry = entry,
+                            glyphScale = glyphScale,
                             onClick = { onWordClick(entry) },
                             onToggleFavorite = { onToggleFavorite(entry.id) }
                         )
@@ -232,50 +223,46 @@ fun DictionaryScreen(
 @Composable
 private fun WordItemCard(
     entry: HieroEntry,
+    glyphScale: GlyphScale,
     onClick: () -> Unit,
     onToggleFavorite: () -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(10.dp))
             .clickable(onClick = onClick)
             .testTag("word_card_${entry.id}"),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        shape = RoundedCornerShape(12.dp)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
+        shape = RoundedCornerShape(10.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
+                .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Hieroglyphic Glyph Box
             Box(
                 modifier = Modifier
-                    .widthIn(min = 80.dp, max = 115.dp)
+                    .widthIn(min = 78.dp, max = 112.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
                     .padding(horizontal = 6.dp, vertical = 6.dp),
                 contentAlignment = Alignment.Center
             ) {
                 HieroGlyphView(
                     glyph = entry.glyph,
-                    fontSize = 26.sp,
+                    fontSize = glyphScale.listSp.sp,
                     padding = 0.dp
                 )
             }
 
             Spacer(modifier = Modifier.width(12.dp))
 
-            // Details Column
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                // Transliteration, Pronunciation & MdC
+            Column(modifier = Modifier.weight(1f)) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -286,19 +273,11 @@ private fun WordItemCard(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    if (entry.pronounce.isNotEmpty()) {
-                        Text(
-                            text = "[${entry.pronounce}]",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = EgyptianGold
-                        )
-                    }
                     Text(
                         text = entry.mdc,
                         fontFamily = FontFamily.Monospace,
                         fontSize = 10.sp,
-                        color = MaterialTheme.colorScheme.outline
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
@@ -307,13 +286,12 @@ private fun WordItemCard(
                         text = entry.pos,
                         fontStyle = FontStyle.Italic,
                         fontSize = 12.sp,
-                        color = EgyptianRed
+                        color = MaterialTheme.colorScheme.secondary
                     )
                 }
 
                 Spacer(modifier = Modifier.height(2.dp))
 
-                // English translation
                 Text(
                     text = entry.translation,
                     fontSize = 14.sp,
@@ -323,15 +301,18 @@ private fun WordItemCard(
                 )
             }
 
-            // Favorite icon button
             IconButton(
                 onClick = onToggleFavorite,
-                modifier = Modifier.testTag("favorite_${entry.id}")
+                modifier = Modifier.testTag("bookmark_icon_${entry.id}")
             ) {
                 Icon(
                     imageVector = if (entry.isFavorite) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
-                    contentDescription = "Bookmark",
-                    tint = if (entry.isFavorite) EgyptianGold else MaterialTheme.colorScheme.outline
+                    contentDescription = "Favorite",
+                    tint = if (entry.isFavorite) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
                 )
             }
         }
