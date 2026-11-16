@@ -16,7 +16,7 @@ struct SignListView: View {
                     sign.name.lowercased().contains(q) ||
                     sign.meaning.lowercased().contains(q)
             }
-            if !matchingSigns.isEmpty || category.title.lowercased().contains(q) {
+            if !matchingSigns.isEmpty {
                 return GardinerCategory(
                     code: category.code,
                     title: category.title,
@@ -25,6 +25,9 @@ struct SignListView: View {
                     sortOrder: category.sortOrder,
                     signs: matchingSigns
                 )
+            }
+            if category.title.lowercased().contains(q) {
+                return category
             }
             return nil
         }

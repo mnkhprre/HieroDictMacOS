@@ -6,9 +6,14 @@ struct ImaginaryStacksView: View {
     @ObservedObject var store: HieroDictStore
 
     @State private var selectedOperator: QuadratOp = .stackVertical
-    @State private var selectedCategoryCode: String = "A"
-    @State private var quadratScale: CGFloat = 76
+    @AppStorage("composerCategoryCode") private var selectedCategoryCode: String = "A"
+    @AppStorage("composerQuadratScale") private var quadratScale: Double = 76
     @State private var statusBanner: String? = nil
+    @State private var statusDismissTask: Task<Void, Never>? = nil
+
+    private var hasContent: Bool {
+        !store.composerMdc.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 
     var body: some View {
         HSplitView {
@@ -36,9 +41,14 @@ struct ImaginaryStacksView: View {
                 .frame(minWidth: 230, idealWidth: 265, maxWidth: 310)
         }
         .onAppear {
-            if let first = store.categories.first?.code {
+            if !store.categories.isEmpty,
+               !store.categories.contains(where: { $0.code == selectedCategoryCode }),
+               let first = store.categories.first?.code {
                 selectedCategoryCode = first
             }
+        }
+        .onDisappear {
+            statusDismissTask?.cancel()
         }
     }
 
@@ -129,11 +139,11 @@ struct ImaginaryStacksView: View {
                         mdc: store.composerMdc,
                         fallbackGlyph: nil,
                         signLookup: store.signCache,
-                        quadratSize: quadratScale,
+                        quadratSize: CGFloat(quadratScale),
                         direction: store.composerDirection,
                         frame: store.composerFrame,
                         showGrid: store.composerShowGrid,
-                        selectedSquareIndex: store.composerSquares.isEmpty ? nil : store.selectedSquareIndex,
+                        selectedSquareIndex: store.composerSquares.isEmpty ? nil : store.effectiveSelectedSquareIndex,
                         onSelectSquare: { index in
                             store.selectSquare(index)
                         }
@@ -166,6 +176,7 @@ struct ImaginaryStacksView: View {
                     Label("Rotate", systemImage: "rotate.right")
                 }
                 .buttonStyle(.bordered)
+                .disabled(!hasContent)
 
                 Button {
                     store.undoLastComposerToken()
@@ -173,6 +184,7 @@ struct ImaginaryStacksView: View {
                     Label("Undo", systemImage: "arrow.uturn.backward")
                 }
                 .buttonStyle(.bordered)
+                .disabled(!hasContent)
 
                 Button {
                     store.clearComposer()
@@ -180,6 +192,7 @@ struct ImaginaryStacksView: View {
                     Label("Clear", systemImage: "trash")
                 }
                 .buttonStyle(.bordered)
+                .disabled(!hasContent)
 
                 Spacer()
 
@@ -190,6 +203,7 @@ struct ImaginaryStacksView: View {
                     Label("Save", systemImage: "bookmark.fill")
                 }
                 .buttonStyle(.bordered)
+                .disabled(!hasContent)
 
                 Button {
                     copyText(store.composerMdc, label: "Copied MdC")
@@ -197,17 +211,23 @@ struct ImaginaryStacksView: View {
                     Label("MdC", systemImage: "doc.on.doc")
                 }
                 .buttonStyle(.bordered)
+                .disabled(!hasContent)
 
                 Button {
                     let unicode = QuadratEngine.resolveUnicodeString(
                         mdc: store.composerMdc,
                         signLookup: store.signCache
                     )
-                    copyText(unicode, label: "Copied Unicode")
+                    if unicode.isEmpty {
+                        showStatus("No Unicode glyphs to copy")
+                    } else {
+                        copyText(unicode, label: "Copied Unicode")
+                    }
                 } label: {
                     Label("Glyphs", systemImage: "character")
                 }
                 .buttonStyle(.bordered)
+                .disabled(!hasContent)
 
                 Button {
                     exportPNG()
@@ -215,6 +235,7 @@ struct ImaginaryStacksView: View {
                     Label("PNG", systemImage: "square.and.arrow.up")
                 }
                 .buttonStyle(.bordered)
+                .disabled(!hasContent)
             }
 
             if let statusBanner {
@@ -283,7 +304,7 @@ struct ImaginaryStacksView: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
-                .disabled(store.selectedSquareIndex <= 0)
+                .disabled(squares.isEmpty || store.effectiveSelectedSquareIndex <= 0)
 
                 Button {
                     store.moveSelectedSquare(offset: 1)
@@ -292,7 +313,7 @@ struct ImaginaryStacksView: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
-                .disabled(store.selectedSquareIndex >= squares.count - 1)
+                .disabled(squares.isEmpty || store.effectiveSelectedSquareIndex >= squares.count - 1)
 
                 Button(role: .destructive) {
                     store.deleteSelectedSquare()
@@ -307,7 +328,7 @@ struct ImaginaryStacksView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(Array(squares.enumerated()), id: \.offset) { idx, sqMdc in
-                        let isSelected = idx == store.selectedSquareIndex
+                        let isSelected = idx == store.effectiveSelectedSquareIndex
                         Button {
                             store.selectSquare(idx)
                         } label: {
@@ -359,17 +380,17 @@ struct ImaginaryStacksView: View {
 
     private var selectedSquareTemplateEditor: some View {
         let squares = store.composerSquares
-        let activeSquareMdc = squares.indices.contains(store.selectedSquareIndex)
-            ? squares[store.selectedSquareIndex]
-            : ""
+        let activeIdx = store.effectiveSelectedSquareIndex
+        let activeSquareMdc = squares.indices.contains(activeIdx) ? squares[activeIdx] : ""
         let slots = QuadratEngine.squareTokens(squareMdc: activeSquareMdc)
         let activeSlotIndex = store.selectedSlotIndex.flatMap { $0 < slots.count ? $0 : nil } ?? max(0, slots.count - 1)
         let activeToken = slots.indices.contains(activeSlotIndex) ? slots[activeSlotIndex] : ""
-        let hasTuck = activeSquareMdc.contains("^") || selectedOperator == .tuck
+        let activeTuck = QuadratEngine.activeTuckCorner(inSquare: activeSquareMdc)
+        let hasTuck = activeTuck != nil
 
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("SQUARE Q\(min(store.selectedSquareIndex + 1, max(1, squares.count))) JSESH CADRAT BUILDER")
+                Text("SQUARE Q\(min(activeIdx + 1, max(1, squares.count))) JSESH CADRAT BUILDER")
                     .font(.system(size: 11, weight: .bold))
                     .tracking(0.8)
                     .foregroundStyle(.secondary)
@@ -532,11 +553,13 @@ struct ImaginaryStacksView: View {
                         .foregroundStyle(.secondary)
 
                     ForEach(TuckCorner.allCases) { corner in
+                        let isCornerActive = activeTuck == corner
                         Button(corner.rawValue) {
                             store.setTuckCornerSelectedSquare(corner)
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
+                        .tint(isCornerActive ? AppTheme.slateAccent : nil)
                     }
                 }
             }
@@ -762,6 +785,7 @@ struct ImaginaryStacksView: View {
                                     Text(saved.title)
                                         .font(.system(size: 13, weight: .semibold))
                                         .foregroundStyle(.primary)
+                                        .lineLimit(1)
                                 }
                                 .buttonStyle(.plain)
 
@@ -775,20 +799,23 @@ struct ImaginaryStacksView: View {
                                         .foregroundStyle(.secondary)
                                 }
                                 .buttonStyle(.plain)
+                                .help("Delete Saved Stack")
                             }
 
                             Button {
                                 store.applySavedStack(saved)
                             } label: {
-                                QuadratWordView(
-                                    mdc: saved.mdc,
-                                    fallbackGlyph: nil,
-                                    signLookup: store.signCache,
-                                    quadratSize: 30,
-                                    direction: saved.direction,
-                                    frame: saved.frame,
-                                    showGrid: true
-                                )
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    QuadratWordView(
+                                        mdc: saved.mdc,
+                                        fallbackGlyph: nil,
+                                        signLookup: store.signCache,
+                                        quadratSize: 30,
+                                        direction: saved.direction,
+                                        frame: saved.frame,
+                                        showGrid: true
+                                    )
+                                }
                             }
                             .buttonStyle(.plain)
 
@@ -823,22 +850,29 @@ struct ImaginaryStacksView: View {
     }
 
     private func showStatus(_ message: String) {
+        statusDismissTask?.cancel()
         withAnimation {
             statusBanner = message
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+        statusDismissTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2.2))
+            guard !Task.isCancelled else { return }
             withAnimation {
-                if statusBanner == message {
-                    statusBanner = nil
-                }
+                statusBanner = nil
             }
         }
     }
 
     @MainActor
     private func exportPNG() {
+        let trimmedMdc = store.composerMdc.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedMdc.isEmpty else {
+            showStatus("Add squares before exporting PNG")
+            return
+        }
+
         let renderView = QuadratWordView(
-            mdc: store.composerMdc,
+            mdc: trimmedMdc,
             fallbackGlyph: nil,
             signLookup: store.signCache,
             quadratSize: 96,
@@ -846,8 +880,10 @@ struct ImaginaryStacksView: View {
             frame: store.composerFrame,
             showGrid: false
         )
+        .foregroundStyle(Color.black)
         .padding(32)
         .background(Color.white)
+        .environment(\.colorScheme, .light)
 
         let renderer = ImageRenderer(content: renderView)
         renderer.scale = 3.0
@@ -855,18 +891,26 @@ struct ImaginaryStacksView: View {
               let tiff = nsImage.tiffRepresentation,
               let bitmap = NSBitmapImageRep(data: tiff),
               let pngData = bitmap.representation(using: .png, properties: [:]) else {
+            showStatus("Unable to render PNG image")
             return
         }
 
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.png]
-        let safeTitle = store.composerTitle
-            .replacingOccurrences(of: " ", with: "_")
-            .lowercased()
-        panel.nameFieldStringValue = "\(safeTitle.isEmpty ? "hierostack" : safeTitle).png"
+        let sanitizedChars = store.composerTitle.lowercased().map { ch -> Character in
+            (ch.isLetter || ch.isNumber) ? ch : "_"
+        }
+        let collapsed = String(sanitizedChars)
+            .split(separator: "_")
+            .joined(separator: "_")
+        panel.nameFieldStringValue = "\(collapsed.isEmpty ? "hierostack" : collapsed).png"
         if panel.runModal() == .OK, let url = panel.url {
-            try? pngData.write(to: url)
-            showStatus("Exported PNG")
+            do {
+                try pngData.write(to: url)
+                showStatus("Exported PNG")
+            } catch {
+                showStatus("Export failed: \(error.localizedDescription)")
+            }
         }
     }
 }

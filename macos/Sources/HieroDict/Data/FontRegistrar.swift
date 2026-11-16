@@ -7,28 +7,66 @@ enum ResourceLocator {
     static func url(forResource name: String, withExtension ext: String) -> URL? {
         let candidates: [URL?] = [
             Bundle.main.resourceURL?.appendingPathComponent("HieroDict_HieroDict.bundle/Resources/\(name).\(ext)"),
+            Bundle.main.resourceURL?.appendingPathComponent("HieroDict_HieroDict.bundle/\(name).\(ext)"),
             Bundle.main.resourceURL?.appendingPathComponent("Resources/\(name).\(ext)"),
             Bundle.main.resourceURL?.appendingPathComponent("\(name).\(ext)"),
-            Bundle.module.url(forResource: name, withExtension: ext, subdirectory: "Resources"),
-            Bundle.module.url(forResource: name, withExtension: ext)
+            Bundle.main.bundleURL.appendingPathComponent("HieroDict_HieroDict.bundle/Resources/\(name).\(ext)"),
+            Bundle.main.bundleURL.appendingPathComponent("HieroDict_HieroDict.bundle/\(name).\(ext)")
         ]
         for candidate in candidates {
             if let url = candidate, FileManager.default.fileExists(atPath: url.path) {
                 return url
             }
         }
+        if !Bundle.main.bundlePath.hasSuffix(".app") {
+            return Bundle.module.url(forResource: name, withExtension: ext, subdirectory: "Resources")
+                ?? Bundle.module.url(forResource: name, withExtension: ext)
+        }
         return nil
     }
 }
 
 enum FontRegistrar {
+    private static let lock = NSLock()
     private static var hasRegistered = false
     private static var fontNamesByChoice: [HieroFontChoice: String] = [:]
-    private(set) static var currentFontChoice: HieroFontChoice = .uniHieroglyphica
-    private(set) static var hieroFontName: String = HieroFontChoice.uniHieroglyphica.fallbackPostScriptName
-    private(set) static var cadratReferenceHeight: CGFloat = HieroFontChoice.uniHieroglyphica.cadratReferenceHeight
+    private static var _currentFontChoice: HieroFontChoice = .uniHieroglyphica
+    private static var _hieroFontName: String = HieroFontChoice.uniHieroglyphica.fallbackPostScriptName
+    private static var _cadratReferenceHeight: CGFloat = HieroFontChoice.uniHieroglyphica.cadratReferenceHeight
+
+    static var currentFontChoice: HieroFontChoice {
+        lock.lock()
+        defer { lock.unlock() }
+        return _currentFontChoice
+    }
+
+    static var hieroFontName: String {
+        lock.lock()
+        defer { lock.unlock() }
+        return _hieroFontName
+    }
+
+    static var cadratReferenceHeight: CGFloat {
+        lock.lock()
+        defer { lock.unlock() }
+        return _cadratReferenceHeight
+    }
 
     static func registerFonts() {
+        lock.lock()
+        defer { lock.unlock() }
+        registerFontsLocked()
+    }
+
+    static func setFontChoice(_ choice: HieroFontChoice) {
+        lock.lock()
+        defer { lock.unlock() }
+        registerFontsLocked()
+        _currentFontChoice = choice
+        applyFontChoiceLocked(choice)
+    }
+
+    private static func registerFontsLocked() {
         guard !hasRegistered else { return }
         hasRegistered = true
 
@@ -49,24 +87,18 @@ enum FontRegistrar {
             }
         }
 
-        applyFontChoice(currentFontChoice)
+        applyFontChoiceLocked(_currentFontChoice)
     }
 
-    static func setFontChoice(_ choice: HieroFontChoice) {
-        registerFonts()
-        currentFontChoice = choice
-        applyFontChoice(choice)
-    }
-
-    private static func applyFontChoice(_ choice: HieroFontChoice) {
-        hieroFontName = fontNamesByChoice[choice] ?? choice.fallbackPostScriptName
-        cadratReferenceHeight = choice.cadratReferenceHeight
+    private static func applyFontChoiceLocked(_ choice: HieroFontChoice) {
+        _hieroFontName = fontNamesByChoice[choice] ?? choice.fallbackPostScriptName
+        _cadratReferenceHeight = choice.cadratReferenceHeight
     }
 }
 
 extension Font {
     static func hiero(size: CGFloat) -> Font {
-        Font.custom(FontRegistrar.hieroFontName, size: size)
+        Font.custom(FontRegistrar.hieroFontName, size: max(4, size))
     }
 }
 

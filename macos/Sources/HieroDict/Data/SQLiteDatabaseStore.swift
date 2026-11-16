@@ -9,21 +9,50 @@ final class SQLiteDatabaseStore {
     init() throws {
         let dbURL = try Self.resolveWritableDatabaseURL()
         var handle: OpaquePointer?
-        let flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE
+        let flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX
         if sqlite3_open_v2(dbURL.path, &handle, flags, nil) != SQLITE_OK {
             let msg = handle.flatMap { String(cString: sqlite3_errmsg($0)) } ?? "Unable to open SQLite database."
-            if let handle { sqlite3_close(handle) }
+            if let handle { sqlite3_close_v2(handle) }
             throw NSError(domain: "HieroDict.SQLite", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
         }
         self.db = handle
         sqlite3_busy_timeout(handle, 3000)
+        sqlite3_exec(handle, "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;", nil, nil, nil)
         ensureCustomStacksTable()
     }
 
     deinit {
-        if let db {
-            sqlite3_close(db)
+        queue.sync {
+            if let db {
+                sqlite3_close_v2(db)
+                self.db = nil
+            }
         }
+    }
+
+    private static func isValidDatabase(at url: URL) -> Bool {
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: url.path),
+              let attrs = try? fm.attributesOfItem(atPath: url.path),
+              let size = attrs[.size] as? NSNumber,
+              size.int64Value > 1024 else {
+            return false
+        }
+        var handle: OpaquePointer?
+        guard sqlite3_open_v2(url.path, &handle, SQLITE_OPEN_READONLY, nil) == SQLITE_OK, let handle else {
+            if let handle { sqlite3_close_v2(handle) }
+            return false
+        }
+        defer { sqlite3_close_v2(handle) }
+
+        var stmt: OpaquePointer?
+        defer { sqlite3_finalize(stmt) }
+        let checkSQL = "SELECT count(*) FROM sqlite_master WHERE type='table' AND name IN ('entries', 'gardiner_signs', 'gardiner_categories')"
+        guard sqlite3_prepare_v2(handle, checkSQL, -1, &stmt, nil) == SQLITE_OK,
+              sqlite3_step(stmt) == SQLITE_ROW else {
+            return false
+        }
+        return sqlite3_column_int(stmt, 0) == 3
     }
 
     private static func resolveWritableDatabaseURL() throws -> URL {
@@ -39,7 +68,7 @@ final class SQLiteDatabaseStore {
             try fm.createDirectory(at: dir, withIntermediateDirectories: true)
         }
         let targetURL = dir.appendingPathComponent("hierodict.db")
-        if !fm.fileExists(atPath: targetURL.path) {
+        if !isValidDatabase(at: targetURL) {
             guard let bundledURL = ResourceLocator.url(forResource: "hierodict", withExtension: "db") else {
                 throw NSError(
                     domain: "HieroDict.SQLite",
@@ -47,6 +76,13 @@ final class SQLiteDatabaseStore {
                     userInfo: [NSLocalizedDescriptionKey: "Bundled hierodict.db resource was not found."]
                 )
             }
+            if fm.fileExists(atPath: targetURL.path) {
+                try? fm.removeItem(at: targetURL)
+            }
+            let walURL = dir.appendingPathComponent("hierodict.db-wal")
+            let shmURL = dir.appendingPathComponent("hierodict.db-shm")
+            try? fm.removeItem(at: walURL)
+            try? fm.removeItem(at: shmURL)
             try fm.copyItem(at: bundledURL, to: targetURL)
         }
         return targetURL
@@ -71,9 +107,32 @@ final class SQLiteDatabaseStore {
         }
     }
 
-    func searchEntries(query: String, mode: SearchMode) -> [HieroEntry] {
+    private static func escapeLike(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "%", with: "\\%")
+            .replacingOccurrences(of: "_", with: "\\_")
+    }
+
+    private static func escapeGlob(_ value: String) -> String {
+        var escaped = ""
+        for ch in value {
+            switch ch {
+            case "*": escaped += "[*]"
+            case "?": escaped += "[?]"
+            case "[": escaped += "[[]"
+            default: escaped.append(ch)
+            }
+        }
+        return escaped
+    }
+
+    func searchEntries(query: String, mode: SearchMode, limit: Int? = nil) -> [HieroEntry] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
+        let escapedLike = Self.escapeLike(trimmed)
+        let escapedGlob = Self.escapeGlob(trimmed)
+        let limitClause = limit.map { " LIMIT \(max(1, $0))" } ?? ""
 
         return queue.sync {
             switch mode {
@@ -81,33 +140,33 @@ final class SQLiteDatabaseStore {
                 let sql = """
                 SELECT id, mdc, glyph, translit, translitRaw, translation, meaning, pos, gardinerCodesCsv, isFavorite
                 FROM entries
-                WHERE translation LIKE '%' || ? || '%'
-                   OR meaning LIKE '%' || ? || '%'
-                ORDER BY id ASC
+                WHERE translation LIKE '%' || ? || '%' ESCAPE '\\'
+                   OR meaning LIKE '%' || ? || '%' ESCAPE '\\'
+                ORDER BY id ASC\(limitClause)
                 """
-                return queryEntries(sql: sql, bindings: [trimmed, trimmed])
+                return queryEntries(sql: sql, bindings: [escapedLike, escapedLike])
 
             case .translit:
                 let sql = """
                 SELECT id, mdc, glyph, translit, translitRaw, translation, meaning, pos, gardinerCodesCsv, isFavorite
                 FROM entries
-                WHERE translit LIKE '%' || ? || '%'
-                   OR translitRaw LIKE '%' || ? || '%'
+                WHERE translit LIKE '%' || ? || '%' ESCAPE '\\'
+                   OR translitRaw LIKE '%' || ? || '%' ESCAPE '\\'
                 ORDER BY CASE
                     WHEN translit = ? OR translitRaw = ? THEN 0
                     WHEN translit GLOB ? || '*' OR translitRaw GLOB ? || '*' THEN 1
-                    WHEN translit LIKE ? || '%' OR translitRaw LIKE ? || '%' THEN 2
+                    WHEN translit LIKE ? || '%' ESCAPE '\\' OR translitRaw LIKE ? || '%' ESCAPE '\\' THEN 2
                     WHEN INSTR(translit, ?) > 0 OR INSTR(translitRaw, ?) > 0 THEN 3
                     ELSE 4
-                END, id ASC
+                END, id ASC\(limitClause)
                 """
                 return queryEntries(
                     sql: sql,
                     bindings: [
+                        escapedLike, escapedLike,
                         trimmed, trimmed,
-                        trimmed, trimmed,
-                        trimmed, trimmed,
-                        trimmed, trimmed,
+                        escapedGlob, escapedGlob,
+                        escapedLike, escapedLike,
                         trimmed, trimmed
                     ]
                 )
@@ -117,22 +176,22 @@ final class SQLiteDatabaseStore {
                 SELECT DISTINCT e.id, e.mdc, e.glyph, e.translit, e.translitRaw, e.translation, e.meaning, e.pos, e.gardinerCodesCsv, e.isFavorite
                 FROM entries e
                 LEFT JOIN word_sign_cross_ref r ON e.id = r.wordId
-                WHERE UPPER(r.signCode) LIKE '%' || UPPER(?) || '%'
-                   OR UPPER(e.mdc) LIKE '%' || UPPER(?) || '%'
-                ORDER BY e.id ASC
+                WHERE UPPER(r.signCode) LIKE '%' || UPPER(?) || '%' ESCAPE '\\'
+                   OR UPPER(e.mdc) LIKE '%' || UPPER(?) || '%' ESCAPE '\\'
+                ORDER BY e.id ASC\(limitClause)
                 """
-                return queryEntries(sql: sql, bindings: [trimmed, trimmed])
+                return queryEntries(sql: sql, bindings: [escapedLike, escapedLike])
 
             case .glyph:
                 let sql = """
                 SELECT DISTINCT e.id, e.mdc, e.glyph, e.translit, e.translitRaw, e.translation, e.meaning, e.pos, e.gardinerCodesCsv, e.isFavorite
                 FROM entries e
                 LEFT JOIN word_sign_cross_ref r ON e.id = r.wordId
-                WHERE e.glyph LIKE '%' || ? || '%'
+                WHERE e.glyph LIKE '%' || ? || '%' ESCAPE '\\'
                    OR UPPER(r.signCode) = UPPER(?)
-                ORDER BY e.id ASC
+                ORDER BY e.id ASC\(limitClause)
                 """
-                return queryEntries(sql: sql, bindings: [trimmed, trimmed])
+                return queryEntries(sql: sql, bindings: [escapedLike, trimmed])
             }
         }
     }

@@ -429,17 +429,60 @@ enum QuadratEngine {
     static func removeLastToken(from mdc: String) -> String {
         var trimmed = mdc.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "" }
-        while let last = trimmed.last, last == "-" || last == ":" || last == "*" || last == "&" || last == "^" || last == "!" {
+
+        while let last = trimmed.last,
+              last == "-" || last == ":" || last == "*" || last == "&" || last == "^" || last == "!" || last == " " {
             trimmed.removeLast()
         }
-        if let idx = trimmed.lastIndex(where: { $0 == "-" || $0 == ":" || $0 == "*" || $0 == "&" || $0 == "^" || $0 == "!" }) {
+        guard !trimmed.isEmpty else { return "" }
+
+        if trimmed.hasSuffix("->") {
+            let withoutClose = String(trimmed.dropLast(2))
+            if let openRange = withoutClose.range(of: "<-", options: .backwards) {
+                let inner = String(withoutClose[openRange.upperBound...])
+                let shrunk = removeLastToken(from: inner)
+                let prefix = String(withoutClose[..<openRange.lowerBound])
+                if shrunk.isEmpty {
+                    return removeTrailingOperators(prefix)
+                }
+                return prefix + "<-" + shrunk + "->"
+            }
+        }
+
+        while let last = trimmed.last, last == ")" || last == ">" {
+            trimmed.removeLast()
+        }
+
+        if let idx = trimmed.lastIndex(where: { $0 == "-" || $0 == ":" || $0 == "*" || $0 == "&" || $0 == "^" || $0 == "!" || $0 == "(" || $0 == "<" }) {
+            let ch = trimmed[idx]
+            if ch == "(" || ch == "<" {
+                let prefix = String(trimmed[..<idx])
+                return removeTrailingOperators(prefix)
+            }
             var cut = String(trimmed[..<idx])
-            if cut.hasSuffix("^") {
-                cut.removeLast()
+            cut = removeTrailingOperators(cut)
+            while cut.hasSuffix("(") || cut.hasSuffix("<-") || cut.hasSuffix("<S-") || cut.hasSuffix("<h-") || cut.hasSuffix("<") {
+                if cut.hasSuffix("<S-") || cut.hasSuffix("<h-") {
+                    cut = String(cut.dropLast(3))
+                } else if cut.hasSuffix("<-") {
+                    cut = String(cut.dropLast(2))
+                } else {
+                    cut.removeLast()
+                }
+                cut = removeTrailingOperators(cut)
             }
             return cut
         }
         return ""
+    }
+
+    private static func removeTrailingOperators(_ input: String) -> String {
+        var out = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        while let last = out.last,
+              last == "-" || last == ":" || last == "*" || last == "&" || last == "^" || last == "!" {
+            out.removeLast()
+        }
+        return out
     }
 
     static func splitSquares(mdc: String) -> [String] {
@@ -642,6 +685,16 @@ enum QuadratEngine {
             return String(trimmed.dropFirst().dropLast())
         }
         return "<-\(trimmed)->"
+    }
+
+    static func activeTuckCorner(inSquare squareMdc: String) -> TuckCorner? {
+        if squareMdc.contains("^tl") { return .topLeft }
+        if squareMdc.contains("^tr") { return .topRight }
+        if squareMdc.contains("^bl") { return .bottomLeft }
+        if squareMdc.contains("^br") { return .bottomRight }
+        if squareMdc.contains("^c") { return .center }
+        if squareMdc.contains("^") { return .auto }
+        return nil
     }
 
     static func applyTuckCorner(_ corner: TuckCorner, toSquare squareMdc: String) -> String {
@@ -895,17 +948,19 @@ enum QuadratEngine {
             return true
         }
 
+        private static let maxParseDepth = 32
+
         mutating func parseExpression() -> QuadratNode {
-            parseVertical()
+            parseVertical(depth: 0)
         }
 
-        private mutating func parseVertical() -> QuadratNode {
-            var children = [parseHorizontal()]
-            while true {
+        private mutating func parseVertical(depth: Int) -> QuadratNode {
+            var children = [parseHorizontal(depth: depth + 1)]
+            while index < chars.count {
                 skipWhitespace()
                 if peek() == ":" {
                     index += 1
-                    children.append(parseHorizontal())
+                    children.append(parseHorizontal(depth: depth + 1))
                 } else {
                     break
                 }
@@ -916,13 +971,13 @@ enum QuadratEngine {
             return .vertical(id: nextID("v"), children: children)
         }
 
-        private mutating func parseHorizontal() -> QuadratNode {
-            var children = [parseTight()]
-            while true {
+        private mutating func parseHorizontal(depth: Int) -> QuadratNode {
+            var children = [parseTight(depth: depth + 1)]
+            while index < chars.count {
                 skipWhitespace()
                 if peek() == "*" {
                     index += 1
-                    children.append(parseTight())
+                    children.append(parseTight(depth: depth + 1))
                 } else {
                     break
                 }
@@ -933,24 +988,24 @@ enum QuadratEngine {
             return .horizontal(id: nextID("h"), children: children)
         }
 
-        private mutating func parseTight() -> QuadratNode {
-            var current = parsePrimary()
-            while true {
+        private mutating func parseTight(depth: Int) -> QuadratNode {
+            var current = parsePrimary(depth: depth + 1)
+            while index < chars.count {
                 skipWhitespace()
                 if hasPrefix("&&&") {
                     index += 3
-                    let next = parsePrimary()
+                    let next = parsePrimary(depth: depth + 1)
                     current = appendLigature(current, next)
                 } else if hasPrefix("&&") {
                     index += 2
-                    let next = parsePrimary()
+                    let next = parsePrimary(depth: depth + 1)
                     current = appendLigature(current, next)
                 } else if peek() == "&" {
                     index += 1
-                    let next = parsePrimary()
+                    let next = parsePrimary(depth: depth + 1)
                     current = appendLigature(current, next)
                 } else if let corner = consumeTuckOperator() {
-                    let tucked = parsePrimary()
+                    let tucked = parsePrimary(depth: depth + 1)
                     current = .tuck(id: nextID("t"), container: current, tucked: tucked, corner: corner)
                 } else {
                     break
@@ -998,11 +1053,31 @@ enum QuadratEngine {
             return nil
         }
 
-        private mutating func parsePrimary() -> QuadratNode {
+        private mutating func emptyAtom() -> QuadratNode {
+            .atom(GlyphAtom(
+                id: nextID("empty"),
+                token: "",
+                glyph: "",
+                rotationDegrees: 0,
+                mirrored: false,
+                scale: 1.0,
+                isRed: false,
+                shading: .none
+            ))
+        }
+
+        private mutating func parsePrimary(depth: Int) -> QuadratNode {
             skipWhitespace()
+            guard depth < Self.maxParseDepth else {
+                if index < chars.count {
+                    index += 1
+                }
+                return emptyAtom()
+            }
+
             if peek() == "(" {
                 index += 1
-                let inner = parseVertical()
+                let inner = parseVertical(depth: depth + 1)
                 skipWhitespace()
                 if peek() == ")" {
                     index += 1
@@ -1011,7 +1086,7 @@ enum QuadratEngine {
             }
 
             if peek() == "<" {
-                return parseEnclosure()
+                return parseEnclosure(depth: depth + 1)
             }
 
             if hasPrefix("//") {
@@ -1044,22 +1119,13 @@ enum QuadratEngine {
             }
 
             if token.isEmpty {
-                return .atom(GlyphAtom(
-                    id: nextID("empty"),
-                    token: "",
-                    glyph: "",
-                    rotationDegrees: 0,
-                    mirrored: false,
-                    scale: 1.0,
-                    isRed: false,
-                    shading: .none
-                ))
+                return emptyAtom()
             }
 
             return .atom(buildAtom(token))
         }
 
-        private mutating func parseEnclosure() -> QuadratNode {
+        private mutating func parseEnclosure(depth: Int) -> QuadratNode {
             index += 1
             var frame: EnclosureFrame = .cartouche
             if hasPrefix("-") {
@@ -1068,6 +1134,10 @@ enum QuadratEngine {
             } else if hasPrefix("S-") || hasPrefix("h-") {
                 index += 2
                 frame = .serekh
+            }
+
+            guard depth < Self.maxParseDepth else {
+                return .enclosure(id: nextID("enc"), frame: frame, children: [])
             }
 
             var quadrats: [QuadratNode] = []
@@ -1085,7 +1155,12 @@ enum QuadratEngine {
                     index += 1
                     continue
                 }
-                let item = parseVertical()
+                let startIndex = index
+                let item = parseVertical(depth: depth + 1)
+                if index == startIndex {
+                    index += 1
+                    continue
+                }
                 quadrats.append(item)
             }
 

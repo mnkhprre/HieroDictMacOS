@@ -73,6 +73,17 @@ final class QuadratGlyphMetricsCache {
         let built = buildVector(for: glyph, primaryFont: active.font, refHeight: active.refHeight)
         if let built {
             lock.lock()
+            if cache.count >= 2500 {
+                let activePrefix = "\(active.fontName)|"
+                let staleKeys = cache.keys.filter { !$0.hasPrefix(activePrefix) }
+                if !staleKeys.isEmpty {
+                    for staleKey in staleKeys {
+                        cache.removeValue(forKey: staleKey)
+                    }
+                } else {
+                    cache.removeAll(keepingCapacity: true)
+                }
+            }
             cache[key] = built
             lock.unlock()
         }
@@ -137,7 +148,18 @@ final class QuadratGlyphMetricsCache {
 
         guard hasPath else { return nil }
         let bbox = combined.boundingBoxOfPath
-        guard bbox.width > 0.1, bbox.height > 0.1 else { return nil }
+        guard !bbox.isNull,
+              !bbox.isEmpty,
+              bbox.origin.x.isFinite,
+              bbox.origin.y.isFinite,
+              bbox.width.isFinite,
+              bbox.height.isFinite,
+              bbox.width > 0.1,
+              bbox.height > 0.1,
+              refHeight.isFinite,
+              refHeight > 1.0 else {
+            return nil
+        }
 
         let designW = max(bbox.width / refHeight, 0.08)
         let designH = max(bbox.height / refHeight, 0.08)
@@ -204,7 +226,10 @@ struct EpigraphicHatchOverlay: View {
                 }
             }()
 
-            if shading != .none && targetRect.width > 1 && targetRect.height > 1 {
+            if shading != .none,
+               w.isFinite, h.isFinite,
+               targetRect.width.isFinite, targetRect.height.isFinite,
+               targetRect.width > 1, targetRect.height > 1 {
                 ZStack {
                     Path { p in
                         p.addRect(targetRect)
@@ -215,10 +240,12 @@ struct EpigraphicHatchOverlay: View {
                         let step = max(4.5, min(w, h) * 0.14)
                         let span = targetRect.width + targetRect.height
                         var offset = -targetRect.height
-                        while offset < span {
+                        var iterations = 0
+                        while offset < span && iterations < 200 {
                             p.move(to: CGPoint(x: targetRect.minX + offset, y: targetRect.maxY))
                             p.addLine(to: CGPoint(x: targetRect.minX + offset + targetRect.height, y: targetRect.minY))
                             offset += step
+                            iterations += 1
                         }
                     }
                     .stroke(Color.primary.opacity(0.45), lineWidth: max(0.8, min(w, h) * 0.025))
@@ -243,6 +270,14 @@ struct QuadratGlyphVectorView: View {
         isRed ? Color(red: 0.76, green: 0.14, blue: 0.12) : Color.primary
     }
 
+    private var safeWidth: CGFloat {
+        width.isFinite ? max(1, width) : 1
+    }
+
+    private var safeHeight: CGFloat {
+        height.isFinite ? max(1, height) : 1
+    }
+
     var body: some View {
         ZStack {
             glyphBody
@@ -250,30 +285,36 @@ struct QuadratGlyphVectorView: View {
                 EpigraphicHatchOverlay(shading: shading)
             }
         }
-        .frame(width: width, height: height)
+        .frame(width: safeWidth, height: safeHeight)
     }
 
     @ViewBuilder
     private var glyphBody: some View {
-        if let vector = QuadratGlyphMetricsCache.shared.vector(for: glyph) {
+        if safeWidth > 1,
+           safeHeight > 1,
+           let vector = QuadratGlyphMetricsCache.shared.vector(for: glyph) {
             let bbox = vector.boundingBox
             let isQuarterTurn = abs(rotationDegrees.truncatingRemainder(dividingBy: 180)) == 90
             let effectiveW = isQuarterTurn ? bbox.height : bbox.width
             let effectiveH = isQuarterTurn ? bbox.width : bbox.height
-            let fitScale = min((width * 0.96) / max(effectiveW, 0.5), (height * 0.96) / max(effectiveH, 0.5))
+            let fitScale = min((safeWidth * 0.96) / max(effectiveW, 0.5), (safeHeight * 0.96) / max(effectiveH, 0.5))
             let rad = CGFloat(rotationDegrees * .pi / 180.0)
 
-            var transform = CGAffineTransform.identity
-                .translatedBy(x: width / 2.0, y: height / 2.0)
-                .scaledBy(x: isFlipped ? -1 : 1, y: 1)
-                .rotated(by: rad)
-                .scaledBy(x: fitScale, y: -fitScale)
-                .translatedBy(x: -bbox.midX, y: -bbox.midY)
+            if fitScale.isFinite, fitScale > 0 {
+                var transform = CGAffineTransform.identity
+                    .translatedBy(x: safeWidth / 2.0, y: safeHeight / 2.0)
+                    .scaledBy(x: isFlipped ? -1 : 1, y: 1)
+                    .rotated(by: rad)
+                    .scaledBy(x: fitScale, y: -fitScale)
+                    .translatedBy(x: -bbox.midX, y: -bbox.midY)
 
-            if let transformed = withUnsafePointer(to: &transform, { vector.path.copy(using: $0) }) {
-                Path(transformed)
-                    .fill(inkColor, style: FillStyle(eoFill: false))
-                    .frame(width: width, height: height)
+                if let transformed = withUnsafePointer(to: &transform, { vector.path.copy(using: $0) }) {
+                    Path(transformed)
+                        .fill(inkColor, style: FillStyle(eoFill: false))
+                        .frame(width: safeWidth, height: safeHeight)
+                } else {
+                    fallbackText
+                }
             } else {
                 fallbackText
             }

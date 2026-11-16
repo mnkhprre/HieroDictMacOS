@@ -14,6 +14,7 @@ struct WordInspectorView: View {
     let getSignDetails: (String) -> GardinerSign?
 
     @State private var copiedBadgeText: String? = nil
+    @State private var badgeTask: Task<Void, Never>? = nil
 
     var body: some View {
         ScrollView {
@@ -201,7 +202,10 @@ struct WordInspectorView: View {
 
                 HStack(spacing: 10) {
                     Button {
-                        copyToPasteboard(entry.glyph, feedback: "Copied hieroglyphs")
+                        let resolved = entry.glyph.isEmpty
+                            ? QuadratEngine.resolveUnicodeString(mdc: entry.mdc, signLookup: signLookup)
+                            : entry.glyph
+                        copyToPasteboard(resolved, feedback: "Copied hieroglyphs")
                     } label: {
                         Label("Glyphs", systemImage: "doc.on.doc")
                             .frame(maxWidth: .infinity)
@@ -239,20 +243,25 @@ struct WordInspectorView: View {
             .padding(18)
         }
         .frame(minWidth: 280, idealWidth: 320, maxWidth: 380)
+        .onDisappear {
+            badgeTask?.cancel()
+        }
     }
 
     private func copyToPasteboard(_ text: String, feedback: String) {
+        guard !text.isEmpty else { return }
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
+        badgeTask?.cancel()
         withAnimation {
             copiedBadgeText = feedback
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
+        badgeTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.8))
+            guard !Task.isCancelled else { return }
             withAnimation {
-                if copiedBadgeText == feedback {
-                    copiedBadgeText = nil
-                }
+                copiedBadgeText = nil
             }
         }
     }

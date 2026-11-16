@@ -8,6 +8,7 @@ struct MenuBarSearchView: View {
 
     @FocusState private var isQueryFocused: Bool
     @State private var copiedFeedback: String? = nil
+    @State private var feedbackTask: Task<Void, Never>? = nil
 
     private let quickHieroglyphs = ["𓋹", "𓄤", "𓊵", "𓇳", "𓉐", "𓈖", "𓂋", "𓁹", "𓅓", "𓏏", "𓎟", "𓆣"]
     private let quickDiacritics = ["ꜣ", "ỉ", "ꜥ", "ḥ", "ḫ", "ẖ", "š", "ḳ", "ṯ", "ḏ"]
@@ -31,6 +32,9 @@ struct MenuBarSearchView: View {
         .frame(width: 400, height: 500)
         .onAppear {
             isQueryFocused = true
+        }
+        .onDisappear {
+            feedbackTask?.cancel()
         }
     }
 
@@ -188,7 +192,8 @@ struct MenuBarSearchView: View {
             ScrollView {
                 LazyVStack(spacing: 6) {
                     HStack {
-                        Text("\(store.menuBarResults.count) results")
+                        let count = store.menuBarResults.count
+                        Text(count >= 150 ? "Top \(count) results" : "\(count) results")
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(.secondary)
                         Spacer()
@@ -322,7 +327,10 @@ struct MenuBarSearchView: View {
 
                 HStack(spacing: 8) {
                     Button {
-                        copyToPasteboard(entry.glyph, feedback: "Copied glyphs")
+                        let resolved = entry.glyph.isEmpty
+                            ? QuadratEngine.resolveUnicodeString(mdc: entry.mdc, signLookup: store.signCache)
+                            : entry.glyph
+                        copyToPasteboard(resolved, feedback: "Copied glyphs")
                     } label: {
                         Label("Glyphs", systemImage: "doc.on.doc")
                             .frame(maxWidth: .infinity)
@@ -421,17 +429,19 @@ struct MenuBarSearchView: View {
     }
 
     private func copyToPasteboard(_ text: String, feedback: String) {
+        guard !text.isEmpty else { return }
         let pb = NSPasteboard.general
         pb.clearContents()
         pb.setString(text, forType: .string)
+        feedbackTask?.cancel()
         withAnimation {
             copiedFeedback = feedback
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
+        feedbackTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.6))
+            guard !Task.isCancelled else { return }
             withAnimation {
-                if copiedFeedback == feedback {
-                    copiedFeedback = nil
-                }
+                copiedFeedback = nil
             }
         }
     }

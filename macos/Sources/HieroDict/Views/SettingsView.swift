@@ -6,6 +6,7 @@ struct SettingsView: View {
     @AppStorage("themePreference") private var themePreferenceRaw: String = ThemePreference.system.rawValue
 
     @State private var clearedBannerVisible = false
+    @State private var clearedTask: Task<Void, Never>? = nil
 
     var body: some View {
         Form {
@@ -46,8 +47,11 @@ struct SettingsView: View {
                 HStack {
                     Button("Clear All Bookmarked Words", role: .destructive) {
                         store.clearAllFavorites()
+                        clearedTask?.cancel()
                         clearedBannerVisible = true
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                        clearedTask = Task { @MainActor in
+                            try? await Task.sleep(for: .seconds(2.0))
+                            guard !Task.isCancelled else { return }
                             clearedBannerVisible = false
                         }
                     }
@@ -61,5 +65,8 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .frame(width: 440, height: 420)
+        .onDisappear {
+            clearedTask?.cancel()
+        }
     }
 }

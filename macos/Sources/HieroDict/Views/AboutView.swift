@@ -87,6 +87,7 @@ struct AboutView: View {
                     • James P. Allen: Middle Egyptian (2000, 3rd ed.) vocabulary & grammar notes
                     • Hanno Rein: HieroDict open-source dataset & JSesh integration
                     • Mark Vygus: Middle Egyptian Dictionary
+                    • UniHieroglyphica & Google Noto Sans Egyptian Hieroglyphs typefaces
                     • George Douros: Nilus & Abydos TrueType fonts for Ancient Egyptian Scripts
                     • Manuel de Codage (MdC) standardization for hieroglyphs
                     • License: Attribution-ShareAlike 2.0 Generic (CC BY-SA 2.0)
