@@ -272,7 +272,7 @@ private struct HieroglyphPickerDeck: View {
                                 .foregroundStyle(isSelected ? Color.white : Color.primary)
                                 .background(
                                     RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                        .fill(isSelected ? AppTheme.slateAccent : AppTheme.cardBackground)
+                                        .fill(isSelected ? AppTheme.prominentButtonTint : AppTheme.cardBackground)
                                 )
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 6, style: .continuous)

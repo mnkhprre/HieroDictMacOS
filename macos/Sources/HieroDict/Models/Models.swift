@@ -128,6 +128,38 @@ enum ThemePreference: String, CaseIterable, Identifiable {
     }
 }
 
+enum HieroFontChoice: String, CaseIterable, Identifiable {
+    case uniHieroglyphica = "UniHieroglyphica"
+    case notoSans = "Noto Sans"
+    case abydos = "Abydos"
+
+    var id: String { rawValue }
+
+    var resourceFileName: String {
+        switch self {
+        case .uniHieroglyphica: return "UniHieroglyphica"
+        case .notoSans: return "NotoSansEgyptianHieroglyphs-Regular"
+        case .abydos: return "abydos_r"
+        }
+    }
+
+    var fallbackPostScriptName: String {
+        switch self {
+        case .uniHieroglyphica: return "UniHieroglyphica-Regular"
+        case .notoSans: return "NotoSansEgyptianHieroglyphs-Regular"
+        case .abydos: return "Abydos"
+        }
+    }
+
+    var cadratReferenceHeight: CGFloat {
+        switch self {
+        case .uniHieroglyphica: return 94.0
+        case .notoSans: return 106.0
+        case .abydos: return 94.0
+        }
+    }
+}
+
 struct TranslitGuideItem: Identifiable {
     let symbol: String
     let sign: String

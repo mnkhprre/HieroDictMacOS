@@ -41,7 +41,7 @@ struct DictionaryView: View {
                                 .foregroundStyle(isSelected ? Color.white : Color.primary)
                                 .background(
                                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                        .fill(isSelected ? AppTheme.slateAccent : AppTheme.cardBackground)
+                                        .fill(isSelected ? AppTheme.prominentButtonTint : AppTheme.cardBackground)
                                 )
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 8, style: .continuous)

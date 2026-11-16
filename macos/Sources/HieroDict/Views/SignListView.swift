@@ -99,7 +99,7 @@ struct SignListView: View {
                                         .frame(width: 34, height: 34)
                                         .background(
                                             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                                .fill(AppTheme.slateAccent)
+                                                .fill(AppTheme.prominentButtonTint)
                                         )
 
                                     VStack(alignment: .leading, spacing: 2) {
@@ -230,7 +230,7 @@ private struct SignDetailSheetView: View {
                     Label("Search Words with Sign \(sign.code)", systemImage: "magnifyingglass")
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(AppTheme.slateAccent)
+                .tint(AppTheme.prominentButtonTint)
                 .keyboardShortcut(.defaultAction)
             }
             .padding(.top, 6)

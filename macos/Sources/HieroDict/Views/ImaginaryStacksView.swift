@@ -43,41 +43,80 @@ struct ImaginaryStacksView: View {
     }
 
     private var canvasHeaderControls: some View {
-        HStack(spacing: 10) {
-            TextField("Composition Title", text: $store.composerTitle)
-                .textFieldStyle(.roundedBorder)
-                .frame(maxWidth: 220)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                TextField("Composition Title", text: $store.composerTitle)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(minWidth: 160, maxWidth: 280)
 
-            Picker("Direction", selection: $store.composerDirection) {
-                ForEach(ReadingDirection.allCases) { dir in
-                    Text(dir.rawValue).tag(dir)
+                Spacer(minLength: 8)
+
+                Toggle("Square Grid", isOn: $store.composerShowGrid)
+                    .toggleStyle(.checkbox)
+                    .fixedSize()
+
+                HStack(spacing: 6) {
+                    Image(systemName: "square.resize.down")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                    Slider(value: $quadratScale, in: 44...116, step: 4)
+                        .frame(width: 96)
+                    Image(systemName: "square.resize.up")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
                 }
             }
-            .pickerStyle(.segmented)
-            .frame(width: 190)
 
-            Picker("Frame", selection: $store.composerFrame) {
-                ForEach(EnclosureFrame.allCases) { frame in
-                    Text(frame.rawValue).tag(frame)
+            HStack(spacing: 12) {
+                HStack(spacing: 6) {
+                    Text("Direction:")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .fixedSize()
+
+                    Picker("Direction", selection: $store.composerDirection) {
+                        ForEach(ReadingDirection.allCases) { dir in
+                            Text(dir.rawValue).tag(dir)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
                 }
-            }
-            .pickerStyle(.segmented)
-            .frame(width: 210)
 
-            Toggle("Square Grid", isOn: $store.composerShowGrid)
-                .toggleStyle(.checkbox)
+                HStack(spacing: 6) {
+                    Text("Frame:")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .fixedSize()
 
-            Spacer()
+                    Picker("Frame", selection: $store.composerFrame) {
+                        ForEach(EnclosureFrame.allCases) { frame in
+                            Text(frame.rawValue).tag(frame)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
+                }
 
-            HStack(spacing: 6) {
-                Image(systemName: "square.resize.down")
-                    .foregroundStyle(.secondary)
-                    .font(.caption)
-                Slider(value: $quadratScale, in: 44...116, step: 4)
-                    .frame(width: 90)
-                Image(systemName: "square.resize.up")
-                    .foregroundStyle(.secondary)
-                    .font(.caption)
+                HStack(spacing: 6) {
+                    Text("Font:")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .fixedSize()
+
+                    Picker("Font", selection: $store.hieroFontChoice) {
+                        ForEach(HieroFontChoice.allCases) { choice in
+                            Text(choice.rawValue).tag(choice)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .labelsHidden()
+                    .fixedSize()
+                }
+
+                Spacer()
             }
         }
     }
@@ -119,7 +158,7 @@ struct ImaginaryStacksView: View {
                     Label("Random Squares", systemImage: "wand.and.stars")
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(AppTheme.slateAccent)
+                .tint(AppTheme.prominentButtonTint)
 
                 Button {
                     store.rotateLastComposerToken()
@@ -518,10 +557,12 @@ struct ImaginaryStacksView: View {
             Text("MdC:")
                 .font(.system(size: 12, weight: .bold, design: .monospaced))
                 .foregroundStyle(.secondary)
+                .fixedSize()
 
             TextField("e.g. R4:X1*Q3-G17^^X1-<-N5-L1->", text: $store.composerMdc)
                 .textFieldStyle(.roundedBorder)
                 .font(.system(size: 13, design: .monospaced))
+                .frame(minWidth: 160)
 
             Picker("Operator", selection: $selectedOperator) {
                 ForEach(QuadratOp.allCases) { op in
@@ -529,7 +570,8 @@ struct ImaginaryStacksView: View {
                 }
             }
             .pickerStyle(.segmented)
-            .frame(width: 410)
+            .labelsHidden()
+            .fixedSize()
         }
     }
 
@@ -602,7 +644,7 @@ struct ImaginaryStacksView: View {
                                 .foregroundStyle(isSelected ? Color.white : Color.primary)
                                 .background(
                                     RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                        .fill(isSelected ? AppTheme.slateAccent : AppTheme.cardBackground)
+                                        .fill(isSelected ? AppTheme.prominentButtonTint : AppTheme.cardBackground)
                                 )
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 6, style: .continuous)
@@ -673,15 +715,17 @@ struct ImaginaryStacksView: View {
                                     .font(.system(size: 10, weight: .medium))
                                     .foregroundStyle(AppTheme.slateAccent)
                             }
-                            QuadratWordView(
-                                mdc: preset.mdc,
-                                fallbackGlyph: nil,
-                                signLookup: store.signCache,
-                                quadratSize: 30,
-                                direction: preset.direction,
-                                frame: preset.frame,
-                                showGrid: true
-                            )
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                QuadratWordView(
+                                    mdc: preset.mdc,
+                                    fallbackGlyph: nil,
+                                    signLookup: store.signCache,
+                                    quadratSize: 30,
+                                    direction: preset.direction,
+                                    frame: preset.frame,
+                                    showGrid: true
+                                )
+                            }
                             Text(preset.subtitle)
                                 .font(.system(size: 11))
                                 .foregroundStyle(.secondary)

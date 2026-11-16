@@ -9,6 +9,15 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            Section("Hieroglyph Font") {
+                Picker("Font Family", selection: $store.hieroFontChoice) {
+                    ForEach(HieroFontChoice.allCases) { choice in
+                        Text(choice.rawValue).tag(choice)
+                    }
+                }
+                .pickerStyle(.radioGroup)
+            }
+
             Section("Hieroglyph Size") {
                 Picker("Display Scale", selection: $glyphScaleRaw) {
                     ForEach(GlyphScale.allCases) { scale in
@@ -51,6 +60,6 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 440, height: 340)
+        .frame(width: 440, height: 420)
     }
 }

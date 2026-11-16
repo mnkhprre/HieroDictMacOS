@@ -227,7 +227,7 @@ struct WordInspectorView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(AppTheme.slateAccent)
+                .tint(AppTheme.prominentButtonTint)
 
                 if let badge = copiedBadgeText {
                     Text(badge)

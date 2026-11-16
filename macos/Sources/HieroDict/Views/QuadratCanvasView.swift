@@ -71,14 +71,14 @@ struct QuadratWordView: View {
         case .cartouche:
             CartoucheContainer(direction: direction, strokeWidth: max(1.6, quadratSize * 0.055)) {
                 content
-                    .padding(.horizontal, quadratSize * 0.34)
-                    .padding(.vertical, quadratSize * 0.24)
+                    .padding(.horizontal, max(12, quadratSize * 0.48))
+                    .padding(.vertical, max(6, quadratSize * 0.22))
             }
         case .serekh:
             SerekhContainer(strokeWidth: max(1.6, quadratSize * 0.055)) {
                 content
-                    .padding(.horizontal, quadratSize * 0.28)
-                    .padding(.vertical, quadratSize * 0.26)
+                    .padding(.horizontal, max(10, quadratSize * 0.34))
+                    .padding(.vertical, max(6, quadratSize * 0.24))
             }
         }
     }
@@ -108,14 +108,14 @@ struct QuadratWordView: View {
                 if encFrame == .serekh {
                     SerekhContainer(strokeWidth: max(1.4, quadratSize * 0.048)) {
                         innerContent
-                            .padding(.horizontal, quadratSize * 0.22)
-                            .padding(.vertical, quadratSize * 0.16)
+                            .padding(.horizontal, max(8, quadratSize * 0.28))
+                            .padding(.vertical, max(4, quadratSize * 0.16))
                     }
                 } else {
                     CartoucheContainer(direction: direction == .vertical ? .ltr : direction, strokeWidth: max(1.4, quadratSize * 0.048)) {
                         innerContent
-                            .padding(.horizontal, quadratSize * 0.26)
-                            .padding(.vertical, quadratSize * 0.16)
+                            .padding(.horizontal, max(10, quadratSize * 0.42))
+                            .padding(.vertical, max(4, quadratSize * 0.16))
                     }
                 }
             }
@@ -516,34 +516,36 @@ private struct CartoucheContainer<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {
-        let knotLength = max(14, strokeWidth * 10.5)
+        let knotLength = max(16, strokeWidth * 11.5)
         if direction == .vertical {
-            VStack(spacing: max(2, strokeWidth * 1.1)) {
+            VStack(spacing: max(1.5, strokeWidth * 0.7)) {
                 content
                     .background(
                         Capsule()
                             .stroke(AppTheme.slateAccent, lineWidth: strokeWidth)
                     )
-                Rectangle()
+                    .padding(strokeWidth * 0.5)
+                Capsule()
                     .fill(AppTheme.slateAccent)
-                    .frame(width: knotLength, height: strokeWidth * 1.45)
+                    .frame(width: knotLength, height: strokeWidth * 1.55)
             }
         } else {
-            HStack(spacing: max(2, strokeWidth * 1.1)) {
+            HStack(spacing: max(1.5, strokeWidth * 0.7)) {
                 if direction == .rtl {
-                    Rectangle()
+                    Capsule()
                         .fill(AppTheme.slateAccent)
-                        .frame(width: strokeWidth * 1.45, height: knotLength)
+                        .frame(width: strokeWidth * 1.55, height: knotLength)
                 }
                 content
                     .background(
                         Capsule()
                             .stroke(AppTheme.slateAccent, lineWidth: strokeWidth)
                     )
+                    .padding(strokeWidth * 0.5)
                 if direction != .rtl {
-                    Rectangle()
+                    Capsule()
                         .fill(AppTheme.slateAccent)
-                        .frame(width: strokeWidth * 1.45, height: knotLength)
+                        .frame(width: strokeWidth * 1.55, height: knotLength)
                 }
             }
         }
@@ -557,28 +559,31 @@ private struct SerekhContainer<Content: View>: View {
     var body: some View {
         let facadeHeight = max(8, strokeWidth * 4.5)
         let stripeWidth = max(2.5, strokeWidth * 1.5)
-        VStack(spacing: 0) {
+        VStack(spacing: -strokeWidth * 0.5) {
             content
-                .frame(maxWidth: .infinity)
+                .frame(minWidth: max(48, strokeWidth * 32))
                 .overlay(
                     Rectangle()
                         .stroke(AppTheme.slateAccent, lineWidth: strokeWidth)
                 )
 
-            HStack(spacing: max(2, strokeWidth * 1.0)) {
+            HStack(spacing: max(2, strokeWidth * 1.1)) {
                 ForEach(0..<7, id: \.self) { idx in
                     Rectangle()
                         .fill(idx.isMultiple(of: 2) ? AppTheme.slateAccent : AppTheme.slateAccent.opacity(0.25))
                         .frame(width: stripeWidth, height: facadeHeight)
                 }
             }
-            .padding(.horizontal, max(4, strokeWidth * 2.4))
-            .padding(.vertical, max(2, strokeWidth * 1.1))
+            .padding(.horizontal, max(6, strokeWidth * 2.8))
+            .padding(.vertical, max(2.5, strokeWidth * 1.1))
+            .frame(maxWidth: .infinity)
             .background(AppTheme.slateAccent.opacity(0.08))
             .overlay(
                 Rectangle()
                     .stroke(AppTheme.slateAccent, lineWidth: strokeWidth)
             )
         }
+        .fixedSize(horizontal: true, vertical: false)
+        .padding(strokeWidth * 0.5)
     }
 }

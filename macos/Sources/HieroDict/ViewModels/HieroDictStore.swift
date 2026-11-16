@@ -20,6 +20,12 @@ final class HieroDictStore: ObservableObject {
     @Published var focusSearchTrigger: Int = 0
     @Published var useQuadratLayout: Bool = true
     @Published var showQuadratGuides: Bool = false
+    @Published var hieroFontChoice: HieroFontChoice {
+        didSet {
+            UserDefaults.standard.set(hieroFontChoice.rawValue, forKey: "hieroFontChoice")
+            FontRegistrar.setFontChoice(hieroFontChoice)
+        }
+    }
 
     @Published var composerTitle: String = "Offering of Peace"
     @Published var composerMdc: String = "R4:X1*Q3-S34-N35:Aa1"
@@ -82,11 +88,15 @@ final class HieroDictStore: ObservableObject {
     }
 
     init() {
+        let savedFont = UserDefaults.standard.string(forKey: "hieroFontChoice")
+            .flatMap(HieroFontChoice.init(rawValue:)) ?? .uniHieroglyphica
+        self.hieroFontChoice = savedFont
+        FontRegistrar.setFontChoice(savedFont)
         loadInitialData()
     }
 
     func loadInitialData() {
-        FontRegistrar.registerFonts()
+        FontRegistrar.setFontChoice(hieroFontChoice)
         do {
             let store = try SQLiteDatabaseStore()
             self.database = store

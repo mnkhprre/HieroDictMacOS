@@ -77,6 +77,7 @@ struct MainSplitView: View {
                     }
                 }
             }
+            .id(store.hieroFontChoice)
             .navigationTitle(store.selectedSection.rawValue)
         }
         .inspector(
@@ -108,6 +109,7 @@ struct MainSplitView: View {
                         store.signDetails(for: code)
                     }
                 )
+                .id(store.hieroFontChoice)
                 .inspectorColumnWidth(min: 280, ideal: 330, max: 390)
             }
         }
@@ -139,15 +141,23 @@ struct MainSplitView: View {
 
             ToolbarItem(placement: .primaryAction) {
                 Menu {
+                    Picker("Hieroglyph Font", selection: $store.hieroFontChoice) {
+                        ForEach(HieroFontChoice.allCases) { fontChoice in
+                            Text(fontChoice.rawValue).tag(fontChoice)
+                        }
+                    }
+
+                    Divider()
+
                     Picker("Hieroglyph Size", selection: $glyphScaleRaw) {
                         ForEach(GlyphScale.allCases) { scale in
                             Text(scale.rawValue).tag(scale.rawValue)
                         }
                     }
                 } label: {
-                    Label("Glyph Size", systemImage: "textformat.size")
+                    Label("Font & Size", systemImage: "textformat.size")
                 }
-                .help("Hieroglyph Size")
+                .help("Hieroglyph Font & Size")
             }
 
             ToolbarItem(placement: .primaryAction) {

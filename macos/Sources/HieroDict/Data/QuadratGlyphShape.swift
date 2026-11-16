@@ -37,28 +37,43 @@ final class QuadratGlyphMetricsCache {
     static let shared = QuadratGlyphMetricsCache()
 
     private static let referencePointSize: CGFloat = 100.0
-    private static let cadratReferenceHeight: CGFloat = 94.0
 
     private var cache: [String: CachedGlyphVector] = [:]
+    private var fontCache: [String: CTFont] = [:]
     private let lock = NSLock()
-    private lazy var primaryFont: CTFont = {
+
+    private func activeFontAndScale() -> (fontName: String, font: CTFont, refHeight: CGFloat) {
         FontRegistrar.registerFonts()
-        return CTFontCreateWithName(FontRegistrar.hieroFontName as CFString, Self.referencePointSize, nil)
-    }()
+        let name = FontRegistrar.hieroFontName
+        let refHeight = FontRegistrar.cadratReferenceHeight
+        lock.lock()
+        let ctFont: CTFont
+        if let cached = fontCache[name] {
+            ctFont = cached
+        } else {
+            let created = CTFontCreateWithName(name as CFString, Self.referencePointSize, nil)
+            fontCache[name] = created
+            ctFont = created
+        }
+        lock.unlock()
+        return (name, ctFont, refHeight)
+    }
 
     func vector(for glyph: String) -> CachedGlyphVector? {
         guard !glyph.isEmpty else { return nil }
+        let active = activeFontAndScale()
+        let key = "\(active.fontName)|\(glyph)"
         lock.lock()
-        if let existing = cache[glyph] {
+        if let existing = cache[key] {
             lock.unlock()
             return existing
         }
         lock.unlock()
 
-        let built = buildVector(for: glyph)
+        let built = buildVector(for: glyph, primaryFont: active.font, refHeight: active.refHeight)
         if let built {
             lock.lock()
-            cache[glyph] = built
+            cache[key] = built
             lock.unlock()
         }
         return built
@@ -76,7 +91,7 @@ final class QuadratGlyphMetricsCache {
         vector(for: glyph)?.inkDensity.bestTuckCorner(mirrored: mirrored) ?? .topRight
     }
 
-    private func buildVector(for text: String) -> CachedGlyphVector? {
+    private func buildVector(for text: String, primaryFont: CTFont, refHeight: CGFloat) -> CachedGlyphVector? {
         let attrString = NSAttributedString(
             string: text,
             attributes: [NSAttributedString.Key(kCTFontAttributeName as String): primaryFont]
@@ -124,8 +139,8 @@ final class QuadratGlyphMetricsCache {
         let bbox = combined.boundingBoxOfPath
         guard bbox.width > 0.1, bbox.height > 0.1 else { return nil }
 
-        let designW = max(bbox.width / Self.cadratReferenceHeight, 0.08)
-        let designH = max(bbox.height / Self.cadratReferenceHeight, 0.08)
+        let designW = max(bbox.width / refHeight, 0.08)
+        let designH = max(bbox.height / refHeight, 0.08)
         let ratio = min(max(bbox.height / bbox.width, 0.14), 5.0)
         let density = measureInkDensity(in: combined, bbox: bbox)
         return CachedGlyphVector(

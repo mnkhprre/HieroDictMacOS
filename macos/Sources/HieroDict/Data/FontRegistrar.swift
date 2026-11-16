@@ -23,32 +23,44 @@ enum ResourceLocator {
 
 enum FontRegistrar {
     private static var hasRegistered = false
-    private(set) static var hieroFontName: String = "Abydos"
+    private static var fontNamesByChoice: [HieroFontChoice: String] = [:]
+    private(set) static var currentFontChoice: HieroFontChoice = .uniHieroglyphica
+    private(set) static var hieroFontName: String = HieroFontChoice.uniHieroglyphica.fallbackPostScriptName
+    private(set) static var cadratReferenceHeight: CGFloat = HieroFontChoice.uniHieroglyphica.cadratReferenceHeight
 
     static func registerFonts() {
         guard !hasRegistered else { return }
         hasRegistered = true
 
-        let fontFiles = ["abydos_r", "abydos_b", "nilus"]
-        var registeredNames: [String] = []
-
-        for file in fontFiles {
-            guard let url = ResourceLocator.url(forResource: file, withExtension: "ttf") else { continue }
-            CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
-            if let descriptors = CTFontManagerCreateFontDescriptorsFromURL(url as CFURL) as? [CTFontDescriptor],
-               let first = descriptors.first,
-               let name = CTFontDescriptorCopyAttribute(first, kCTFontNameAttribute) as? String {
-                registeredNames.append(name)
+        for choice in HieroFontChoice.allCases {
+            if let url = ResourceLocator.url(forResource: choice.resourceFileName, withExtension: "ttf") {
+                CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
+                if let descriptors = CTFontManagerCreateFontDescriptorsFromURL(url as CFURL) as? [CTFontDescriptor],
+                   let first = descriptors.first,
+                   let name = CTFontDescriptorCopyAttribute(first, kCTFontNameAttribute) as? String {
+                    fontNamesByChoice[choice] = name
+                }
             }
         }
 
-        if let abydos = registeredNames.first(where: { $0.localizedCaseInsensitiveCompare("Abydos") == .orderedSame }) {
-            hieroFontName = abydos
-        } else if let anyAbydos = registeredNames.first(where: { $0.localizedCaseInsensitiveContains("Abydos") }) {
-            hieroFontName = anyAbydos
-        } else if let fallback = registeredNames.first {
-            hieroFontName = fallback
+        for extra in ["abydos_b", "nilus"] {
+            if let url = ResourceLocator.url(forResource: extra, withExtension: "ttf") {
+                CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
+            }
         }
+
+        applyFontChoice(currentFontChoice)
+    }
+
+    static func setFontChoice(_ choice: HieroFontChoice) {
+        registerFonts()
+        currentFontChoice = choice
+        applyFontChoice(choice)
+    }
+
+    private static func applyFontChoice(_ choice: HieroFontChoice) {
+        hieroFontName = fontNamesByChoice[choice] ?? choice.fallbackPostScriptName
+        cadratReferenceHeight = choice.cadratReferenceHeight
     }
 }
 
@@ -64,6 +76,15 @@ enum AppTheme {
             let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
             return isDark
                 ? NSColor(red: 0x8A / 255.0, green: 0xB4 / 255.0, blue: 0xF8 / 255.0, alpha: 1.0)
+                : NSColor(red: 0x1B / 255.0, green: 0x49 / 255.0, blue: 0x65 / 255.0, alpha: 1.0)
+        }
+    )
+
+    static let prominentButtonTint = Color(
+        nsColor: NSColor(name: nil) { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            return isDark
+                ? NSColor(red: 0x25 / 255.0, green: 0x5E / 255.0, blue: 0x99 / 255.0, alpha: 1.0)
                 : NSColor(red: 0x1B / 255.0, green: 0x49 / 255.0, blue: 0x65 / 255.0, alpha: 1.0)
         }
     )

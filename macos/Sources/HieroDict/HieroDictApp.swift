@@ -69,6 +69,7 @@ struct HieroDictApp: App {
 
         MenuBarExtra("HieroDict", systemImage: "text.book.closed") {
             MenuBarSearchView(store: store)
+                .id(store.hieroFontChoice)
                 .preferredColorScheme(colorScheme)
         }
         .menuBarExtraStyle(.window)

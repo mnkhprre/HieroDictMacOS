@@ -360,7 +360,7 @@ struct MenuBarSearchView: View {
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(AppTheme.slateAccent)
+                    .tint(AppTheme.prominentButtonTint)
                     .controlSize(.small)
                 }
 
