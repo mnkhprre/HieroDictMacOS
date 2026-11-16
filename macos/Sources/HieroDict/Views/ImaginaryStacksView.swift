@@ -190,7 +190,7 @@ struct ImaginaryStacksView: View {
     private var squareSequencerStrip: some View {
         let squares = store.composerSquares
         return VStack(alignment: .leading, spacing: 8) {
-            HStack {
+            HStack(spacing: 6) {
                 Text("IMAGINARY SQUARES (\(squares.count))")
                     .font(.system(size: 11, weight: .bold))
                     .tracking(0.8)
@@ -208,14 +208,34 @@ struct ImaginaryStacksView: View {
                 .controlSize(.small)
 
                 Button {
-                    store.duplicateSelectedSquare()
+                    store.addLineBreakSquare()
                 } label: {
-                    Label("Duplicate", systemImage: "plus.square.on.square")
+                    Label("New Line (!)", systemImage: "return")
                         .font(.system(size: 11, weight: .medium))
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
+                .help("Insert JSesh line break (!)")
+
+                Button {
+                    store.addLacunaSquare()
+                } label: {
+                    Label("Lacuna (//)", systemImage: "square.dashed")
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .help("Insert JSesh hatched lacuna square (//)")
+
+                Button {
+                    store.duplicateSelectedSquare()
+                } label: {
+                    Image(systemName: "plus.square.on.square")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
                 .disabled(squares.isEmpty)
+                .help("Duplicate selected square")
 
                 Button {
                     store.moveSelectedSquare(offset: -1)
@@ -304,10 +324,13 @@ struct ImaginaryStacksView: View {
             ? squares[store.selectedSquareIndex]
             : ""
         let slots = QuadratEngine.squareTokens(squareMdc: activeSquareMdc)
+        let activeSlotIndex = store.selectedSlotIndex.flatMap { $0 < slots.count ? $0 : nil } ?? max(0, slots.count - 1)
+        let activeToken = slots.indices.contains(activeSlotIndex) ? slots[activeSlotIndex] : ""
+        let hasTuck = activeSquareMdc.contains("^") || selectedOperator == .tuck
 
-        return VStack(alignment: .leading, spacing: 8) {
+        return VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("SQUARE Q\(min(store.selectedSquareIndex + 1, max(1, squares.count))) LAYOUT & SLOTS")
+                Text("SQUARE Q\(min(store.selectedSquareIndex + 1, max(1, squares.count))) JSESH CADRAT BUILDER")
                     .font(.system(size: 11, weight: .bold))
                     .tracking(0.8)
                     .foregroundStyle(.secondary)
@@ -336,46 +359,145 @@ struct ImaginaryStacksView: View {
             }
 
             if !slots.isEmpty {
-                HStack(spacing: 8) {
-                    Text("Target Slot:")
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        Text("Slot:")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.secondary)
+
+                        ForEach(Array(slots.enumerated()), id: \.offset) { idx, token in
+                            let isSlotSelected = store.selectedSlotIndex == idx
+                            let baseNoShade = token.replacingOccurrences(of: "#t", with: "")
+                                .replacingOccurrences(of: "#b", with: "")
+                                .replacingOccurrences(of: "#l", with: "")
+                                .replacingOccurrences(of: "#r", with: "")
+                                .replacingOccurrences(of: "#", with: "")
+                            let cleanCode = baseNoShade.split(separator: "\\").first.map(String.init) ?? baseNoShade
+                            let signGlyph = store.signCache[cleanCode.uppercased()]?.glyph
+                                ?? QuadratEngine.mnemonicMap[cleanCode]
+                                ?? cleanCode
+                            Button {
+                                store.selectedSlotIndex = isSlotSelected ? nil : idx
+                            } label: {
+                                HStack(spacing: 5) {
+                                    Text("S\(idx + 1)")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundStyle(.secondary)
+                                    QuadratGlyphVectorView(
+                                        glyph: signGlyph,
+                                        width: 20,
+                                        height: 20,
+                                        rotationDegrees: 0,
+                                        isFlipped: false,
+                                        isRed: token.uppercased().contains("\\RED")
+                                    )
+                                    Text(token)
+                                        .font(.system(size: 11, design: .monospaced))
+                                }
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .fill(isSlotSelected ? AppTheme.slateAccent.opacity(0.16) : AppTheme.cardBackground)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .stroke(isSlotSelected ? AppTheme.slateAccent : AppTheme.subtleBorder, lineWidth: isSlotSelected ? 1.5 : 1)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    Text("Sign Modifiers:")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(.secondary)
 
-                    ForEach(Array(slots.enumerated()), id: \.offset) { idx, token in
-                        let isSlotSelected = store.selectedSlotIndex == idx
-                        let cleanCode = token.split(separator: "\\").first.map(String.init) ?? token
-                        let signGlyph = store.signCache[cleanCode.uppercased()]?.glyph
-                            ?? QuadratEngine.mnemonicMap[cleanCode]
-                            ?? cleanCode
-                        Button {
-                            store.selectedSlotIndex = isSlotSelected ? nil : idx
-                        } label: {
-                            HStack(spacing: 5) {
-                                Text("S\(idx + 1)")
-                                    .font(.system(size: 10, weight: .bold))
-                                    .foregroundStyle(.secondary)
-                                QuadratGlyphVectorView(
-                                    glyph: signGlyph,
-                                    width: 20,
-                                    height: 20,
-                                    rotationDegrees: 0,
-                                    isFlipped: false
-                                )
-                                Text(token)
-                                    .font(.system(size: 11, design: .monospaced))
-                            }
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(
-                                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                    .fill(isSlotSelected ? AppTheme.slateAccent.opacity(0.16) : AppTheme.cardBackground)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                    .stroke(isSlotSelected ? AppTheme.slateAccent : AppTheme.subtleBorder, lineWidth: isSlotSelected ? 1.5 : 1)
-                            )
+                    Button {
+                        store.rotateActiveSlot()
+                    } label: {
+                        Label("Rotate", systemImage: "rotate.right")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+
+                    Button {
+                        store.toggleMirrorActiveSlot()
+                    } label: {
+                        Label("Mirror \\H", systemImage: "arrow.left.and.right")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .tint(activeToken.uppercased().contains("\\H") ? AppTheme.slateAccent : nil)
+
+                    Button {
+                        store.toggleRedActiveSlot()
+                    } label: {
+                        Label("Red", systemImage: "drop.fill")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .tint(activeToken.uppercased().contains("\\RED") ? .red : nil)
+
+                    Button {
+                        store.toggleShadingActiveSlot()
+                    } label: {
+                        Label("Hatch #", systemImage: "square.split.diagonal")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .tint(activeToken.contains("#") ? AppTheme.slateAccent : nil)
+
+                    Divider()
+                        .frame(height: 16)
+
+                    ForEach([50, 75, 100], id: \.self) { pct in
+                        Button("\(pct)%") {
+                            store.setScaleActiveSlot(pct)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+
+                    Divider()
+                        .frame(height: 16)
+
+                    Button {
+                        store.toggleParenthesesSelectedSquare()
+                    } label: {
+                        Text("( Group )")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .help("Wrap or unwrap selected square in parentheses")
+
+                    Button {
+                        store.toggleCartoucheSelectedSquare()
+                    } label: {
+                        Label("Cartouche", systemImage: "capsule")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .help("Wrap or unwrap selected square inside an inline JSesh cartouche <-...->")
+                }
+            }
+
+            if hasTuck {
+                HStack(spacing: 6) {
+                    Text("Tuck Pocket:")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+
+                    ForEach(TuckCorner.allCases) { corner in
+                        Button(corner.rawValue) {
+                            store.setTuckCornerSelectedSquare(corner)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
                     }
                 }
             }
@@ -397,7 +519,7 @@ struct ImaginaryStacksView: View {
                 .font(.system(size: 12, weight: .bold, design: .monospaced))
                 .foregroundStyle(.secondary)
 
-            TextField("e.g. R4:X1*Q3-S34-N35:Aa1", text: $store.composerMdc)
+            TextField("e.g. R4:X1*Q3-G17^^X1-<-N5-L1->", text: $store.composerMdc)
                 .textFieldStyle(.roundedBorder)
                 .font(.system(size: 13, design: .monospaced))
 
@@ -407,7 +529,7 @@ struct ImaginaryStacksView: View {
                 }
             }
             .pickerStyle(.segmented)
-            .frame(width: 310)
+            .frame(width: 410)
         }
     }
 

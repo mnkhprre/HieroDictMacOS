@@ -195,75 +195,81 @@ final class HieroDictStore: ObservableObject {
     }
 
     func addNewSquare(signCode: String = "S34") {
-        var squares = composerSquares
-        squares.append(signCode)
-        composerMdc = QuadratEngine.joinSquares(squares)
-        selectedSquareIndex = max(0, squares.count - 1)
+        let insertAfter = composerSquares.indices.contains(selectedSquareIndex) ? selectedSquareIndex : nil
+        composerMdc = QuadratEngine.insertSquare(signCode, after: insertAfter, in: composerMdc)
+        let newCount = composerSquares.count
+        selectedSquareIndex = insertAfter.map { min($0 + 1, max(0, newCount - 1)) } ?? max(0, newCount - 1)
         selectedSlotIndex = nil
     }
 
+    func addLineBreakSquare() {
+        composerMdc = QuadratEngine.appendLineBreak(to: composerMdc)
+        selectedSquareIndex = max(0, composerSquares.count - 1)
+        selectedSlotIndex = nil
+    }
+
+    func addLacunaSquare() {
+        addNewSquare(signCode: "//")
+    }
+
     func duplicateSelectedSquare() {
-        var squares = composerSquares
+        let squares = composerSquares
         guard squares.indices.contains(selectedSquareIndex) else { return }
         let copy = squares[selectedSquareIndex]
-        squares.insert(copy, at: selectedSquareIndex + 1)
-        composerMdc = QuadratEngine.joinSquares(squares)
+        composerMdc = QuadratEngine.insertSquare(copy, after: selectedSquareIndex, in: composerMdc)
         selectedSquareIndex += 1
         selectedSlotIndex = nil
     }
 
     func moveSelectedSquare(offset: Int) {
-        var squares = composerSquares
+        let squares = composerSquares
         let target = selectedSquareIndex + offset
         guard squares.indices.contains(selectedSquareIndex), squares.indices.contains(target) else { return }
-        squares.swapAt(selectedSquareIndex, target)
-        composerMdc = QuadratEngine.joinSquares(squares)
+        composerMdc = QuadratEngine.swapSquares(first: selectedSquareIndex, second: target, in: composerMdc)
         selectedSquareIndex = target
     }
 
     func deleteSelectedSquare() {
-        var squares = composerSquares
+        let squares = composerSquares
         guard squares.indices.contains(selectedSquareIndex) else { return }
-        squares.remove(at: selectedSquareIndex)
-        composerMdc = QuadratEngine.joinSquares(squares)
-        selectedSquareIndex = min(selectedSquareIndex, max(0, squares.count - 1))
+        composerMdc = QuadratEngine.removeSquare(at: selectedSquareIndex, in: composerMdc)
+        selectedSquareIndex = min(selectedSquareIndex, max(0, composerSquares.count - 1))
         selectedSlotIndex = nil
     }
 
     func applyTemplateToSelectedSquare(_ template: SquareTemplate) {
-        var squares = composerSquares
+        let squares = composerSquares
         if squares.isEmpty {
-            let formatted = template.format(slots: [])
-            composerMdc = formatted
+            composerMdc = template.format(slots: [])
             selectedSquareIndex = 0
             selectedSlotIndex = 0
             return
         }
         let idx = min(selectedSquareIndex, squares.count - 1)
-        squares[idx] = QuadratEngine.applyTemplate(template, toSquare: squares[idx])
-        composerMdc = QuadratEngine.joinSquares(squares)
+        let updated = QuadratEngine.applyTemplate(template, toSquare: squares[idx])
+        composerMdc = QuadratEngine.replaceSquare(at: idx, in: composerMdc, with: updated)
         selectedSquareIndex = idx
         selectedSlotIndex = 0
     }
 
     func insertSignIntoComposer(_ signCode: String, fallbackOperator op: QuadratOp) {
-        var squares = composerSquares
+        let squares = composerSquares
         if let slot = selectedSlotIndex, squares.indices.contains(selectedSquareIndex) {
-            squares[selectedSquareIndex] = QuadratEngine.replaceSlot(
+            let updated = QuadratEngine.replaceSlot(
                 inSquare: squares[selectedSquareIndex],
                 slotIndex: slot,
                 withCode: signCode
             )
-            composerMdc = QuadratEngine.joinSquares(squares)
-            let tokenCount = QuadratEngine.squareTokens(squareMdc: squares[selectedSquareIndex]).count
+            composerMdc = QuadratEngine.replaceSquare(at: selectedSquareIndex, in: composerMdc, with: updated)
+            let tokenCount = QuadratEngine.squareTokens(squareMdc: updated).count
             selectedSlotIndex = slot + 1 < tokenCount ? slot + 1 : nil
         } else if op != .nextQuadrat, squares.indices.contains(selectedSquareIndex) {
-            squares[selectedSquareIndex] = QuadratEngine.appendOperator(
+            let updated = QuadratEngine.appendOperator(
                 op,
                 signCode: signCode,
                 to: squares[selectedSquareIndex]
             )
-            composerMdc = QuadratEngine.joinSquares(squares)
+            composerMdc = QuadratEngine.replaceSquare(at: selectedSquareIndex, in: composerMdc, with: updated)
         } else {
             composerMdc = QuadratEngine.appendOperator(op, signCode: signCode, to: composerMdc)
             selectedSquareIndex = max(0, composerSquares.count - 1)
@@ -274,8 +280,63 @@ final class HieroDictStore: ObservableObject {
         insertSignIntoComposer(signCode, fallbackOperator: op)
     }
 
+    func transformActiveSlot(_ transform: (String) -> String) {
+        let squares = composerSquares
+        guard squares.indices.contains(selectedSquareIndex) else {
+            composerMdc = transform(composerMdc)
+            return
+        }
+        let square = squares[selectedSquareIndex]
+        let tokens = QuadratEngine.squareTokens(squareMdc: square)
+        guard !tokens.isEmpty else { return }
+        let targetSlot = selectedSlotIndex.flatMap { $0 < tokens.count ? $0 : nil } ?? (tokens.count - 1)
+        let updated = QuadratEngine.transformSlot(inSquare: square, slotIndex: targetSlot, transform: transform)
+        composerMdc = QuadratEngine.replaceSquare(at: selectedSquareIndex, in: composerMdc, with: updated)
+    }
+
+    func rotateActiveSlot() {
+        transformActiveSlot { QuadratEngine.cycleRotation(in: $0) }
+    }
+
+    func toggleMirrorActiveSlot() {
+        transformActiveSlot { QuadratEngine.toggleMirror(in: $0) }
+    }
+
+    func toggleRedActiveSlot() {
+        transformActiveSlot { QuadratEngine.toggleRed(in: $0) }
+    }
+
+    func toggleShadingActiveSlot() {
+        transformActiveSlot { QuadratEngine.toggleShading(in: $0) }
+    }
+
+    func setScaleActiveSlot(_ percent: Int) {
+        transformActiveSlot { QuadratEngine.setScalePercent(percent, in: $0) }
+    }
+
+    func toggleParenthesesSelectedSquare() {
+        let squares = composerSquares
+        guard squares.indices.contains(selectedSquareIndex) else { return }
+        let updated = QuadratEngine.wrapInParentheses(squares[selectedSquareIndex])
+        composerMdc = QuadratEngine.replaceSquare(at: selectedSquareIndex, in: composerMdc, with: updated)
+    }
+
+    func toggleCartoucheSelectedSquare() {
+        let squares = composerSquares
+        guard squares.indices.contains(selectedSquareIndex) else { return }
+        let updated = QuadratEngine.toggleInlineCartouche(squares[selectedSquareIndex])
+        composerMdc = QuadratEngine.replaceSquare(at: selectedSquareIndex, in: composerMdc, with: updated)
+    }
+
+    func setTuckCornerSelectedSquare(_ corner: TuckCorner) {
+        let squares = composerSquares
+        guard squares.indices.contains(selectedSquareIndex) else { return }
+        let updated = QuadratEngine.applyTuckCorner(corner, toSquare: squares[selectedSquareIndex])
+        composerMdc = QuadratEngine.replaceSquare(at: selectedSquareIndex, in: composerMdc, with: updated)
+    }
+
     func rotateLastComposerToken() {
-        composerMdc = QuadratEngine.toggleRotationOnLastAtom(in: composerMdc)
+        rotateActiveSlot()
     }
 
     func undoLastComposerToken() {
