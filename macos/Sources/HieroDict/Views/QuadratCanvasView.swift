@@ -40,10 +40,10 @@ struct QuadratWordView: View {
                     .font(.hiero(size: quadratSize * 0.72))
                     .foregroundStyle(.primary)
             } else if direction == .vertical {
-                HStack(alignment: .top, spacing: max(6, quadratSize * 0.24)) {
+                HStack(alignment: .top, spacing: max(6, quadratSize * 0.22)) {
                     let orderedLines = Array(indexedLines.reversed())
                     ForEach(orderedLines, id: \.lineId) { line in
-                        VStack(spacing: max(3, quadratSize * 0.12)) {
+                        VStack(spacing: max(3, quadratSize * 0.10)) {
                             ForEach(line.items, id: \.originalIndex) { item in
                                 quadratCell(item.node, originalIndex: item.originalIndex)
                             }
@@ -51,9 +51,9 @@ struct QuadratWordView: View {
                     }
                 }
             } else {
-                VStack(alignment: direction == .rtl ? .trailing : .leading, spacing: max(6, quadratSize * 0.24)) {
+                VStack(alignment: direction == .rtl ? .trailing : .leading, spacing: max(6, quadratSize * 0.22)) {
                     ForEach(indexedLines, id: \.lineId) { line in
-                        HStack(spacing: max(3, quadratSize * 0.12)) {
+                        HStack(spacing: max(3, quadratSize * 0.10)) {
                             ForEach(line.items, id: \.originalIndex) { item in
                                 quadratCell(item.node, originalIndex: item.originalIndex)
                             }
@@ -88,13 +88,15 @@ struct QuadratWordView: View {
         let isSelected = selectedSquareIndex == originalIndex
         if case .enclosure(_, let encFrame, let encChildren) = node {
             let orderedChildren = direction == .rtl ? Array(encChildren.reversed()) : encChildren
-            let innerContent = HStack(spacing: max(2, quadratSize * 0.09)) {
+            let innerContent = HStack(spacing: max(2, quadratSize * 0.08)) {
                 ForEach(Array(orderedChildren.enumerated()), id: \.offset) { _, child in
-                    let cw = quadratSize * cadratWidthFraction(for: child)
+                    let em = CadratLayoutSolver.measureEm(child)
+                    let cw = max(em.width, 0.24) * quadratSize
+                    let ch = min(em.height, 1.0) * quadratSize
                     QuadratNodeRenderer(
                         node: child,
-                        width: cw,
-                        height: quadratSize,
+                        placedSize: CGSize(width: cw, height: ch),
+                        unitSize: quadratSize,
                         globalFlip: direction == .rtl,
                         showSubGrid: showGrid
                     )
@@ -130,15 +132,19 @@ struct QuadratWordView: View {
 
             interactiveWrapper(wrapped, originalIndex: originalIndex)
         } else {
-            let cellWidth = quadratSize * cadratWidthFraction(for: node)
-            let cell = QuadratNodeRenderer(
+            let em = CadratLayoutSolver.measureEm(node)
+            let contentW = em.width * quadratSize
+            let contentH = em.height * quadratSize
+            let cellWidth = max(contentW + quadratSize * 0.04, quadratSize * 0.24)
+
+            QuadratNodeRenderer(
                 node: node,
-                width: cellWidth,
-                height: quadratSize,
+                placedSize: CGSize(width: contentW, height: contentH),
+                unitSize: quadratSize,
                 globalFlip: direction == .rtl,
                 showSubGrid: showGrid
             )
-            .frame(width: cellWidth, height: quadratSize)
+            .frame(width: cellWidth, height: quadratSize, alignment: .center)
             .background {
                 if isSelected {
                     RoundedRectangle(cornerRadius: 5, style: .continuous)
@@ -159,8 +165,7 @@ struct QuadratWordView: View {
                         )
                 }
             }
-
-            interactiveWrapper(cell, originalIndex: originalIndex)
+            .modifier(InteractiveCellModifier(onTap: onSelectSquare.map { cb in { cb(originalIndex) } }))
         }
     }
 
@@ -177,42 +182,95 @@ struct QuadratWordView: View {
             content
         }
     }
+}
 
-    private func cadratWidthFraction(for node: QuadratNode) -> CGFloat {
-        let weight = measureWidthWeight(for: node)
-        return min(max(weight, 0.44), 1.50)
+private struct InteractiveCellModifier: ViewModifier {
+    let onTap: (() -> Void)?
+
+    func body(content: Content) -> some View {
+        if let onTap {
+            Button(action: onTap) {
+                content
+            }
+            .buttonStyle(.plain)
+        } else {
+            content
+        }
     }
+}
 
-    private func measureWidthWeight(for node: QuadratNode) -> CGFloat {
+private enum CadratLayoutSolver {
+    static let verticalGapEm: CGFloat = 0.055
+    static let horizontalGapEm: CGFloat = 0.050
+    static let maxCadratWidthEm: CGFloat = 1.35
+
+    static func measureEm(_ node: QuadratNode) -> CGSize {
         switch node {
         case .atom(let atom):
-            let rawAspect = QuadratGlyphMetricsCache.shared.aspectRatio(for: atom.glyph)
-            let effectiveAspect = abs(atom.rotationDegrees.truncatingRemainder(dividingBy: 180)) == 90
-                ? rawAspect
-                : (1.0 / max(rawAspect, 0.2))
-            return min(max(effectiveAspect * atom.scale, 0.44), 1.32)
+            let base = QuadratGlyphMetricsCache.shared.designSizeEm(for: atom.glyph)
+            let isQuarterTurn = abs(atom.rotationDegrees.truncatingRemainder(dividingBy: 180)) == 90
+            let rawW = isQuarterTurn ? base.height : base.width
+            let rawH = isQuarterTurn ? base.width : base.height
+            let userScale = min(max(atom.scale, 0.25), 1.50)
+            var w = rawW * userScale
+            var h = rawH * userScale
+            if h > 1.0 {
+                let s = 1.0 / h
+                w *= s
+                h = 1.0
+            }
+            if w > maxCadratWidthEm {
+                let s = maxCadratWidthEm / w
+                w = maxCadratWidthEm
+                h *= s
+            }
+            return CGSize(width: w, height: h)
+
         case .ligature(_, let children):
-            return children.map { measureWidthWeight(for: $0) }.max() ?? 1.0
+            let sizes = children.map { measureEm($0) }
+            return CGSize(
+                width: sizes.map(\.width).max() ?? 0.6,
+                height: sizes.map(\.height).max() ?? 0.6
+            )
+
         case .tuck(_, let container, _, _):
-            return max(measureWidthWeight(for: container), 0.92)
-        case .vertical(_, let children):
-            let maxChild = children.map { measureWidthWeight(for: $0) }.max() ?? 0.9
-            return max(maxChild, 0.72)
+            return measureEm(container)
+
         case .horizontal(_, let children):
-            let sum = children.map { measureWidthWeight(for: $0) }.reduce(0, +)
-            return min(max(sum * 0.88, 0.82), 1.50)
+            guard !children.isEmpty else { return CGSize(width: 0.5, height: 0.5) }
+            let sizes = children.map { measureEm($0) }
+            let totalW = sizes.map(\.width).reduce(0, +) + horizontalGapEm * CGFloat(max(0, children.count - 1))
+            let maxH = sizes.map(\.height).max() ?? 0.3
+            let fitScale = totalW > maxCadratWidthEm ? (maxCadratWidthEm / totalW) : 1.0
+            return CGSize(width: totalW * fitScale, height: maxH * fitScale)
+
+        case .vertical(_, let children):
+            guard !children.isEmpty else { return CGSize(width: 0.5, height: 0.5) }
+            let sizes = children.map { measureEm($0) }
+            let maxChildW = sizes.map(\.width).max() ?? 0.5
+            let wScale = maxChildW > maxCadratWidthEm ? (maxCadratWidthEm / maxChildW) : 1.0
+            let sumH = sizes.map { $0.height * wScale }.reduce(0, +)
+                + verticalGapEm * CGFloat(max(0, children.count - 1))
+            let hScale = sumH > 1.0 ? (1.0 / sumH) : 1.0
+            return CGSize(width: maxChildW * wScale * hScale, height: sumH * hScale)
+
         case .enclosure(_, _, let children):
-            return max(children.map { measureWidthWeight(for: $0) }.reduce(0, +), 1.0)
+            guard !children.isEmpty else { return CGSize(width: 0.9, height: 0.9) }
+            let sizes = children.map { measureEm($0) }
+            let totalW = sizes.map(\.width).reduce(0, +) + horizontalGapEm * CGFloat(max(0, children.count - 1))
+            let maxH = sizes.map(\.height).max() ?? 0.8
+            return CGSize(width: totalW, height: maxH)
+
         case .lacuna:
-            return 0.92
+            return CGSize(width: 0.90, height: 0.90)
         }
     }
 }
 
 private struct QuadratNodeRenderer: View {
     let node: QuadratNode
-    let width: CGFloat
-    let height: CGFloat
+    let placedSize: CGSize
+    let unitSize: CGFloat
     let globalFlip: Bool
     let showSubGrid: Bool
 
@@ -223,8 +281,8 @@ private struct QuadratNodeRenderer: View {
             let isFlipped = globalFlip != atom.mirrored
             QuadratGlyphVectorView(
                 glyph: atom.glyph,
-                width: width,
-                height: height,
+                width: max(2, placedSize.width),
+                height: max(2, placedSize.height),
                 rotationDegrees: atom.rotationDegrees,
                 isFlipped: isFlipped,
                 scale: atom.scale,
@@ -233,40 +291,63 @@ private struct QuadratNodeRenderer: View {
             )
 
         case .ligature(_, let children):
+            let natural = CadratLayoutSolver.measureEm(node)
+            let localScale = min(
+                placedSize.width / max(natural.width, 0.01),
+                placedSize.height / max(natural.height, 0.01)
+            )
             ZStack {
                 ForEach(Array(children.enumerated()), id: \.offset) { idx, child in
-                    let factor: CGFloat = idx == 0 ? 1.0 : 0.62
+                    let childEm = CadratLayoutSolver.measureEm(child)
+                    let factor: CGFloat = idx == 0 ? 1.0 : 0.65
+                    let childSize = CGSize(
+                        width: childEm.width * localScale * factor,
+                        height: childEm.height * localScale * factor
+                    )
                     QuadratNodeRenderer(
                         node: child,
-                        width: width * factor,
-                        height: height * factor,
+                        placedSize: childSize,
+                        unitSize: unitSize,
                         globalFlip: globalFlip,
                         showSubGrid: false
                     )
                 }
             }
-            .frame(width: width, height: height)
+            .frame(width: placedSize.width, height: placedSize.height)
 
         case .tuck(_, let container, let tucked, let corner):
             let resolvedCorner = resolveTuckCorner(corner, container: container)
-            let tuckW = width * 0.44
-            let tuckH = height * 0.44
-            let padX = max(1, width * 0.04)
-            let padY = max(1, height * 0.04)
+            let containerEm = CadratLayoutSolver.measureEm(container)
+            let tuckedEm = CadratLayoutSolver.measureEm(tucked)
+            let containerScale = min(
+                placedSize.width / max(containerEm.width, 0.01),
+                placedSize.height / max(containerEm.height, 0.01)
+            )
+            let containerW = containerEm.width * containerScale
+            let containerH = containerEm.height * containerScale
+
+            let pocketLimit = min(containerW, containerH) * 0.44
+            let rawTuckW = tuckedEm.width * containerScale
+            let rawTuckH = tuckedEm.height * containerScale
+            let tuckFit = min(1.0, pocketLimit / max(max(rawTuckW, rawTuckH), 0.01))
+            let tuckW = max(4, rawTuckW * tuckFit)
+            let tuckH = max(4, rawTuckH * tuckFit)
+            let padX = max(1, containerW * 0.03)
+            let padY = max(1, containerH * 0.03)
 
             ZStack(alignment: alignment(for: resolvedCorner)) {
                 QuadratNodeRenderer(
                     node: container,
-                    width: width,
-                    height: height,
+                    placedSize: CGSize(width: containerW, height: containerH),
+                    unitSize: unitSize,
                     globalFlip: globalFlip,
                     showSubGrid: showSubGrid
                 )
 
                 QuadratNodeRenderer(
                     node: tucked,
-                    width: tuckW,
-                    height: tuckH,
+                    placedSize: CGSize(width: tuckW, height: tuckH),
+                    unitSize: unitSize,
                     globalFlip: globalFlip,
                     showSubGrid: false
                 )
@@ -283,24 +364,31 @@ private struct QuadratNodeRenderer: View {
                 .padding(.horizontal, padX)
                 .padding(.vertical, padY)
             }
-            .frame(width: width, height: height)
+            .frame(width: containerW, height: containerH)
 
         case .vertical(_, let children):
-            let spacing = max(1, height * 0.04)
-            let availableHeight = max(8, height - spacing * CGFloat(max(0, children.count - 1)))
-            let weights = children.map { naturalHeightWeight(for: $0) }
-            let totalWeight = max(0.1, weights.reduce(0, +))
+            let childEms = children.map { CadratLayoutSolver.measureEm($0) }
+            let naturalTotalH = childEms.map(\.height).reduce(0, +)
+                + CadratLayoutSolver.verticalGapEm * CGFloat(max(0, children.count - 1))
+            let naturalMaxW = childEms.map(\.width).max() ?? 0.5
+            let scale = min(
+                placedSize.height / max(naturalTotalH, 0.01),
+                placedSize.width / max(naturalMaxW, 0.01)
+            )
+            let vGap = CadratLayoutSolver.verticalGapEm * scale
 
-            VStack(spacing: spacing) {
+            VStack(spacing: vGap) {
                 ForEach(Array(children.enumerated()), id: \.offset) { idx, child in
-                    let tierHeight = max(6, availableHeight * (weights[idx] / totalWeight))
+                    let childW = max(2, childEms[idx].width * scale)
+                    let childH = max(2, childEms[idx].height * scale)
                     QuadratNodeRenderer(
                         node: child,
-                        width: width,
-                        height: tierHeight,
+                        placedSize: CGSize(width: childW, height: childH),
+                        unitSize: unitSize,
                         globalFlip: globalFlip,
                         showSubGrid: showSubGrid
                     )
+                    .frame(width: childW, height: childH)
                     .overlay {
                         if showSubGrid && children.count > 1 {
                             Rectangle()
@@ -312,25 +400,32 @@ private struct QuadratNodeRenderer: View {
                     }
                 }
             }
-            .frame(width: width, height: height)
+            .frame(width: naturalMaxW * scale, height: naturalTotalH * scale)
 
         case .horizontal(_, let children):
             let ordered = globalFlip ? Array(children.reversed()) : children
-            let spacing = max(1, width * 0.04)
-            let availableWidth = max(8, width - spacing * CGFloat(max(0, ordered.count - 1)))
-            let weights = ordered.map { naturalWidthWeight(for: $0) }
-            let totalWeight = max(0.1, weights.reduce(0, +))
+            let childEms = ordered.map { CadratLayoutSolver.measureEm($0) }
+            let naturalTotalW = childEms.map(\.width).reduce(0, +)
+                + CadratLayoutSolver.horizontalGapEm * CGFloat(max(0, ordered.count - 1))
+            let naturalMaxH = childEms.map(\.height).max() ?? 0.4
+            let scale = min(
+                placedSize.width / max(naturalTotalW, 0.01),
+                placedSize.height / max(naturalMaxH, 0.01)
+            )
+            let hGap = CadratLayoutSolver.horizontalGapEm * scale
 
-            HStack(spacing: spacing) {
+            HStack(spacing: hGap) {
                 ForEach(Array(ordered.enumerated()), id: \.offset) { idx, child in
-                    let cellWidth = max(6, availableWidth * (weights[idx] / totalWeight))
+                    let childW = max(2, childEms[idx].width * scale)
+                    let childH = max(2, childEms[idx].height * scale)
                     QuadratNodeRenderer(
                         node: child,
-                        width: cellWidth,
-                        height: height,
+                        placedSize: CGSize(width: childW, height: childH),
+                        unitSize: unitSize,
                         globalFlip: globalFlip,
                         showSubGrid: showSubGrid
                     )
+                    .frame(width: childW, height: childH)
                     .overlay {
                         if showSubGrid && ordered.count > 1 {
                             Rectangle()
@@ -342,16 +437,27 @@ private struct QuadratNodeRenderer: View {
                     }
                 }
             }
-            .frame(width: width, height: height)
+            .frame(width: naturalTotalW * scale, height: naturalMaxH * scale)
 
         case .enclosure(_, let frame, let children):
             let ordered = globalFlip ? Array(children.reversed()) : children
-            HStack(spacing: max(2, width * 0.06)) {
-                ForEach(Array(ordered.enumerated()), id: \.offset) { _, child in
+            let childEms = ordered.map { CadratLayoutSolver.measureEm($0) }
+            let naturalTotalW = childEms.map(\.width).reduce(0, +)
+                + CadratLayoutSolver.horizontalGapEm * CGFloat(max(0, ordered.count - 1))
+            let naturalMaxH = childEms.map(\.height).max() ?? 0.7
+            let scale = min(
+                (placedSize.width * 0.88) / max(naturalTotalW, 0.01),
+                (placedSize.height * 0.84) / max(naturalMaxH, 0.01)
+            )
+
+            HStack(spacing: CadratLayoutSolver.horizontalGapEm * scale) {
+                ForEach(Array(ordered.enumerated()), id: \.offset) { idx, child in
+                    let childW = max(2, childEms[idx].width * scale)
+                    let childH = max(2, childEms[idx].height * scale)
                     QuadratNodeRenderer(
                         node: child,
-                        width: width / CGFloat(max(1, ordered.count)),
-                        height: height * 0.85,
+                        placedSize: CGSize(width: childW, height: childH),
+                        unitSize: unitSize,
                         globalFlip: globalFlip,
                         showSubGrid: showSubGrid
                     )
@@ -359,19 +465,19 @@ private struct QuadratNodeRenderer: View {
             }
             .padding(4)
             .overlay(
-                RoundedRectangle(cornerRadius: frame == .cartouche ? height * 0.4 : 2, style: .continuous)
+                RoundedRectangle(cornerRadius: frame == .cartouche ? placedSize.height * 0.4 : 2, style: .continuous)
                     .stroke(AppTheme.slateAccent, lineWidth: 1.4)
             )
-            .frame(width: width, height: height)
+            .frame(width: placedSize.width, height: placedSize.height)
 
         case .lacuna(_, let shading):
             EpigraphicHatchOverlay(shading: shading == .none ? .full : shading)
-                .frame(width: width * 0.90, height: height * 0.90)
+                .frame(width: placedSize.width * 0.92, height: placedSize.height * 0.92)
                 .overlay(
                     RoundedRectangle(cornerRadius: 3, style: .continuous)
                         .stroke(Color.primary.opacity(0.30), style: StrokeStyle(lineWidth: 0.8, dash: [3, 2]))
                 )
-                .frame(width: width, height: height)
+                .frame(width: placedSize.width, height: placedSize.height)
         }
     }
 
@@ -400,52 +506,6 @@ private struct QuadratNodeRenderer: View {
         case .bottomLeft: return .bottomLeading
         case .bottomRight: return .bottomTrailing
         case .center: return .center
-        }
-    }
-
-    private func naturalHeightWeight(for node: QuadratNode) -> CGFloat {
-        switch node {
-        case .atom(let atom):
-            let rawAspect = QuadratGlyphMetricsCache.shared.aspectRatio(for: atom.glyph)
-            let effective = abs(atom.rotationDegrees.truncatingRemainder(dividingBy: 180)) == 90
-                ? (1.0 / max(rawAspect, 0.2))
-                : rawAspect
-            return min(max(effective * atom.scale, 0.28), 1.45)
-        case .ligature(_, let children):
-            return children.map { naturalHeightWeight(for: $0) }.max() ?? 1.0
-        case .tuck(_, let container, _, _):
-            return naturalHeightWeight(for: container)
-        case .horizontal(_, let children):
-            return children.map { naturalHeightWeight(for: $0) }.max() ?? 0.6
-        case .vertical(_, let children):
-            return min(children.map { naturalHeightWeight(for: $0) }.reduce(0, +), 2.0)
-        case .enclosure(_, _, let children):
-            return children.map { naturalHeightWeight(for: $0) }.max() ?? 1.0
-        case .lacuna:
-            return 1.0
-        }
-    }
-
-    private func naturalWidthWeight(for node: QuadratNode) -> CGFloat {
-        switch node {
-        case .atom(let atom):
-            let rawAspect = QuadratGlyphMetricsCache.shared.aspectRatio(for: atom.glyph)
-            let effective = abs(atom.rotationDegrees.truncatingRemainder(dividingBy: 180)) == 90
-                ? rawAspect
-                : (1.0 / max(rawAspect, 0.2))
-            return min(max(effective * atom.scale, 0.36), 1.6)
-        case .ligature(_, let children):
-            return children.map { naturalWidthWeight(for: $0) }.max() ?? 1.0
-        case .tuck(_, let container, _, _):
-            return naturalWidthWeight(for: container)
-        case .vertical(_, let children):
-            return children.map { naturalWidthWeight(for: $0) }.max() ?? 0.8
-        case .horizontal(_, let children):
-            return min(children.map { naturalWidthWeight(for: $0) }.reduce(0, +), 2.0)
-        case .enclosure(_, _, let children):
-            return max(children.map { naturalWidthWeight(for: $0) }.reduce(0, +), 1.0)
-        case .lacuna:
-            return 1.0
         }
     }
 }

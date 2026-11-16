@@ -23,13 +23,13 @@ enum ResourceLocator {
 
 enum FontRegistrar {
     private static var hasRegistered = false
-    private(set) static var hieroFontName: String = "Nilus"
+    private(set) static var hieroFontName: String = "Abydos"
 
     static func registerFonts() {
         guard !hasRegistered else { return }
         hasRegistered = true
 
-        let fontFiles = ["nilus", "abydos_r", "abydos_b"]
+        let fontFiles = ["abydos_r", "abydos_b", "nilus"]
         var registeredNames: [String] = []
 
         for file in fontFiles {
@@ -42,10 +42,12 @@ enum FontRegistrar {
             }
         }
 
-        if let nilus = registeredNames.first(where: { $0.localizedCaseInsensitiveContains("Nilus") }) {
-            hieroFontName = nilus
-        } else if let abydos = registeredNames.first {
+        if let abydos = registeredNames.first(where: { $0.localizedCaseInsensitiveCompare("Abydos") == .orderedSame }) {
             hieroFontName = abydos
+        } else if let anyAbydos = registeredNames.first(where: { $0.localizedCaseInsensitiveContains("Abydos") }) {
+            hieroFontName = anyAbydos
+        } else if let fallback = registeredNames.first {
+            hieroFontName = fallback
         }
     }
 }

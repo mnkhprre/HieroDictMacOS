@@ -28,6 +28,7 @@ struct QuadrantInkDensity {
 struct CachedGlyphVector {
     let path: CGPath
     let boundingBox: CGRect
+    let designSizeEm: CGSize
     let naturalAspectRatio: CGFloat
     let inkDensity: QuadrantInkDensity
 }
@@ -35,11 +36,14 @@ struct CachedGlyphVector {
 final class QuadratGlyphMetricsCache {
     static let shared = QuadratGlyphMetricsCache()
 
+    private static let referencePointSize: CGFloat = 100.0
+    private static let cadratReferenceHeight: CGFloat = 94.0
+
     private var cache: [String: CachedGlyphVector] = [:]
     private let lock = NSLock()
     private lazy var primaryFont: CTFont = {
         FontRegistrar.registerFonts()
-        return CTFontCreateWithName(FontRegistrar.hieroFontName as CFString, 100.0, nil)
+        return CTFontCreateWithName(FontRegistrar.hieroFontName as CFString, Self.referencePointSize, nil)
     }()
 
     func vector(for glyph: String) -> CachedGlyphVector? {
@@ -58,6 +62,10 @@ final class QuadratGlyphMetricsCache {
             lock.unlock()
         }
         return built
+    }
+
+    func designSizeEm(for glyph: String) -> CGSize {
+        vector(for: glyph)?.designSizeEm ?? CGSize(width: 0.75, height: 0.75)
     }
 
     func aspectRatio(for glyph: String) -> CGFloat {
@@ -116,11 +124,14 @@ final class QuadratGlyphMetricsCache {
         let bbox = combined.boundingBoxOfPath
         guard bbox.width > 0.1, bbox.height > 0.1 else { return nil }
 
-        let ratio = min(max(bbox.height / bbox.width, 0.18), 3.4)
+        let designW = max(bbox.width / Self.cadratReferenceHeight, 0.08)
+        let designH = max(bbox.height / Self.cadratReferenceHeight, 0.08)
+        let ratio = min(max(bbox.height / bbox.width, 0.14), 5.0)
         let density = measureInkDensity(in: combined, bbox: bbox)
         return CachedGlyphVector(
             path: combined,
             boundingBox: bbox,
+            designSizeEm: CGSize(width: designW, height: designH),
             naturalAspectRatio: ratio,
             inkDensity: density
         )
@@ -234,8 +245,7 @@ struct QuadratGlyphVectorView: View {
             let isQuarterTurn = abs(rotationDegrees.truncatingRemainder(dividingBy: 180)) == 90
             let effectiveW = isQuarterTurn ? bbox.height : bbox.width
             let effectiveH = isQuarterTurn ? bbox.width : bbox.height
-            let baseFactor = 0.90 * min(max(scale, 0.25), 1.35)
-            let fitScale = min((width * baseFactor) / max(effectiveW, 1), (height * baseFactor) / max(effectiveH, 1))
+            let fitScale = min((width * 0.96) / max(effectiveW, 0.5), (height * 0.96) / max(effectiveH, 0.5))
             let rad = CGFloat(rotationDegrees * .pi / 180.0)
 
             var transform = CGAffineTransform.identity
@@ -259,9 +269,9 @@ struct QuadratGlyphVectorView: View {
 
     private var fallbackText: some View {
         Text(glyph)
-            .font(.hiero(size: max(10, min(width, height) * 0.85 * min(max(scale, 0.3), 1.3))))
+            .font(.hiero(size: max(8, min(width, height) * 0.85)))
             .foregroundStyle(inkColor)
-            .minimumScaleFactor(0.35)
+            .minimumScaleFactor(0.3)
             .lineLimit(1)
             .rotationEffect(.degrees(rotationDegrees))
             .scaleEffect(x: isFlipped ? -1 : 1, y: 1)
