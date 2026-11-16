@@ -96,8 +96,13 @@ struct SearchView: View {
                     )) {
                         Section("\(store.searchResults.count) results") {
                             ForEach(store.searchResults) { entry in
-                                SearchResultRow(entry: entry, glyphScale: glyphScale)
-                                    .tag(entry.id)
+                                SearchResultRow(
+                                    entry: entry,
+                                    glyphScale: glyphScale,
+                                    signLookup: store.signCache,
+                                    useQuadrat: store.useQuadratLayout
+                                )
+                                .tag(entry.id)
                             }
                         }
                     }
@@ -197,10 +202,18 @@ struct SearchView: View {
 private struct SearchResultRow: View {
     let entry: HieroEntry
     let glyphScale: GlyphScale
+    let signLookup: [String: GardinerSign]
+    let useQuadrat: Bool
 
     var body: some View {
         HStack(spacing: 12) {
-            HieroGlyphBox(glyph: entry.glyph, fontSize: glyphScale.listFontSize)
+            HieroGlyphBox(
+                glyph: entry.glyph,
+                fontSize: glyphScale.listFontSize,
+                mdc: entry.mdc,
+                signLookup: signLookup,
+                useQuadrat: useQuadrat
+            )
 
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 8) {

@@ -42,6 +42,7 @@ struct GardinerCategory: Identifiable, Hashable {
 enum SidebarSection: String, CaseIterable, Identifiable {
     case search = "Search"
     case dictionary = "Dictionary"
+    case stacks = "Imaginary Stacks"
     case signList = "Sign List"
     case about = "About"
 
@@ -51,6 +52,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
         switch self {
         case .search: return "magnifyingglass"
         case .dictionary: return "book.closed"
+        case .stacks: return "square.stack.3d.up"
         case .signList: return "square.grid.2x2"
         case .about: return "info.circle"
         }

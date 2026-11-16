@@ -3,22 +3,36 @@ import SwiftUI
 struct HieroGlyphBox: View {
     let glyph: String
     let fontSize: CGFloat
-    var minWidth: CGFloat = 84
-    var maxWidth: CGFloat = 120
+    var mdc: String? = nil
+    var signLookup: [String: GardinerSign] = [:]
+    var useQuadrat: Bool = false
+    var minWidth: CGFloat = 88
+    var maxWidth: CGFloat = 152
     var verticalPadding: CGFloat = 8
 
     var body: some View {
-        Text(glyph.isEmpty ? "—" : glyph)
-            .font(.hiero(size: fontSize))
-            .foregroundStyle(.primary)
-            .multilineTextAlignment(.center)
-            .frame(minWidth: minWidth, maxWidth: maxWidth)
-            .padding(.horizontal, 8)
-            .padding(.vertical, verticalPadding)
-            .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(AppTheme.glyphTileBackground)
-            )
+        Group {
+            if useQuadrat, let mdc, !mdc.isEmpty {
+                QuadratWordView(
+                    mdc: mdc,
+                    fallbackGlyph: glyph,
+                    signLookup: signLookup,
+                    quadratSize: fontSize * 1.15
+                )
+            } else {
+                Text(glyph.isEmpty ? "—" : glyph)
+                    .font(.hiero(size: fontSize))
+                    .foregroundStyle(.primary)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .frame(minWidth: minWidth, maxWidth: maxWidth)
+        .padding(.horizontal, 8)
+        .padding(.vertical, verticalPadding)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(AppTheme.glyphTileBackground)
+        )
     }
 }
 

@@ -34,9 +34,13 @@ struct MainSplitView: View {
                         Text("\(store.totalSignCount)")
                             .foregroundStyle(.secondary)
                     }
+                    LabeledContent("Saved Stacks") {
+                        Text("\(store.savedStacks.count)")
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
-            .navigationSplitViewColumnWidth(min: 190, ideal: 215, max: 260)
+            .navigationSplitViewColumnWidth(min: 195, ideal: 220, max: 265)
         } detail: {
             Group {
                 if let error = store.errorMessage {
@@ -64,6 +68,8 @@ struct MainSplitView: View {
                             store: store,
                             glyphScale: glyphScale
                         )
+                    case .stacks:
+                        ImaginaryStacksView(store: store)
                     case .signList:
                         SignListView(store: store)
                     case .about:
@@ -87,19 +93,36 @@ struct MainSplitView: View {
                 WordInspectorView(
                     entry: entry,
                     glyphScale: glyphScale,
+                    signLookup: store.signCache,
+                    useQuadrat: store.useQuadratLayout,
                     onClose: { store.selectWord(nil) },
                     onToggleFavorite: { store.toggleFavorite(id: $0) },
                     onSignSelected: { code in
                         store.filterBySign(code)
                     },
+                    onOpenInStackStudio: { selected in
+                        store.openInStackStudio(selected)
+                    },
                     getSignDetails: { code in
                         store.signDetails(for: code)
                     }
                 )
-                .inspectorColumnWidth(min: 280, ideal: 320, max: 380)
+                .inspectorColumnWidth(min: 280, ideal: 330, max: 390)
             }
         }
         .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    store.useQuadratLayout.toggle()
+                } label: {
+                    Label(
+                        store.useQuadratLayout ? "Quadrat View" : "Linear View",
+                        systemImage: store.useQuadratLayout ? "square.grid.2x2.fill" : "text.alignleft"
+                    )
+                }
+                .help("Toggle MdC Quadrat Stacking")
+            }
+
             ToolbarItem(placement: .primaryAction) {
                 Menu {
                     Picker("Hieroglyph Size", selection: $glyphScaleRaw) {

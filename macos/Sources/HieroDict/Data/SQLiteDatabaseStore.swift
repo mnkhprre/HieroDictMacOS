@@ -17,6 +17,7 @@ final class SQLiteDatabaseStore {
         }
         self.db = handle
         sqlite3_busy_timeout(handle, 3000)
+        ensureCustomStacksTable()
     }
 
     deinit {
@@ -221,6 +222,82 @@ final class SQLiteDatabaseStore {
                 sqlite3_step(stmt)
             }
         }
+    }
+
+    func fetchSavedStacks() -> [SavedStack] {
+        queue.sync {
+            guard let db else { return [] }
+            let sql = "SELECT id, title, mdc, direction, frameMode, createdAt FROM custom_stacks ORDER BY createdAt DESC, id DESC"
+            var stmt: OpaquePointer?
+            defer { sqlite3_finalize(stmt) }
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+
+            var items: [SavedStack] = []
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                let id = Int(sqlite3_column_int(stmt, 0))
+                let title = columnString(stmt, 1)
+                let mdc = columnString(stmt, 2)
+                let dirRaw = columnString(stmt, 3)
+                let frameRaw = columnString(stmt, 4)
+                let ts = sqlite3_column_double(stmt, 5)
+                items.append(
+                    SavedStack(
+                        id: id,
+                        title: title,
+                        mdc: mdc,
+                        direction: ReadingDirection(rawValue: dirRaw) ?? .ltr,
+                        frame: EnclosureFrame(rawValue: frameRaw) ?? .none,
+                        createdAt: Date(timeIntervalSince1970: ts)
+                    )
+                )
+            }
+            return items
+        }
+    }
+
+    func saveStack(title: String, mdc: String, direction: ReadingDirection, frame: EnclosureFrame) {
+        queue.sync {
+            guard let db else { return }
+            let sql = "INSERT INTO custom_stacks (title, mdc, direction, frameMode, createdAt) VALUES (?, ?, ?, ?, ?)"
+            var stmt: OpaquePointer?
+            defer { sqlite3_finalize(stmt) }
+            if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_text(stmt, 1, title, -1, transientDestructor)
+                sqlite3_bind_text(stmt, 2, mdc, -1, transientDestructor)
+                sqlite3_bind_text(stmt, 3, direction.rawValue, -1, transientDestructor)
+                sqlite3_bind_text(stmt, 4, frame.rawValue, -1, transientDestructor)
+                sqlite3_bind_double(stmt, 5, Date().timeIntervalSince1970)
+                sqlite3_step(stmt)
+            }
+        }
+    }
+
+    func deleteStack(id: Int) {
+        queue.sync {
+            guard let db else { return }
+            let sql = "DELETE FROM custom_stacks WHERE id = ?"
+            var stmt: OpaquePointer?
+            defer { sqlite3_finalize(stmt) }
+            if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+                sqlite3_bind_int(stmt, 1, Int32(id))
+                sqlite3_step(stmt)
+            }
+        }
+    }
+
+    private func ensureCustomStacksTable() {
+        guard let db else { return }
+        let sql = """
+        CREATE TABLE IF NOT EXISTS custom_stacks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            mdc TEXT NOT NULL,
+            direction TEXT NOT NULL,
+            frameMode TEXT NOT NULL,
+            createdAt REAL NOT NULL
+        )
+        """
+        sqlite3_exec(db, sql, nil, nil, nil)
     }
 
     private func queryEntries(sql: String, bindings: [String]) -> [HieroEntry] {

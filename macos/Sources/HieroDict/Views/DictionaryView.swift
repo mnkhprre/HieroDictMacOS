@@ -86,6 +86,8 @@ struct DictionaryView: View {
                         DictionaryWordRow(
                             entry: entry,
                             glyphScale: glyphScale,
+                            signLookup: store.signCache,
+                            useQuadrat: store.useQuadratLayout,
                             onToggleFavorite: { store.toggleFavorite(id: entry.id) }
                         )
                         .tag(entry.id)
@@ -100,11 +102,19 @@ struct DictionaryView: View {
 private struct DictionaryWordRow: View {
     let entry: HieroEntry
     let glyphScale: GlyphScale
+    let signLookup: [String: GardinerSign]
+    let useQuadrat: Bool
     let onToggleFavorite: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
-            HieroGlyphBox(glyph: entry.glyph, fontSize: glyphScale.listFontSize)
+            HieroGlyphBox(
+                glyph: entry.glyph,
+                fontSize: glyphScale.listFontSize,
+                mdc: entry.mdc,
+                signLookup: signLookup,
+                useQuadrat: useQuadrat
+            )
 
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 8) {

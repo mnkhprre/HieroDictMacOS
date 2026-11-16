@@ -14,12 +14,26 @@ final class HieroDictStore: ObservableObject {
     @Published var dictionaryEntries: [HieroEntry] = []
     @Published var searchResults: [HieroEntry] = []
     @Published var categories: [GardinerCategory] = []
+    @Published var savedStacks: [SavedStack] = []
     @Published var isLoaded: Bool = false
     @Published var errorMessage: String? = nil
     @Published var focusSearchTrigger: Int = 0
+    @Published var useQuadratLayout: Bool = true
+
+    @Published var composerTitle: String = "Offering of Peace"
+    @Published var composerMdc: String = "R4:X1*Q3-S34-N35:Aa1"
+    @Published var composerDirection: ReadingDirection = .ltr
+    @Published var composerFrame: EnclosureFrame = .none
+    @Published var composerShowGrid: Bool = true
+
+    @Published var menuBarSearchMode: SearchMode = .english
+    @Published var menuBarSearchQuery: String = ""
+    @Published var menuBarResults: [HieroEntry] = []
+    @Published var menuBarSelectedWord: HieroEntry? = nil
+
+    @Published private(set) var signCache: [String: GardinerSign] = [:]
 
     private var database: SQLiteDatabaseStore?
-    private var signCache: [String: GardinerSign] = [:]
 
     var totalSignCount: Int {
         categories.reduce(0) { $0 + $1.signs.count }
@@ -42,6 +56,28 @@ final class HieroDictStore: ObservableObject {
         }
     }
 
+    var matchingEntriesForComposer: [HieroEntry] {
+        let glyphs = QuadratEngine.resolveUnicodeString(mdc: composerMdc, signLookup: signCache)
+        let scalars = Set(glyphs.unicodeScalars.map { String($0) })
+        guard !scalars.isEmpty else { return [] }
+
+        let exact = allEntries.filter { $0.mdc.caseInsensitiveCompare(composerMdc.trimmingCharacters(in: .whitespaces)) == .orderedSame }
+        if !exact.isEmpty {
+            return exact
+        }
+
+        let scored: [(HieroEntry, Int)] = allEntries.compactMap { entry in
+            let entryScalars = Set(entry.glyph.unicodeScalars.map { String($0) })
+            let overlap = scalars.intersection(entryScalars).count
+            guard overlap >= min(2, scalars.count) else { return nil }
+            return (entry, overlap)
+        }
+        return scored
+            .sorted { $0.1 > $1.1 }
+            .prefix(12)
+            .map { $0.0 }
+    }
+
     init() {
         loadInitialData()
     }
@@ -56,6 +92,7 @@ final class HieroDictStore: ObservableObject {
             self.allEntries = loadedEntries
             self.dictionaryEntries = loadedEntries
             self.categories = loadedCategories
+            self.savedStacks = store.fetchSavedStacks()
             var cache: [String: GardinerSign] = [:]
             for cat in loadedCategories {
                 for sign in cat.signs {
@@ -129,6 +166,113 @@ final class HieroDictStore: ObservableObject {
         return database?.fetchSignDetails(code: code)
     }
 
+    func openInStackStudio(_ entry: HieroEntry) {
+        composerTitle = entry.displayTranslit.isEmpty ? entry.mdc : "\(entry.displayTranslit) — \(entry.translation)"
+        composerMdc = entry.mdc
+        composerDirection = .ltr
+        composerFrame = .none
+        selectedSection = .stacks
+    }
+
+    func appendToComposer(signCode: String, operator op: QuadratOp) {
+        composerMdc = QuadratEngine.appendOperator(op, signCode: signCode, to: composerMdc)
+    }
+
+    func rotateLastComposerToken() {
+        composerMdc = QuadratEngine.toggleRotationOnLastAtom(in: composerMdc)
+    }
+
+    func undoLastComposerToken() {
+        composerMdc = QuadratEngine.removeLastToken(from: composerMdc)
+    }
+
+    func clearComposer() {
+        composerMdc = ""
+        composerTitle = "Imaginary Stack"
+    }
+
+    func generateRandomImaginaryStack() {
+        let generated = QuadratEngine.generateImaginaryStack(signLookup: signCache)
+        composerTitle = generated.title
+        composerMdc = generated.mdc
+    }
+
+    func applyPreset(_ preset: ImaginaryStackPreset) {
+        composerTitle = preset.title
+        composerMdc = preset.mdc
+        composerDirection = preset.direction
+        composerFrame = preset.frame
+    }
+
+    func applySavedStack(_ stack: SavedStack) {
+        composerTitle = stack.title
+        composerMdc = stack.mdc
+        composerDirection = stack.direction
+        composerFrame = stack.frame
+    }
+
+    func saveCurrentComposerStack() {
+        let cleanMdc = composerMdc.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanMdc.isEmpty else { return }
+        let title = composerTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? "Imaginary Stack"
+            : composerTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        database?.saveStack(
+            title: title,
+            mdc: cleanMdc,
+            direction: composerDirection,
+            frame: composerFrame
+        )
+        savedStacks = database?.fetchSavedStacks() ?? []
+    }
+
+    func deleteSavedStack(id: Int) {
+        database?.deleteStack(id: id)
+        savedStacks = database?.fetchSavedStacks() ?? []
+    }
+
+    func onMenuBarModeChange(_ mode: SearchMode) {
+        menuBarSearchMode = mode
+        menuBarSearchQuery = ""
+        menuBarResults = []
+        menuBarSelectedWord = nil
+    }
+
+    func updateMenuBarQuery(_ query: String) {
+        menuBarSearchQuery = query
+        menuBarSelectedWord = nil
+        runMenuBarSearch()
+    }
+
+    func appendMenuBarGlyph(_ glyph: String) {
+        menuBarSearchQuery += glyph
+        menuBarSelectedWord = nil
+        runMenuBarSearch()
+    }
+
+    func backspaceMenuBarQuery() {
+        guard !menuBarSearchQuery.isEmpty else { return }
+        menuBarSearchQuery.removeLast()
+        menuBarSelectedWord = nil
+        runMenuBarSearch()
+    }
+
+    func clearMenuBarQuery() {
+        menuBarSearchQuery = ""
+        menuBarResults = []
+        menuBarSelectedWord = nil
+    }
+
+    private func runMenuBarSearch() {
+        guard let database else { return }
+        let trimmed = menuBarSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            menuBarResults = []
+        } else {
+            menuBarResults = database.searchEntries(query: trimmed, mode: menuBarSearchMode)
+        }
+    }
+
     private func runSearch() {
         guard let database else { return }
         let trimmed = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -155,8 +299,14 @@ final class HieroDictStore: ObservableObject {
         if !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             runSearch()
         }
+        if !menuBarSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            runMenuBarSearch()
+        }
         if let current = selectedWord {
             selectedWord = allEntries.first { $0.id == current.id }
+        }
+        if let currentMenu = menuBarSelectedWord {
+            menuBarSelectedWord = allEntries.first { $0.id == currentMenu.id }
         }
     }
 }

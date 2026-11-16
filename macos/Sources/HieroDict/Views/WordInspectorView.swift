@@ -4,9 +4,12 @@ import SwiftUI
 struct WordInspectorView: View {
     let entry: HieroEntry
     let glyphScale: GlyphScale
+    let signLookup: [String: GardinerSign]
+    let useQuadrat: Bool
     let onClose: () -> Void
     let onToggleFavorite: (Int) -> Void
     let onSignSelected: (String) -> Void
+    let onOpenInStackStudio: (HieroEntry) -> Void
     let getSignDetails: (String) -> GardinerSign?
 
     @State private var copiedBadgeText: String? = nil
@@ -37,18 +40,32 @@ struct WordInspectorView: View {
                     .help("Close Inspector")
                 }
 
-                Text(entry.glyph.isEmpty ? "—" : entry.glyph)
-                    .font(.hiero(size: glyphScale.detailFontSize))
-                    .foregroundStyle(.primary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 20)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(AppTheme.glyphTileBackground)
-                    )
-                    .textSelection(.enabled)
+                Group {
+                    if useQuadrat {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            QuadratWordView(
+                                mdc: entry.mdc,
+                                fallbackGlyph: entry.glyph,
+                                signLookup: signLookup,
+                                quadratSize: glyphScale.detailFontSize * 1.15
+                            )
+                            .frame(minWidth: 220)
+                        }
+                    } else {
+                        Text(entry.glyph.isEmpty ? "—" : entry.glyph)
+                            .font(.hiero(size: glyphScale.detailFontSize))
+                            .foregroundStyle(.primary)
+                            .multilineTextAlignment(.center)
+                            .textSelection(.enabled)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 20)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(AppTheme.glyphTileBackground)
+                )
 
                 VStack(spacing: 4) {
                     Text(entry.displayTranslit)
@@ -154,6 +171,15 @@ struct WordInspectorView: View {
                     }
                     .buttonStyle(.bordered)
                 }
+
+                Button {
+                    onOpenInStackStudio(entry)
+                } label: {
+                    Label("Open in Imaginary Stacks", systemImage: "square.stack.3d.up")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(AppTheme.slateAccent)
 
                 if let badge = copiedBadgeText {
                     Text(badge)

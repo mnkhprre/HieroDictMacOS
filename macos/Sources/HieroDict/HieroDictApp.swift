@@ -10,7 +10,7 @@ struct HieroDictApp: App {
     }
 
     var body: some Scene {
-        WindowGroup("HieroDict") {
+        WindowGroup("HieroDict", id: "main") {
             MainSplitView(store: store)
                 .preferredColorScheme(colorScheme)
                 .frame(minWidth: 880, minHeight: 620)
@@ -29,15 +29,28 @@ struct HieroDictApp: App {
                 }
                 .keyboardShortcut("2", modifiers: .command)
 
+                Button("Imaginary Stacks") {
+                    store.selectedSection = .stacks
+                }
+                .keyboardShortcut("3", modifiers: .command)
+
                 Button("Sign List") {
                     store.selectedSection = .signList
                 }
-                .keyboardShortcut("3", modifiers: .command)
+                .keyboardShortcut("4", modifiers: .command)
 
                 Button("About HieroDict") {
                     store.selectedSection = .about
                 }
-                .keyboardShortcut("4", modifiers: .command)
+                .keyboardShortcut("5", modifiers: .command)
+
+                Divider()
+
+                Button("Generate Random Imaginary Stack") {
+                    store.selectedSection = .stacks
+                    store.generateRandomImaginaryStack()
+                }
+                .keyboardShortcut("r", modifiers: [.command, .option])
             }
 
             CommandGroup(after: .textEditing) {
@@ -53,6 +66,12 @@ struct HieroDictApp: App {
                 .keyboardShortcut(.delete, modifiers: [.command, .shift])
             }
         }
+
+        MenuBarExtra("HieroDict", systemImage: "text.book.closed") {
+            MenuBarSearchView(store: store)
+                .preferredColorScheme(colorScheme)
+        }
+        .menuBarExtraStyle(.window)
 
         Settings {
             SettingsView(store: store)
