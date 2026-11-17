@@ -1,3 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<es.doneill.android.hieroglyph.pharaohs.view.HieroglyphView android:layout_width="match_parent" android:layout_height="match_parent" cartouche:transliteration="true" cartouche:transliterationGravity="BOTTOM"
-  xmlns:android="http://schemas.android.com/apk/res/android" xmlns:cartouche="http://schemas.android.com/apk/res-auto" />
