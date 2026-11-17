@@ -100,3 +100,70 @@ struct FlowLayout: Layout {
         }
     }
 }
+
+struct SignDetailSheetView: View {
+    @Environment(\.hieroFontChoice) private var hieroFontChoice
+    let sign: GardinerSign
+    let onDismiss: () -> Void
+    let onFindWords: () -> Void
+    var onInsertGlyph: ((String) -> Void)? = nil
+
+    var body: some View {
+        VStack(spacing: 16) {
+            HStack {
+                Text("Gardiner Sign \(sign.code)")
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 18))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+
+            Text(sign.glyph)
+                .font(.hiero(size: 56, choice: hieroFontChoice))
+                .padding(.vertical, 10)
+
+            Text(sign.name)
+                .font(.system(size: 18, weight: .bold))
+                .multilineTextAlignment(.center)
+
+            if !sign.meaning.isEmpty {
+                Text("Meaning / Use: \(sign.meaning)")
+                    .font(.system(size: 14))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            Divider()
+
+            HStack(spacing: 10) {
+                Button("Close", action: onDismiss)
+                    .buttonStyle(.bordered)
+                    .keyboardShortcut(.cancelAction)
+
+                if let onInsertGlyph, !sign.glyph.isEmpty {
+                    Button {
+                        onInsertGlyph(sign.glyph)
+                    } label: {
+                        Label("Insert Glyph", systemImage: "plus.circle")
+                    }
+                    .buttonStyle(.bordered)
+                }
+
+                Button(action: onFindWords) {
+                    Label("Words with \(sign.code)", systemImage: "magnifyingglass")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(AppTheme.prominentButtonTint)
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(24)
+        .frame(width: 400)
+    }
+}
+

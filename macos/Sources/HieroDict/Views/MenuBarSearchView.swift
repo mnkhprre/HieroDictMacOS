@@ -9,10 +9,32 @@ struct MenuBarSearchView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     @FocusState private var isQueryFocused: Bool
+    @State private var showQuickGlyphs: Bool = false
     @State private var copiedFeedback: String? = nil
     @State private var feedbackTask: Task<Void, Never>? = nil
 
     private let quickHieroglyphs = ["𓋹", "𓄤", "𓊵", "𓇳", "𓉐", "𓈖", "𓂋", "𓁹", "𓅓", "𓏏", "𓎟", "𓆣"]
+    private let quickExamples: [(label: String, query: String, isGlyph: Bool)] = [
+        ("life", "life", false),
+        ("ꜥnḫ", "ꜥnḫ", false),
+        ("Htp:t*p", "Htp:t*p", false),
+        ("G43", "G43", false),
+        ("𓋹", "𓋹", true)
+    ]
+
+    private var trimmedQuery: String {
+        store.menuBarSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var containsHieroglyphs: Bool {
+        store.menuBarSearchQuery.unicodeScalars.contains { (0x13000...0x1345F).contains($0.value) }
+    }
+
+    private var isPureHieroglyphQuery: Bool {
+        !trimmedQuery.isEmpty && trimmedQuery.unicodeScalars.allSatisfy {
+            (0x13000...0x1345F).contains($0.value) || CharacterSet.whitespacesAndNewlines.contains($0)
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -22,6 +44,8 @@ struct MenuBarSearchView: View {
 
             if let selected = store.menuBarSelectedWord {
                 quickDetailView(entry: selected)
+            } else if let selectedSign = store.menuBarSelectedSign {
+                quickSignDetailView(sign: selectedSign)
             } else {
                 resultsSection
             }
@@ -64,35 +88,24 @@ struct MenuBarSearchView: View {
                 .help("Toggle Quadrat Stacking")
             }
 
-            Picker("Search Mode", selection: Binding(
-                get: { store.menuBarSearchMode },
-                set: { store.onMenuBarModeChange($0) }
-            )) {
-                ForEach(SearchMode.allCases) { mode in
-                    Text(mode.rawValue).tag(mode)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(AppTheme.slateAccent)
                     .font(.system(size: 13))
 
                 TextField(
-                    store.menuBarSearchMode.placeholder,
+                    "Search English, translit, MdC, Gardiner, or 𓋹…",
                     text: Binding(
                         get: { store.menuBarSearchQuery },
                         set: { store.updateMenuBarQuery($0) }
                     )
                 )
                 .textFieldStyle(.plain)
-                .font(store.menuBarSearchMode == .glyph ? .hiero(size: 20, choice: hieroFontChoice) : .system(size: 13.5))
+                .font(isPureHieroglyphQuery ? .hiero(size: 20, choice: hieroFontChoice) : .system(size: 13.5))
                 .focused($isQueryFocused)
 
                 if !store.menuBarSearchQuery.isEmpty {
-                    if store.menuBarSearchMode == .glyph {
+                    if containsHieroglyphs {
                         Button {
                             store.backspaceMenuBarQuery()
                         } label: {
@@ -110,6 +123,27 @@ struct MenuBarSearchView: View {
                     }
                     .buttonStyle(.plain)
                 }
+
+                Divider()
+                    .frame(height: 16)
+
+                Button {
+                    withAnimation(.easeInOut(duration: 0.14)) {
+                        showQuickGlyphs.toggle()
+                    }
+                } label: {
+                    Text("𓋹")
+                        .font(.hiero(size: 16, choice: hieroFontChoice))
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .foregroundStyle(showQuickGlyphs ? Color.white : AppTheme.slateAccent)
+                        .background(
+                            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                                .fill(showQuickGlyphs ? AppTheme.prominentButtonTint : AppTheme.glyphTileBackground)
+                        )
+                }
+                .buttonStyle(.plain)
+                .help("Quick Hieroglyph Strip")
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
@@ -118,7 +152,7 @@ struct MenuBarSearchView: View {
                     .fill(AppTheme.cardBackground)
             )
 
-            if store.menuBarSearchMode == .glyph {
+            if showQuickGlyphs {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 5) {
                         ForEach(quickHieroglyphs, id: \.self) { glyph in
@@ -137,25 +171,27 @@ struct MenuBarSearchView: View {
                         }
                     }
                 }
-            } else if store.menuBarSearchMode == .mdcTranslit {
-                let trimmedMdc = store.menuBarSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-                let resolvedMdcGlyphs = !trimmedMdc.isEmpty
-                    ? QuadratEngine.extractResolvedHieroglyphs(mdc: trimmedMdc, signLookup: store.signCache)
-                    : ""
-                if !trimmedMdc.isEmpty, !resolvedMdcGlyphs.isEmpty {
-                    HStack(spacing: 10) {
-                        QuadratWordView(
-                            mdc: trimmedMdc,
-                            fallbackGlyph: nil,
-                            signLookup: store.signCache,
-                            quadratSize: 28,
-                            showGrid: store.showQuadratGuides
-                        )
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
+            }
 
-                        Spacer()
-                    }
+            let resolvedMdcGlyphs = store.resolveMdcGlyphsIfApplicable(for: store.menuBarSearchQuery)
+            if !trimmedQuery.isEmpty, !resolvedMdcGlyphs.isEmpty {
+                HStack(spacing: 10) {
+                    QuadratWordView(
+                        mdc: trimmedQuery,
+                        fallbackGlyph: nil,
+                        signLookup: store.signCache,
+                        quadratSize: 28,
+                        showGrid: store.showQuadratGuides
+                    )
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+
+                    Text("MDC QUADRAT")
+                        .font(.system(size: 10, weight: .semibold))
+                        .tracking(0.8)
+                        .foregroundStyle(.secondary)
+
+                    Spacer()
                 }
             }
         }
@@ -164,26 +200,25 @@ struct MenuBarSearchView: View {
 
     @ViewBuilder
     private var resultsSection: some View {
-        let trimmed = store.menuBarSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty {
+        if trimmedQuery.isEmpty {
             VStack(spacing: 12) {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 24))
                     .foregroundStyle(.secondary)
-                Text("Quick Dropdown Dictionary")
+                Text("Universal Quick Search")
                     .font(.system(size: 14.5, weight: .semibold))
-                Text("Search Middle Egyptian words from anywhere on macOS.")
+                Text("Search English meanings, transliteration, MdC, Gardiner codes, and hieroglyphs.")
                     .font(.system(size: 12.5))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
 
                 HStack(spacing: 6) {
-                    ForEach(quickExamples, id: \.self) { example in
+                    ForEach(quickExamples, id: \.query) { item in
                         Button {
-                            store.updateMenuBarQuery(example)
+                            store.updateMenuBarQuery(item.query)
                         } label: {
-                            Text(example)
-                                .font(.system(size: 12, weight: .medium))
+                            Text(item.label)
+                                .font(item.isGlyph ? .hiero(size: 16, choice: hieroFontChoice) : .system(size: 12, weight: .medium))
                                 .foregroundStyle(AppTheme.slateAccent)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 5)
@@ -198,9 +233,9 @@ struct MenuBarSearchView: View {
             }
             .padding(20)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else if store.menuBarResults.isEmpty {
+        } else if store.menuBarResults.isEmpty && store.menuBarSigns.isEmpty {
             VStack(spacing: 8) {
-                Text("No words found matching \"\(trimmed)\"")
+                Text("No words or signs found matching \"\(trimmedQuery)\"")
                     .font(.system(size: 13.5))
                     .foregroundStyle(.secondary)
             }
@@ -208,70 +243,125 @@ struct MenuBarSearchView: View {
         } else {
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    HStack {
-                        let count = store.menuBarResults.count
-                        Text(count >= 150 ? "Top \(count) results" : "\(count) results")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-
-                    Divider()
-
-                    ForEach(Array(store.menuBarResults.enumerated()), id: \.element.id) { index, entry in
-                        Button {
-                            store.menuBarSelectedWord = entry
-                        } label: {
-                            HStack(spacing: 12) {
-                                HieroGlyphBox(
-                                    glyph: entry.glyph,
-                                    fontSize: 20,
-                                    mdc: entry.mdc,
-                                    signLookup: store.signCache,
-                                    useQuadrat: store.useQuadratLayout,
-                                    showGrid: store.showQuadratGuides,
-                                    minWidth: 64,
-                                    maxWidth: 132,
-                                    verticalPadding: 4,
-                                    showBackground: false
-                                )
-
-                                VStack(alignment: .leading, spacing: 3) {
-                                    HStack(spacing: 6) {
-                                        Text(entry.displayTranslit)
-                                            .font(.system(size: 14.5, weight: .bold))
-                                            .foregroundStyle(AppTheme.slateAccent)
-                                        Text(entry.mdc)
-                                            .font(.system(size: 10.5, design: .monospaced))
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    Text(entry.translation)
-                                        .font(.system(size: 12.5))
-                                        .foregroundStyle(.primary)
-                                        .lineLimit(2)
-                                        .multilineTextAlignment(.leading)
-                                }
-
-                                Spacer()
-
-                                if entry.isFavorite {
-                                    Image(systemName: "bookmark.fill")
-                                        .font(.system(size: 11))
-                                        .foregroundStyle(AppTheme.slateAccent)
-                                }
-                            }
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-
-                        if index < store.menuBarResults.count - 1 {
-                            Divider()
+                    if !store.menuBarSigns.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("GARDINER SIGNS (\(store.menuBarSigns.count))")
+                                .font(.system(size: 10.5, weight: .semibold))
+                                .tracking(0.8)
+                                .foregroundStyle(.secondary)
                                 .padding(.horizontal, 14)
+
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 6) {
+                                    ForEach(store.menuBarSigns) { sign in
+                                        Button {
+                                            store.menuBarSelectedSign = sign
+                                        } label: {
+                                            HStack(spacing: 6) {
+                                                Text(sign.glyph)
+                                                    .font(.hiero(size: 20, choice: hieroFontChoice))
+                                                    .foregroundStyle(.primary)
+                                                VStack(alignment: .leading, spacing: 0) {
+                                                    Text(sign.code)
+                                                        .font(.system(size: 11, weight: .bold))
+                                                        .foregroundStyle(AppTheme.slateAccent)
+                                                    Text(sign.name)
+                                                        .font(.system(size: 9.5))
+                                                        .foregroundStyle(.secondary)
+                                                        .lineLimit(1)
+                                                }
+                                            }
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 5)
+                                            .frame(maxWidth: 165, alignment: .leading)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                                    .fill(AppTheme.glyphTileBackground)
+                                            )
+                                        }
+                                        .buttonStyle(.plain)
+                                        .help("\(sign.code) — \(sign.name)")
+                                    }
+                                }
+                                .padding(.horizontal, 14)
+                            }
                         }
+                        .padding(.vertical, 8)
+
+                        Divider()
+                    }
+
+                    if !store.menuBarResults.isEmpty {
+                        HStack {
+                            let count = store.menuBarResults.count
+                            Text(count >= 150 ? "Top \(count) words" : "\(count) words")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+
+                        Divider()
+
+                        ForEach(Array(store.menuBarResults.enumerated()), id: \.element.id) { index, entry in
+                            Button {
+                                store.menuBarSelectedWord = entry
+                            } label: {
+                                HStack(spacing: 12) {
+                                    HieroGlyphBox(
+                                        glyph: entry.glyph,
+                                        fontSize: 20,
+                                        mdc: entry.mdc,
+                                        signLookup: store.signCache,
+                                        useQuadrat: store.useQuadratLayout,
+                                        showGrid: store.showQuadratGuides,
+                                        minWidth: 64,
+                                        maxWidth: 132,
+                                        verticalPadding: 4,
+                                        showBackground: false
+                                    )
+
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        HStack(spacing: 6) {
+                                            Text(entry.displayTranslit)
+                                                .font(.system(size: 14.5, weight: .bold))
+                                                .foregroundStyle(AppTheme.slateAccent)
+                                            Text(entry.mdc)
+                                                .font(.system(size: 10.5, design: .monospaced))
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        Text(entry.translation)
+                                            .font(.system(size: 12.5))
+                                            .foregroundStyle(.primary)
+                                            .lineLimit(2)
+                                            .multilineTextAlignment(.leading)
+                                    }
+
+                                    Spacer()
+
+                                    if entry.isFavorite {
+                                        Image(systemName: "bookmark.fill")
+                                            .font(.system(size: 11))
+                                            .foregroundStyle(AppTheme.slateAccent)
+                                    }
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 8)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+
+                            if index < store.menuBarResults.count - 1 {
+                                Divider()
+                                    .padding(.horizontal, 14)
+                            }
+                        }
+                    } else {
+                        Text("No dictionary words match \"\(trimmedQuery)\".")
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                            .padding(24)
                     }
                 }
             }
@@ -388,6 +478,86 @@ struct MenuBarSearchView: View {
         }
     }
 
+    private func quickSignDetailView(sign: GardinerSign) -> some View {
+        ScrollView {
+            VStack(spacing: 14) {
+                HStack {
+                    Button {
+                        store.menuBarSelectedSign = nil
+                    } label: {
+                        Label("Results", systemImage: "chevron.left")
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+
+                    Spacer()
+
+                    Text("Gardiner \(sign.code)")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
+
+                Text(sign.glyph)
+                    .font(.hiero(size: 52, choice: hieroFontChoice))
+                    .padding(.vertical, 8)
+
+                Text(sign.name)
+                    .font(.system(size: 17, weight: .bold))
+                    .multilineTextAlignment(.center)
+
+                if !sign.meaning.isEmpty {
+                    Text(sign.meaning)
+                        .font(.system(size: 13.5))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+
+                Divider()
+
+                HStack(spacing: 8) {
+                    if !sign.glyph.isEmpty {
+                        Button {
+                            copyToPasteboard(sign.glyph, feedback: "Copied \(sign.glyph)")
+                        } label: {
+                            Label("Copy Glyph", systemImage: "doc.on.doc")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+
+                    Button {
+                        store.updateMenuBarQuery(sign.code)
+                    } label: {
+                        Label("Words with \(sign.code)", systemImage: "magnifyingglass")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(AppTheme.prominentButtonTint)
+                    .controlSize(.small)
+                }
+
+                Button {
+                    store.filterBySign(sign.code)
+                    openMainAppWindow()
+                } label: {
+                    Label("Filter in Main Window", systemImage: "macwindow")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+
+                if let copiedFeedback {
+                    Text(copiedFeedback)
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.slateAccent)
+                }
+            }
+            .padding(16)
+        }
+    }
+
     private var footerSection: some View {
         HStack {
             Button("Open HieroDict") {
@@ -407,15 +577,6 @@ struct MenuBarSearchView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 9)
-    }
-
-    private var quickExamples: [String] {
-        switch store.menuBarSearchMode {
-        case .glyph: return ["𓋹", "𓄤", "𓊵", "𓇳"]
-        case .mdcTranslit: return ["Htp:t*p", "ꜥnḫ", "S34-N35-Aa1", "nfr"]
-        case .gardiner: return ["S34", "F35", "G43", "D21"]
-        case .english: return ["life", "king", "god", "water"]
-        }
     }
 
     private func openMainAppWindow() {

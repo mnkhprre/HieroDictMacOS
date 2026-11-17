@@ -129,7 +129,6 @@ final class SQLiteDatabaseStore {
 
     func searchEntries(
         query: String,
-        mode: SearchMode,
         resolvedGlyphs: String = "",
         limit: Int? = nil
     ) -> [HieroEntry] {
@@ -137,109 +136,153 @@ final class SQLiteDatabaseStore {
         guard !trimmed.isEmpty else { return [] }
         let escapedLike = Self.escapeLike(trimmed)
         let escapedGlob = Self.escapeGlob(trimmed)
+        let normalizedMdc = trimmed
+            .replacingOccurrences(of: "^^", with: "-")
+            .replacingOccurrences(of: ":", with: "-")
+            .replacingOccurrences(of: "*", with: "-")
+            .replacingOccurrences(of: "&", with: "-")
+            .replacingOccurrences(of: " ", with: "-")
+            .replacingOccurrences(of: "<", with: "")
+            .replacingOccurrences(of: ">", with: "")
+            .replacingOccurrences(of: "(", with: "")
+            .replacingOccurrences(of: ")", with: "")
+        let escapedNormMdc = Self.escapeLike(normalizedMdc)
+        let cleanGlyphs = resolvedGlyphs.trimmingCharacters(in: .whitespacesAndNewlines)
+        let escapedGlyphs = Self.escapeLike(cleanGlyphs)
+        let hasGlyphs = !cleanGlyphs.isEmpty && cleanGlyphs != trimmed
         let limitClause = limit.map { " LIMIT \(max(1, $0))" } ?? ""
 
+        let glyphFilter = hasGlyphs
+            ? " OR e.glyph LIKE '%' || ? || '%' ESCAPE '\\'"
+            : ""
+        let glyphExactRank = hasGlyphs
+            ? "WHEN e.glyph = ? THEN 0"
+            : ""
+        let glyphPrefixRank = hasGlyphs
+            ? "WHEN e.glyph LIKE ? || '%' ESCAPE '\\' THEN 2"
+            : ""
+        let glyphContainsRank = hasGlyphs
+            ? "WHEN e.glyph LIKE '%' || ? || '%' ESCAPE '\\' THEN 4"
+            : ""
+
+        let sql = """
+        SELECT e.id, e.mdc, e.glyph, e.translit, e.translitRaw, e.translation, e.meaning, e.pos, e.gardinerCodesCsv, e.isFavorite
+        FROM entries e
+        WHERE e.mdc LIKE '%' || ? || '%' ESCAPE '\\'
+           OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(e.mdc, '^^', '-'), ':', '-'), '*', '-'), '&', '-'), '<', ''), '>', ''), '(', ''), ')', '') LIKE '%' || ? || '%' ESCAPE '\\'
+           OR e.translit LIKE '%' || ? || '%' ESCAPE '\\'
+           OR e.translitRaw LIKE '%' || ? || '%' ESCAPE '\\'
+           OR e.glyph LIKE '%' || ? || '%' ESCAPE '\\'
+           OR e.translation LIKE '%' || ? || '%' ESCAPE '\\'
+           OR e.meaning LIKE '%' || ? || '%' ESCAPE '\\'
+           OR EXISTS (
+               SELECT 1 FROM word_sign_cross_ref r
+               WHERE r.wordId = e.id
+                 AND UPPER(r.signCode) LIKE '%' || UPPER(?) || '%' ESCAPE '\\'
+           )\(glyphFilter)
+        ORDER BY CASE
+            WHEN e.mdc = ? OR e.translit = ? OR e.translitRaw = ? OR e.glyph = ? THEN 0
+            \(glyphExactRank)
+            WHEN LOWER(e.translation) = LOWER(?) OR LOWER(e.meaning) = LOWER(?)
+              OR EXISTS (
+                  SELECT 1 FROM word_sign_cross_ref r
+                  WHERE r.wordId = e.id AND UPPER(r.signCode) = UPPER(?)
+              ) THEN 1
+            WHEN e.mdc GLOB ? || '*' OR e.translit GLOB ? || '*' OR e.translitRaw GLOB ? || '*'
+              OR e.glyph LIKE ? || '%' ESCAPE '\\'
+              OR e.translation LIKE ? || '%' ESCAPE '\\' THEN 2
+            \(glyphPrefixRank)
+            WHEN e.mdc LIKE ? || '%' ESCAPE '\\'
+              OR e.translit LIKE ? || '%' ESCAPE '\\'
+              OR e.translitRaw LIKE ? || '%' ESCAPE '\\' THEN 3
+            WHEN e.mdc LIKE '%' || ? || '%' ESCAPE '\\'
+              OR INSTR(e.translit, ?) > 0
+              OR INSTR(e.translitRaw, ?) > 0
+              OR e.glyph LIKE '%' || ? || '%' ESCAPE '\\'
+              OR e.translation LIKE '%' || ? || '%' ESCAPE '\\' THEN 4
+            \(glyphContainsRank)
+            ELSE 5
+        END, e.id ASC\(limitClause)
+        """
+
+        var bindings: [String] = [
+            escapedLike, escapedNormMdc, escapedLike, escapedLike,
+            escapedLike, escapedLike, escapedLike, escapedLike
+        ]
+        if hasGlyphs {
+            bindings.append(escapedGlyphs)
+        }
+        bindings.append(contentsOf: [trimmed, trimmed, trimmed, trimmed])
+        if hasGlyphs {
+            bindings.append(cleanGlyphs)
+        }
+        bindings.append(contentsOf: [trimmed, trimmed, trimmed])
+        bindings.append(contentsOf: [escapedGlob, escapedGlob, escapedGlob, escapedLike, escapedLike])
+        if hasGlyphs {
+            bindings.append(escapedGlyphs)
+        }
+        bindings.append(contentsOf: [escapedLike, escapedLike, escapedLike])
+        bindings.append(contentsOf: [escapedLike, trimmed, trimmed, escapedLike, escapedLike])
+        if hasGlyphs {
+            bindings.append(escapedGlyphs)
+        }
+
         return queue.sync {
-            switch mode {
-            case .english:
-                let sql = """
-                SELECT id, mdc, glyph, translit, translitRaw, translation, meaning, pos, gardinerCodesCsv, isFavorite
-                FROM entries
-                WHERE translation LIKE '%' || ? || '%' ESCAPE '\\'
-                   OR meaning LIKE '%' || ? || '%' ESCAPE '\\'
-                ORDER BY id ASC\(limitClause)
-                """
-                return queryEntries(sql: sql, bindings: [escapedLike, escapedLike])
+            queryEntries(sql: sql, bindings: bindings)
+        }
+    }
 
-            case .mdcTranslit:
-                let normalizedMdc = trimmed
-                    .replacingOccurrences(of: "^^", with: "-")
-                    .replacingOccurrences(of: ":", with: "-")
-                    .replacingOccurrences(of: "*", with: "-")
-                    .replacingOccurrences(of: "&", with: "-")
-                    .replacingOccurrences(of: " ", with: "-")
-                    .replacingOccurrences(of: "<", with: "")
-                    .replacingOccurrences(of: ">", with: "")
-                    .replacingOccurrences(of: "(", with: "")
-                    .replacingOccurrences(of: ")", with: "")
-                let escapedNormMdc = Self.escapeLike(normalizedMdc)
-                let cleanGlyphs = resolvedGlyphs.trimmingCharacters(in: .whitespacesAndNewlines)
-                let escapedGlyphs = Self.escapeLike(cleanGlyphs)
-                let hasGlyphs = !cleanGlyphs.isEmpty
+    func searchSigns(query: String, limit: Int = 24) -> [GardinerSign] {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
+        let escapedLike = Self.escapeLike(trimmed)
 
-                let glyphFilter = hasGlyphs
-                    ? " OR glyph LIKE '%' || ? || '%' ESCAPE '\\'"
-                    : ""
-                let glyphExactRank = hasGlyphs
-                    ? "WHEN glyph = ? THEN 0"
-                    : ""
-                let glyphPrefixRank = hasGlyphs
-                    ? "WHEN glyph LIKE ? || '%' ESCAPE '\\' THEN 1"
-                    : ""
-                let glyphContainsRank = hasGlyphs
-                    ? "WHEN glyph LIKE '%' || ? || '%' ESCAPE '\\' THEN 3"
-                    : ""
+        return queue.sync {
+            guard let db else { return [] }
+            let sql = """
+            SELECT code, categoryCode, glyph, name, meaning, num
+            FROM gardiner_signs
+            WHERE UPPER(code) LIKE '%' || UPPER(?) || '%' ESCAPE '\\'
+               OR glyph LIKE '%' || ? || '%' ESCAPE '\\'
+               OR name LIKE '%' || ? || '%' ESCAPE '\\'
+               OR meaning LIKE '%' || ? || '%' ESCAPE '\\'
+            ORDER BY CASE
+                WHEN UPPER(code) = UPPER(?) OR glyph = ? THEN 0
+                WHEN UPPER(code) LIKE UPPER(?) || '%' ESCAPE '\\' OR glyph LIKE ? || '%' ESCAPE '\\' THEN 1
+                WHEN LOWER(name) LIKE LOWER(?) || '%' ESCAPE '\\' OR LOWER(meaning) LIKE LOWER(?) || '%' ESCAPE '\\' THEN 2
+                ELSE 3
+            END, num ASC, code ASC
+            LIMIT ?
+            """
+            var stmt: OpaquePointer?
+            defer { sqlite3_finalize(stmt) }
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
 
-                let sql = """
-                SELECT id, mdc, glyph, translit, translitRaw, translation, meaning, pos, gardinerCodesCsv, isFavorite
-                FROM entries
-                WHERE mdc LIKE '%' || ? || '%' ESCAPE '\\'
-                   OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(mdc, '^^', '-'), ':', '-'), '*', '-'), '&', '-'), '<', ''), '>', ''), '(', ''), ')', '') LIKE '%' || ? || '%' ESCAPE '\\'
-                   OR translit LIKE '%' || ? || '%' ESCAPE '\\'
-                   OR translitRaw LIKE '%' || ? || '%' ESCAPE '\\'\(glyphFilter)
-                ORDER BY CASE
-                    WHEN mdc = ? OR translit = ? OR translitRaw = ? THEN 0
-                    \(glyphExactRank)
-                    WHEN mdc GLOB ? || '*' OR translit GLOB ? || '*' OR translitRaw GLOB ? || '*' THEN 1
-                    \(glyphPrefixRank)
-                    WHEN mdc LIKE ? || '%' ESCAPE '\\' OR translit LIKE ? || '%' ESCAPE '\\' OR translitRaw LIKE ? || '%' ESCAPE '\\' THEN 2
-                    WHEN mdc LIKE '%' || ? || '%' ESCAPE '\\' OR INSTR(translit, ?) > 0 OR INSTR(translitRaw, ?) > 0 THEN 3
-                    \(glyphContainsRank)
-                    ELSE 4
-                END, id ASC\(limitClause)
-                """
-
-                var bindings: [String] = [escapedLike, escapedNormMdc, escapedLike, escapedLike]
-                if hasGlyphs {
-                    bindings.append(escapedGlyphs)
-                }
-                bindings.append(contentsOf: [trimmed, trimmed, trimmed])
-                if hasGlyphs {
-                    bindings.append(cleanGlyphs)
-                }
-                bindings.append(contentsOf: [escapedGlob, escapedGlob, escapedGlob])
-                if hasGlyphs {
-                    bindings.append(escapedGlyphs)
-                }
-                bindings.append(contentsOf: [escapedLike, escapedLike, escapedLike])
-                bindings.append(contentsOf: [escapedLike, trimmed, trimmed])
-                if hasGlyphs {
-                    bindings.append(escapedGlyphs)
-                }
-                return queryEntries(sql: sql, bindings: bindings)
-
-            case .gardiner:
-                let sql = """
-                SELECT DISTINCT e.id, e.mdc, e.glyph, e.translit, e.translitRaw, e.translation, e.meaning, e.pos, e.gardinerCodesCsv, e.isFavorite
-                FROM entries e
-                LEFT JOIN word_sign_cross_ref r ON e.id = r.wordId
-                WHERE UPPER(r.signCode) LIKE '%' || UPPER(?) || '%' ESCAPE '\\'
-                   OR UPPER(e.mdc) LIKE '%' || UPPER(?) || '%' ESCAPE '\\'
-                ORDER BY e.id ASC\(limitClause)
-                """
-                return queryEntries(sql: sql, bindings: [escapedLike, escapedLike])
-
-            case .glyph:
-                let sql = """
-                SELECT DISTINCT e.id, e.mdc, e.glyph, e.translit, e.translitRaw, e.translation, e.meaning, e.pos, e.gardinerCodesCsv, e.isFavorite
-                FROM entries e
-                LEFT JOIN word_sign_cross_ref r ON e.id = r.wordId
-                WHERE e.glyph LIKE '%' || ? || '%' ESCAPE '\\'
-                   OR UPPER(r.signCode) = UPPER(?)
-                ORDER BY e.id ASC\(limitClause)
-                """
-                return queryEntries(sql: sql, bindings: [escapedLike, trimmed])
+            let textBindings = [
+                escapedLike, escapedLike, escapedLike, escapedLike,
+                trimmed, trimmed,
+                escapedLike, escapedLike,
+                escapedLike, escapedLike
+            ]
+            for (index, value) in textBindings.enumerated() {
+                sqlite3_bind_text(stmt, Int32(index + 1), value, -1, transientDestructor)
             }
+            sqlite3_bind_int(stmt, Int32(textBindings.count + 1), Int32(max(1, limit)))
+
+            var signs: [GardinerSign] = []
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                signs.append(
+                    GardinerSign(
+                        code: columnString(stmt, 0),
+                        categoryCode: columnString(stmt, 1),
+                        glyph: columnString(stmt, 2),
+                        name: columnString(stmt, 3),
+                        meaning: columnString(stmt, 4),
+                        num: Int(sqlite3_column_int(stmt, 5))
+                    )
+                )
+            }
+            return signs
         }
     }
 

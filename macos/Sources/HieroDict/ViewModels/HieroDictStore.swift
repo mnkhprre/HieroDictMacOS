@@ -5,7 +5,6 @@ import SwiftUI
 @MainActor
 final class HieroDictStore: ObservableObject {
     @Published var selectedSection: SidebarSection = .search
-    @Published var searchMode: SearchMode = .glyph
     @Published var searchQuery: String = ""
     @Published var activeSignFilter: String? = nil
     @Published var dictionaryFilter: DictionaryFilter = .all
@@ -13,6 +12,7 @@ final class HieroDictStore: ObservableObject {
     @Published var allEntries: [HieroEntry] = []
     @Published var dictionaryEntries: [HieroEntry] = []
     @Published var searchResults: [HieroEntry] = []
+    @Published var searchSigns: [GardinerSign] = []
     @Published var categories: [GardinerCategory] = []
     @Published var isLoaded: Bool = false
     @Published var errorMessage: String? = nil
@@ -26,10 +26,11 @@ final class HieroDictStore: ObservableObject {
         }
     }
 
-    @Published var menuBarSearchMode: SearchMode = .english
     @Published var menuBarSearchQuery: String = ""
     @Published var menuBarResults: [HieroEntry] = []
+    @Published var menuBarSigns: [GardinerSign] = []
     @Published var menuBarSelectedWord: HieroEntry? = nil
+    @Published var menuBarSelectedSign: GardinerSign? = nil
 
     @Published private(set) var signCache: [String: GardinerSign] = [:]
 
@@ -87,12 +88,6 @@ final class HieroDictStore: ObservableObject {
         }
     }
 
-    func onSearchModeChange(_ mode: SearchMode) {
-        searchMode = mode
-        searchQuery = ""
-        searchResults = []
-    }
-
     func updateSearchQuery(_ query: String) {
         searchQuery = query
         runSearch()
@@ -112,6 +107,7 @@ final class HieroDictStore: ObservableObject {
     func clearQuery() {
         searchQuery = ""
         searchResults = []
+        searchSigns = []
     }
 
     func selectWord(_ entry: HieroEntry?) {
@@ -189,22 +185,17 @@ final class HieroDictStore: ObservableObject {
     }
 
 
-    func onMenuBarModeChange(_ mode: SearchMode) {
-        menuBarSearchMode = mode
-        menuBarSearchQuery = ""
-        menuBarResults = []
-        menuBarSelectedWord = nil
-    }
-
     func updateMenuBarQuery(_ query: String) {
         menuBarSearchQuery = query
         menuBarSelectedWord = nil
+        menuBarSelectedSign = nil
         runMenuBarSearch()
     }
 
     func appendMenuBarGlyph(_ glyph: String) {
         menuBarSearchQuery += glyph
         menuBarSelectedWord = nil
+        menuBarSelectedSign = nil
         runMenuBarSearch()
     }
 
@@ -212,13 +203,29 @@ final class HieroDictStore: ObservableObject {
         guard !menuBarSearchQuery.isEmpty else { return }
         menuBarSearchQuery.removeLast()
         menuBarSelectedWord = nil
+        menuBarSelectedSign = nil
         runMenuBarSearch()
     }
 
     func clearMenuBarQuery() {
         menuBarSearchQuery = ""
         menuBarResults = []
+        menuBarSigns = []
         menuBarSelectedWord = nil
+        menuBarSelectedSign = nil
+    }
+
+    func resolveMdcGlyphsIfApplicable(for query: String) -> String {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "" }
+        let mdcSyntax = CharacterSet(charactersIn: "-:*&^<>()")
+        let hasOperators = trimmed.rangeOfCharacter(from: mdcSyntax) != nil
+        let isGardinerCode = trimmed.range(
+            of: "^[A-Za-z]{1,2}[0-9]{1,3}[A-Za-z]?$",
+            options: .regularExpression
+        ) != nil
+        guard hasOperators || isGardinerCode else { return "" }
+        return QuadratEngine.extractResolvedHieroglyphs(mdc: trimmed, signLookup: signCache)
     }
 
     private func runMenuBarSearch() {
@@ -226,13 +233,12 @@ final class HieroDictStore: ObservableObject {
         let trimmed = menuBarSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
             menuBarResults = []
+            menuBarSigns = []
         } else {
-            let resolved = menuBarSearchMode == .mdcTranslit
-                ? QuadratEngine.extractResolvedHieroglyphs(mdc: trimmed, signLookup: signCache)
-                : ""
+            let resolved = resolveMdcGlyphsIfApplicable(for: trimmed)
+            menuBarSigns = database.searchSigns(query: trimmed, limit: 16)
             menuBarResults = database.searchEntries(
                 query: trimmed,
-                mode: menuBarSearchMode,
                 resolvedGlyphs: resolved,
                 limit: 150
             )
@@ -244,13 +250,12 @@ final class HieroDictStore: ObservableObject {
         let trimmed = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
             searchResults = []
+            searchSigns = []
         } else {
-            let resolved = searchMode == .mdcTranslit
-                ? QuadratEngine.extractResolvedHieroglyphs(mdc: trimmed, signLookup: signCache)
-                : ""
+            let resolved = resolveMdcGlyphsIfApplicable(for: trimmed)
+            searchSigns = database.searchSigns(query: trimmed, limit: 24)
             searchResults = database.searchEntries(
                 query: trimmed,
-                mode: searchMode,
                 resolvedGlyphs: resolved
             )
         }

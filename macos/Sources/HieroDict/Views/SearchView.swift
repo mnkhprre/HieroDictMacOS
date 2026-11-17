@@ -7,40 +7,53 @@ struct SearchView: View {
     @Environment(\.enableWindowBlur) private var enableWindowBlur
     @FocusState private var isSearchFieldFocused: Bool
 
+    @State private var showGlyphPalette: Bool = false
     @State private var selectedPickerCategory: String = "A"
+    @State private var selectedSignDetail: GardinerSign? = nil
+
+    private var trimmedQuery: String {
+        store.searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var containsHieroglyphs: Bool {
+        store.searchQuery.unicodeScalars.contains { (0x13000...0x1345F).contains($0.value) }
+    }
+
+    private var isPureHieroglyphQuery: Bool {
+        !trimmedQuery.isEmpty && trimmedQuery.unicodeScalars.allSatisfy {
+            (0x13000...0x1345F).contains($0.value) || CharacterSet.whitespacesAndNewlines.contains($0)
+        }
+    }
+
+    private let quickExamples: [(label: String, query: String, isGlyph: Bool)] = [
+        ("life", "life", false),
+        ("ꜥnḫ", "ꜥnḫ", false),
+        ("Htp:t*p", "Htp:t*p", false),
+        ("G43", "G43", false),
+        ("𓋹", "𓋹", true)
+    ]
 
     var body: some View {
         VStack(spacing: 0) {
-            VStack(spacing: 12) {
-                Picker("Search Mode", selection: Binding(
-                    get: { store.searchMode },
-                    set: { store.onSearchModeChange($0) }
-                )) {
-                    ForEach(SearchMode.allCases) { mode in
-                        Text(mode.rawValue).tag(mode)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-
+            VStack(spacing: 10) {
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(AppTheme.slateAccent)
 
                     TextField(
-                        store.searchMode.placeholder,
+                        "Search English, translit, MdC, Gardiner (G43), or 𓋹…",
                         text: Binding(
                             get: { store.searchQuery },
                             set: { store.updateSearchQuery($0) }
                         )
                     )
                     .textFieldStyle(.plain)
-                    .font(store.searchMode == .glyph ? .hiero(size: 24, choice: hieroFontChoice) : .system(size: 14.5))
+                    .font(isPureHieroglyphQuery ? .hiero(size: 24, choice: hieroFontChoice) : .system(size: 14.5))
                     .focused($isSearchFieldFocused)
 
                     if !store.searchQuery.isEmpty {
-                        if store.searchMode == .glyph {
+                        if containsHieroglyphs {
                             Button {
                                 store.backspaceQuery()
                             } label: {
@@ -60,19 +73,41 @@ struct SearchView: View {
                         .buttonStyle(.plain)
                         .help("Clear Search")
                     }
+
+                    Divider()
+                        .frame(height: 18)
+
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.15)) {
+                            showGlyphPalette.toggle()
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text("𓋹")
+                                .font(.hiero(size: 16, choice: hieroFontChoice))
+                            Text("Palette")
+                                .font(.system(size: 11.5, weight: .medium))
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .foregroundStyle(showGlyphPalette ? Color.white : AppTheme.slateAccent)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(showGlyphPalette ? AppTheme.prominentButtonTint : AppTheme.glyphTileBackground)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .help(showGlyphPalette ? "Hide Hieroglyph Palette" : "Show Hieroglyph Palette")
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 9)
+                .padding(.vertical, 8)
                 .background(
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .fill(AppTheme.cardBackground)
                 )
 
-                let trimmedQuery = store.searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-                let resolvedPreviewGlyphs = store.searchMode == .mdcTranslit && !trimmedQuery.isEmpty
-                    ? QuadratEngine.extractResolvedHieroglyphs(mdc: trimmedQuery, signLookup: store.signCache)
-                    : ""
-                if store.searchMode == .mdcTranslit, !trimmedQuery.isEmpty, !resolvedPreviewGlyphs.isEmpty {
+                let resolvedPreviewGlyphs = store.resolveMdcGlyphsIfApplicable(for: store.searchQuery)
+                if !trimmedQuery.isEmpty, !resolvedPreviewGlyphs.isEmpty {
                     Divider()
 
                     HStack(spacing: 12) {
@@ -80,14 +115,14 @@ struct SearchView: View {
                             mdc: trimmedQuery,
                             fallbackGlyph: nil,
                             signLookup: store.signCache,
-                            quadratSize: 38,
+                            quadratSize: 36,
                             showGrid: store.showQuadratGuides
                         )
                         .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
+                        .padding(.vertical, 3)
 
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("LIVE MDC PREVIEW")
+                            Text("MDC QUADRAT")
                                 .font(.system(size: 10, weight: .semibold))
                                 .tracking(0.8)
                                 .foregroundStyle(.secondary)
@@ -108,49 +143,109 @@ struct SearchView: View {
             Divider()
 
             Group {
-                if store.searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                if trimmedQuery.isEmpty {
                     searchHelpPanel
-                } else if store.searchResults.isEmpty {
+                } else if store.searchResults.isEmpty && store.searchSigns.isEmpty {
                     VStack(spacing: 10) {
                         Image(systemName: "text.magnifyingglass")
                             .font(.system(size: 26))
                             .foregroundStyle(.secondary)
-                        Text("No words found matching \"\(store.searchQuery)\"")
+                        Text("No words or Gardiner signs found matching \"\(store.searchQuery)\"")
                             .font(.system(size: 14))
                             .foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    List(selection: Binding(
-                        get: { store.selectedWord?.id },
-                        set: { newId in
-                            store.selectWord(store.searchResults.first { $0.id == newId })
-                        }
-                    )) {
-                        Section {
-                            ForEach(store.searchResults) { entry in
-                                SearchResultRow(
-                                    entry: entry,
-                                    glyphScale: glyphScale,
-                                    signLookup: store.signCache,
-                                    useQuadrat: store.useQuadratLayout,
-                                    showGrid: store.showQuadratGuides
-                                )
-                                .tag(entry.id)
+                    VStack(spacing: 0) {
+                        if !store.searchSigns.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("GARDINER SIGNS (\(store.searchSigns.count))")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .tracking(0.8)
+                                    .foregroundStyle(.secondary)
+                                    .padding(.horizontal, 20)
+
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 8) {
+                                        ForEach(store.searchSigns) { sign in
+                                            Button {
+                                                selectedSignDetail = sign
+                                            } label: {
+                                                HStack(spacing: 8) {
+                                                    Text(sign.glyph)
+                                                        .font(.hiero(size: 24, choice: hieroFontChoice))
+                                                        .foregroundStyle(.primary)
+
+                                                    VStack(alignment: .leading, spacing: 1) {
+                                                        Text(sign.code)
+                                                            .font(.system(size: 12, weight: .bold))
+                                                            .foregroundStyle(AppTheme.slateAccent)
+                                                        Text(sign.name)
+                                                            .font(.system(size: 10.5))
+                                                            .foregroundStyle(.secondary)
+                                                            .lineLimit(1)
+                                                    }
+                                                }
+                                                .padding(.horizontal, 10)
+                                                .padding(.vertical, 6)
+                                                .frame(maxWidth: 190, alignment: .leading)
+                                                .background(
+                                                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                                        .fill(AppTheme.glyphTileBackground)
+                                                )
+                                            }
+                                            .buttonStyle(.plain)
+                                            .help("\(sign.code) — \(sign.name)")
+                                        }
+                                    }
+                                    .padding(.horizontal, 20)
+                                }
                             }
-                        } header: {
-                            Text("\(store.searchResults.count) results")
-                                .font(.system(size: 11.5, weight: .semibold))
-                                .foregroundStyle(.secondary)
+                            .padding(.vertical, 10)
+
+                            Divider()
+                        }
+
+                        if store.searchResults.isEmpty {
+                            VStack(spacing: 8) {
+                                Text("No dictionary words match \"\(store.searchQuery)\".")
+                                    .font(.system(size: 13.5))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        } else {
+                            List(selection: Binding(
+                                get: { store.selectedWord?.id },
+                                set: { newId in
+                                    store.selectWord(store.searchResults.first { $0.id == newId })
+                                }
+                            )) {
+                                Section {
+                                    ForEach(store.searchResults) { entry in
+                                        SearchResultRow(
+                                            entry: entry,
+                                            glyphScale: glyphScale,
+                                            signLookup: store.signCache,
+                                            useQuadrat: store.useQuadratLayout,
+                                            showGrid: store.showQuadratGuides
+                                        )
+                                        .tag(entry.id)
+                                    }
+                                } header: {
+                                    Text("\(store.searchResults.count) words")
+                                        .font(.system(size: 11.5, weight: .semibold))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .listStyle(.inset)
+                            .scrollContentBackground(enableWindowBlur ? .automatic : .hidden)
                         }
                     }
-                    .listStyle(.inset)
-                    .scrollContentBackground(enableWindowBlur ? .automatic : .hidden)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            if store.searchMode == .glyph {
+            if showGlyphPalette {
                 HieroglyphPickerDeck(
                     categories: store.categories,
                     selectedCategoryCode: $selectedPickerCategory,
@@ -159,6 +254,22 @@ struct SearchView: View {
                     }
                 )
             }
+        }
+        .sheet(item: $selectedSignDetail) { sign in
+            SignDetailSheetView(
+                sign: sign,
+                onDismiss: { selectedSignDetail = nil },
+                onFindWords: {
+                    let code = sign.code
+                    selectedSignDetail = nil
+                    store.filterBySign(code)
+                },
+                onInsertGlyph: { glyph in
+                    selectedSignDetail = nil
+                    store.appendGlyph(glyph)
+                }
+            )
+            .background(WindowSurfaceBackground(translucent: enableWindowBlur))
         }
         .onAppear {
             if let first = store.categories.first?.code {
@@ -171,51 +282,23 @@ struct SearchView: View {
     }
 
     private var searchHelpPanel: some View {
-        let details: (String, String, [String]) = {
-            switch store.searchMode {
-            case .glyph:
-                return (
-                    "Enter Hieroglyphs Directly",
-                    "Click signs from the Gardiner palette below to build a Middle Egyptian word:",
-                    ["𓋹", "𓄤", "𓊵", "𓇳", "𓉐"]
-                )
-            case .mdcTranslit:
-                return (
-                    "MdC & Transliteration Search",
-                    "Type Manuel de Codage (- : * ^^), Unicode transliteration, or ASCII equivalents (A, i, a, H, x, X, S, q, T, D):",
-                    ["Htp:t*p", "S34-N35-Aa1", "ꜥnḫ", "nfr", "R4:X1*Q3"]
-                )
-            case .gardiner:
-                return (
-                    "Search by Gardiner Sign Code",
-                    "Find words containing a specific sign:",
-                    ["G43", "D21", "N35", "S34", "F35"]
-                )
-            case .english:
-                return (
-                    "Search by English Meaning",
-                    "Look up Middle Egyptian vocabulary:",
-                    ["life", "king", "god", "water", "love"]
-                )
-            }
-        }()
-
-        return VStack(spacing: 14) {
-            Text(details.0)
-                .font(.system(size: 16, weight: .semibold))
-            Text(details.1)
+        VStack(spacing: 14) {
+            Text("Universal Search")
+                .font(.system(size: 17, weight: .semibold))
+            Text("Search across English translations, transliteration (ꜥnḫ or ASCII), Manuel de Codage (Htp:t*p), Gardiner codes (G43), and hieroglyphs (𓋹) from one bar.")
                 .font(.system(size: 13.5))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+                .lineSpacing(2)
                 .frame(maxWidth: 520)
 
             HStack(spacing: 8) {
-                ForEach(details.2, id: \.self) { example in
+                ForEach(quickExamples, id: \.query) { item in
                     Button {
-                        store.updateSearchQuery(example)
+                        store.updateSearchQuery(item.query)
                     } label: {
-                        Text(example)
-                            .font(store.searchMode == .glyph ? .hiero(size: 22, choice: hieroFontChoice) : .system(size: 13, weight: .semibold))
+                        Text(item.label)
+                            .font(item.isGlyph ? .hiero(size: 20, choice: hieroFontChoice) : .system(size: 13, weight: .semibold))
                             .foregroundStyle(AppTheme.slateAccent)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
@@ -228,6 +311,20 @@ struct SearchView: View {
                 }
             }
             .padding(.top, 2)
+
+            if !showGlyphPalette {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        showGlyphPalette = true
+                    }
+                } label: {
+                    Label("Open Hieroglyph Palette", systemImage: "square.grid.2x2")
+                        .font(.system(size: 12.5, weight: .medium))
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .padding(.top, 4)
+            }
         }
         .padding(28)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

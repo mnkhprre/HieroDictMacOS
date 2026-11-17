@@ -57,24 +57,6 @@ enum SidebarSection: String, CaseIterable, Identifiable {
     }
 }
 
-enum SearchMode: String, CaseIterable, Identifiable {
-    case glyph = "Hieroglyphs"
-    case mdcTranslit = "MdC / Translit"
-    case gardiner = "Gardiner"
-    case english = "English"
-
-    var id: String { rawValue }
-
-    var placeholder: String {
-        switch self {
-        case .glyph: return "Click hieroglyphs from palette below…"
-        case .mdcTranslit: return "Type MdC or transliteration (e.g. Htp:t*p, S34-N35-Aa1, ꜥnḫ, nfr)…"
-        case .gardiner: return "Enter Gardiner code (e.g. G43, D21, S34)…"
-        case .english: return "Type English meaning (e.g. life, king, water)…"
-        }
-    }
-}
-
 enum DictionaryFilter: String, CaseIterable, Identifiable {
     case all = "All"
     case favorites = "Favorites"
