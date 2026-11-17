@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
-    echo "Error: macOS .app compilation requires macOS (Darwin) with Xcode or Swift Command Line Tools."
+    echo "Error: macOS .app/.dmg compilation requires macOS (Darwin) with Xcode or Swift Command Line Tools."
     exit 1
 fi
 
@@ -18,13 +18,16 @@ CONTENTS_DIR="$APP_BUNDLE/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
 
-CREATE_DMG=false
+CREATE_DMG=true
 TARGET_MODE="universal"
 
 for arg in "$@"; do
     case "$arg" in
         --dmg)
             CREATE_DMG=true
+            ;;
+        --no-dmg)
+            CREATE_DMG=false
             ;;
         --universal)
             TARGET_MODE="universal"
@@ -36,12 +39,12 @@ for arg in "$@"; do
             TARGET_MODE="arm64"
             ;;
         -h|--help)
-            echo "Usage: $0 [--universal | --x86-64 | --arm64] [--dmg]"
+            echo "Usage: $0 [--universal | --x86-64 | --arm64] [--dmg | --no-dmg]"
             exit 0
             ;;
         *)
             echo "Unknown option: $arg"
-            echo "Usage: $0 [--universal | --x86-64 | --arm64] [--dmg]"
+            echo "Usage: $0 [--universal | --x86-64 | --arm64] [--dmg | --no-dmg]"
             exit 1
             ;;
     esac
@@ -223,7 +226,60 @@ if [[ "$CREATE_DMG" == true ]]; then
     else
         DMG_PATH="$DIST_DIR/HieroDict-macOS-$TARGET_MODE.dmg"
     fi
-    rm -f "$DMG_PATH"
-    hdiutil create -volname "HieroDict" -srcfolder "$APP_BUNDLE" -ov -format UDZO "$DMG_PATH"
-    echo "Packaged DMG: $DMG_PATH"
+
+    DMG_STAGING="$DIST_DIR/.dmg-staging"
+    RW_DMG="$DIST_DIR/.HieroDict-rw.dmg"
+    MOUNT_DIR="$DIST_DIR/.dmg-mount"
+
+    rm -rf "$DMG_STAGING" "$MOUNT_DIR" "$RW_DMG" "$DMG_PATH"
+    mkdir -p "$DMG_STAGING"
+
+    cp -R "$APP_BUNDLE" "$DMG_STAGING/HieroDict.app"
+    ln -s /Applications "$DMG_STAGING/Applications"
+    if [[ -f "$TARGET_ICNS" ]]; then
+        cp "$TARGET_ICNS" "$DMG_STAGING/.VolumeIcon.icns"
+    fi
+
+    if hdiutil create -volname "HieroDict" -srcfolder "$DMG_STAGING" -fs HFS+ -format UDRW "$RW_DMG" >/dev/null 2>&1; then
+        mkdir -p "$MOUNT_DIR"
+        DEVICE="$(hdiutil attach -readwrite -noverify -noautoopen -mountpoint "$MOUNT_DIR" "$RW_DMG" 2>/dev/null | awk 'NR==1{print $1}' || true)"
+        if [[ -n "$DEVICE" && -d "$MOUNT_DIR" ]]; then
+            if command -v SetFile >/dev/null 2>&1 && [[ -f "$MOUNT_DIR/.VolumeIcon.icns" ]]; then
+                SetFile -c icnC "$MOUNT_DIR/.VolumeIcon.icns" >/dev/null 2>&1 || true
+                SetFile -a C "$MOUNT_DIR" >/dev/null 2>&1 || true
+            fi
+
+            if command -v osascript >/dev/null 2>&1; then
+                osascript >/dev/null 2>&1 <<EOF || true
+tell application "Finder"
+    tell (POSIX file "$MOUNT_DIR" as alias)
+        open
+        tell container window
+            set current view to icon view
+            set toolbar visible to false
+            set statusbar visible to false
+            set bounds to {200, 140, 760, 500}
+            set viewOptions to icon view options
+            set arrangement of viewOptions to not arranged
+            set icon size of viewOptions to 104
+            set position of item "HieroDict.app" to {155, 175}
+            set position of item "Applications" to {405, 175}
+        end tell
+        close
+    end tell
+end tell
+EOF
+            fi
+
+            sync
+            hdiutil detach "$DEVICE" -quiet >/dev/null 2>&1 || hdiutil detach "$DEVICE" -force -quiet >/dev/null 2>&1 || true
+        fi
+
+        hdiutil convert "$RW_DMG" -format UDZO -imagekey zlib-level=9 -o "$DMG_PATH" >/dev/null
+    else
+        hdiutil create -volname "HieroDict" -srcfolder "$DMG_STAGING" -ov -format UDZO "$DMG_PATH" >/dev/null
+    fi
+
+    rm -rf "$DMG_STAGING" "$MOUNT_DIR" "$RW_DMG"
+    echo "Packaged DMG (with Applications shortcut): $DMG_PATH"
 fi
