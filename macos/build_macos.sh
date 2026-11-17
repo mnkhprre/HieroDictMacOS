@@ -19,32 +19,69 @@ MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
 
 CREATE_DMG=true
+CREATE_ZIP=false
 TARGET_MODE="universal"
+APP_VERSION="${APP_VERSION:-}"
+APP_BUILD="${APP_BUILD:-}"
+GITHUB_REPO="${GITHUB_REPO:-}"
 
-for arg in "$@"; do
-    case "$arg" in
+while [[ $# -gt 0 ]]; do
+    case "$1" in
         --dmg)
             CREATE_DMG=true
+            shift
             ;;
         --no-dmg)
             CREATE_DMG=false
+            shift
+            ;;
+        --zip)
+            CREATE_ZIP=true
+            shift
             ;;
         --universal)
             TARGET_MODE="universal"
+            shift
             ;;
         --x86-64|--x86_64|--intel)
             TARGET_MODE="x86_64"
+            shift
             ;;
         --arm64|--apple-silicon)
             TARGET_MODE="arm64"
+            shift
+            ;;
+        --version)
+            APP_VERSION="${2:-}"
+            shift 2
+            ;;
+        --version=*)
+            APP_VERSION="${1#*=}"
+            shift
+            ;;
+        --build)
+            APP_BUILD="${2:-}"
+            shift 2
+            ;;
+        --build=*)
+            APP_BUILD="${1#*=}"
+            shift
+            ;;
+        --repo)
+            GITHUB_REPO="${2:-}"
+            shift 2
+            ;;
+        --repo=*)
+            GITHUB_REPO="${1#*=}"
+            shift
             ;;
         -h|--help)
-            echo "Usage: $0 [--universal | --x86-64 | --arm64] [--dmg | --no-dmg]"
+            echo "Usage: $0 [--universal | --x86-64 | --arm64] [--dmg | --no-dmg] [--zip] [--version X.Y.Z] [--build N] [--repo owner/repo]"
             exit 0
             ;;
         *)
-            echo "Unknown option: $arg"
-            echo "Usage: $0 [--universal | --x86-64 | --arm64] [--dmg | --no-dmg]"
+            echo "Unknown option: $1"
+            echo "Usage: $0 [--universal | --x86-64 | --arm64] [--dmg | --no-dmg] [--zip] [--version X.Y.Z] [--build N] [--repo owner/repo]"
             exit 1
             ;;
     esac
@@ -128,6 +165,18 @@ fi
 
 chmod +x "$MACOS_DIR/HieroDict"
 cp "$SCRIPT_DIR/Packaging/Info.plist" "$CONTENTS_DIR/Info.plist"
+
+if command -v plutil >/dev/null 2>&1; then
+    if [[ -n "$APP_VERSION" ]]; then
+        plutil -replace CFBundleShortVersionString -string "${APP_VERSION#v}" "$CONTENTS_DIR/Info.plist"
+    fi
+    if [[ -n "$APP_BUILD" ]]; then
+        plutil -replace CFBundleVersion -string "$APP_BUILD" "$CONTENTS_DIR/Info.plist"
+    fi
+    if [[ -n "$GITHUB_REPO" ]]; then
+        plutil -replace HieroDictGitHubRepo -string "$GITHUB_REPO" "$CONTENTS_DIR/Info.plist"
+    fi
+fi
 
 if command -v lipo >/dev/null 2>&1; then
     BUILT_ARCHS="$(lipo -archs "$MACOS_DIR/HieroDict" 2>/dev/null || true)"
@@ -282,4 +331,15 @@ EOF
 
     rm -rf "$DMG_STAGING" "$MOUNT_DIR" "$RW_DMG"
     echo "Packaged DMG (with Applications shortcut): $DMG_PATH"
+fi
+
+if [[ "$CREATE_ZIP" == true ]]; then
+    if [[ "$TARGET_MODE" == "universal" ]]; then
+        ZIP_PATH="$DIST_DIR/HieroDict-macOS-Universal.zip"
+    else
+        ZIP_PATH="$DIST_DIR/HieroDict-macOS-$TARGET_MODE.zip"
+    fi
+    rm -f "$ZIP_PATH"
+    ditto -c -k --sequesterRsrc --keepParent "$APP_BUNDLE" "$ZIP_PATH"
+    echo "Packaged ZIP: $ZIP_PATH"
 fi

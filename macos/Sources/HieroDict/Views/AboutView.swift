@@ -27,7 +27,8 @@ struct AboutView: View {
                         .font(.system(size: 14))
                         .foregroundStyle(.secondary)
 
-                    Text("Version 1.0")
+                    let shortVersion = (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "1.0.0"
+                    Text("Version \(shortVersion)")
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                 }
@@ -86,6 +87,19 @@ struct AboutView: View {
                     .font(.system(size: 13.5))
                     .lineSpacing(5)
                     .foregroundStyle(.primary)
+
+                    if let playStoreURL = URL(string: "https://play.google.com/store/apps/details?id=net.ultramagic.hierodict&hl=en") {
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Text("• Original App Source:")
+                                .font(.system(size: 13.5))
+                                .foregroundStyle(.primary)
+                            Link(
+                                "https://play.google.com/store/apps/details?id=net.ultramagic.hierodict&hl=en",
+                                destination: playStoreURL
+                            )
+                            .font(.system(size: 13.5))
+                        }
+                    }
                 }
             }
             .padding(28)

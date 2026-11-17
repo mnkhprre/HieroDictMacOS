@@ -35,6 +35,8 @@
     <string>14.0</string>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>HieroDictGitHubRepo</key>
+    <string>mustafabilgin/HieroDict</string>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
 </dict>

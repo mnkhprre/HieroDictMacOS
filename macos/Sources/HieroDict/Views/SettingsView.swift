@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var store: HieroDictStore
+    @EnvironmentObject var updater: GitHubUpdater
     @AppStorage("glyphScale") private var glyphScaleRaw: String = GlyphScale.medium.rawValue
     @AppStorage("themePreference") private var themePreferenceRaw: String = ThemePreference.system.rawValue
     @AppStorage("enableWindowBlur") private var enableWindowBlur: Bool = false
@@ -47,6 +48,30 @@ struct SettingsView: View {
                 }
             }
 
+            Section("Software Updates (GitHub)") {
+                Toggle("Automatically check for new releases", isOn: $updater.autoCheckEnabled)
+
+                TextField("GitHub Repository (owner/repo)", text: $updater.repositorySlug)
+                    .textFieldStyle(.roundedBorder)
+
+                LabeledContent("Current Version") {
+                    Text("v\(updater.currentAppVersion)")
+                        .font(.system(size: 12.5, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                }
+
+                HStack(spacing: 10) {
+                    Button {
+                        updater.isUpdateSheetPresented = true
+                        updater.checkForUpdates(userInitiated: true)
+                    } label: {
+                        Text("Check for Updates…")
+                    }
+
+                    updateStatusLabel
+                }
+            }
+
             Section("SQLite Database") {
                 LabeledContent("Entries") {
                     Text("\(store.allEntries.count) Middle Egyptian words")
@@ -74,9 +99,48 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 440, height: 420)
+        .frame(width: 470, height: 560)
         .onDisappear {
             clearedTask?.cancel()
+        }
+    }
+
+    @ViewBuilder
+    private var updateStatusLabel: some View {
+        switch updater.state {
+        case .idle:
+            EmptyView()
+        case .checking:
+            HStack(spacing: 6) {
+                ProgressView()
+                    .controlSize(.small)
+                Text("Checking…")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        case .upToDate(_, let latest):
+            Text("Up to date (latest: v\(latest))")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        case .updateAvailable(let release):
+            Button("Install v\(release.version)") {
+                updater.isUpdateSheetPresented = true
+            }
+            .buttonStyle(.link)
+            .font(.caption)
+        case .downloading(_, let progress):
+            Text("Downloading \(Int((progress * 100).rounded()))%…")
+                .font(.caption)
+                .foregroundStyle(AppTheme.slateAccent)
+        case .installing(let version):
+            Text("Installing v\(version)…")
+                .font(.caption)
+                .foregroundStyle(AppTheme.slateAccent)
+        case .error(let msg):
+            Text(msg)
+                .font(.caption)
+                .foregroundStyle(.red)
+                .lineLimit(2)
         }
     }
 }
