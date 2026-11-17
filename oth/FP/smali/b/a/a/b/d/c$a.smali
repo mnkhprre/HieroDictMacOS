@@ -1,0 +1,37 @@
+.class public Lb/a/a/b/d/c$a;
+.super Ljava/lang/Object;
+.source ""
+
+# interfaces
+.implements Ljava/io/Serializable;
+
+
+# annotations
+.annotation system Ldalvik/annotation/EnclosingClass;
+    value = Lb/a/a/b/d/c;
+.end annotation
+
+.annotation system Ldalvik/annotation/InnerClass;
+    accessFlags = 0x9
+    name = "a"
+.end annotation
+
+
+# instance fields
+.field public a:Les/doneill/android/hieroglyphs/model/Kingdom;
+
+.field public b:Les/doneill/android/hieroglyphs/model/Dynasty;
+
+.field public c:Les/doneill/android/hieroglyphs/model/Pharaoh;
+
+.field public d:Les/doneill/android/hieroglyphs/model/Cartouche;
+
+
+# direct methods
+.method public constructor <init>()V
+    .locals 0
+
+    invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+
+    return-void
+.end method

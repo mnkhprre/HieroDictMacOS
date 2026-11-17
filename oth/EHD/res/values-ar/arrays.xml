@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="languageValues">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+    </string-array>
+    <string-array name="languages">
+        <item>لغة النظام الافتراضية لجهازك</item>
+        <item>اللغة الإنجليزية</item>
+        <item>اللغة العربية</item>
+    </string-array>
+    <string-array name="themes">
+        <item>Saqqara</item>
+        <item>Alabaster</item>
+        <item>Ka</item>
+    </string-array>
+    <string-array name="themesValues">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+    </string-array>
+    <string-array name="transliterationModel">
+        <item>British</item>
+        <item>European</item>
+        <item>Computer</item>
+        <item>Arabic</item>
+    </string-array>
+    <string-array name="transliterationModelValues">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+    </string-array>
+</resources>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu
+  xmlns:android="http://schemas.android.com/apk/res/android" xmlns:cartouche="http://schemas.android.com/apk/res-auto">
+    <item android:icon="@drawable/ic_action_lighting" android:id="@id/action_lighting" android:title="@string/lighting" cartouche:showAsAction="always" />
+    <item android:icon="@drawable/ic_action_pause" android:id="@id/action_rotate" android:title="@string/rotate" cartouche:showAsAction="always" />
+    <item android:icon="@drawable/ic_action_prev" android:id="@id/action_prev" android:title="@string/prev" cartouche:showAsAction="always" />
+    <item android:icon="@drawable/ic_action_next" android:id="@id/action_next" android:title="@string/next" cartouche:showAsAction="always" />
+    <item android:icon="@drawable/ic_action_more" android:id="@id/action_menu" android:title="@string/action_menu" cartouche:showAsAction="always">
+        <menu />
+    </item>
+</menu>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <ListPreference android:entries="@array/themes" android:title="@string/theme" android:key="prefTheme" android:summary="@string/theme_summary" android:defaultValue="0" android:entryValues="@array/themesValues" />
+    <ListPreference android:entries="@array/languages" android:title="@string/custom_language" android:key="prefLanguage" android:summary="@string/custom_language_summary" android:defaultValue="0" android:entryValues="@array/languageValues" />
+    <ListPreference android:entries="@array/transliterationModel" android:title="@string/transliteration_model" android:key="prefTransliterationModel" android:summary="@string/transliteration_model_summary" android:defaultValue="0" android:entryValues="@array/transliterationModelValues" />
+    <CheckBoxPreference android:title="@string/splash_screen" android:key="prefSplashScreen" android:summary="@string/splash_screen_summary" android:defaultValue="true" />
+    <CheckBoxPreference android:title="@string/pronunciation" android:key="prefPronunciation" android:summary="@string/pronunciation_summary" android:defaultValue="false" />
+    <CheckBoxPreference android:title="@string/search_toast" android:key="prefToast" android:summary="@string/search_toast_summary" android:defaultValue="true" />
+    <CheckBoxPreference android:title="@string/scroll_fast" android:key="prefFastScroll" android:summary="@string/scroll_fast_summary" android:defaultValue="false" />
+    <Preference android:title="@string/custom_text_size" android:key="dummyCustomKKey" android:summary="@string/custom_text_size_summary">
+        <intent android:targetPackage="es.doneill.android.hieroglyph.dictionary" android:action="android.intent.action.VIEW" android:targetClass="es.doneill.android.hieroglyph.dictionary.prefs.CustomTextSizePreferenceActivity" />
+    </Preference>
+</PreferenceScreen>
