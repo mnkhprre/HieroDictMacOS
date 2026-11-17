@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu
+  xmlns:android="http://schemas.android.com/apk/res/android" xmlns:cartouche="http://schemas.android.com/apk/res-auto">
+    <item android:icon="@drawable/ic_action_clear" android:id="@id/action_clear" android:title="@string/action_clear" cartouche:showAsAction="always" />
+    <item android:icon="@drawable/ic_action_search_add" android:id="@id/action_search_add" android:title="@string/select_hieroglyph" cartouche:showAsAction="always" />
+    <item android:icon="@drawable/ic_lock_open" android:id="@id/action_lock" android:title="@string/action_lock" cartouche:showAsAction="always" />
+    <item android:icon="@drawable/ic_action_kingdom" android:id="@id/action_sort" android:title="@string/action_sort" cartouche:showAsAction="always" />
+    <item android:icon="@drawable/ic_action_more" android:id="@id/action_menu" android:title="@string/action_menu" cartouche:showAsAction="always">
+        <menu />
+    </item>
+</menu>

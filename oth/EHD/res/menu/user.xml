@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu
+  xmlns:android="http://schemas.android.com/apk/res/android" xmlns:cartouche="http://schemas.android.com/apk/res-auto">
+    <item android:icon="@drawable/ic_more_details" android:id="@id/action_add_word" android:title="@string/add_user_word" cartouche:showAsAction="always" />
+    <item android:icon="@drawable/ic_action_import" android:id="@id/action_import" android:title="@string/import_user" cartouche:showAsAction="always" />
+    <item android:icon="@drawable/ic_action_export" android:id="@id/action_export" android:title="@string/export_user" cartouche:showAsAction="always" />
+    <item android:icon="@drawable/ic_action_more" android:id="@id/action_menu" android:title="@string/action_menu" cartouche:showAsAction="always">
+        <menu />
+    </item>
+</menu>

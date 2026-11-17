@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout android:orientation="vertical" android:layout_width="match_parent" android:layout_height="match_parent"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <ProgressBar android:id="@id/progressBar" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="-8.0dp" style="@android:style/Widget.ProgressBar.Horizontal" />
+    <es.doneill.android.hieroglyph.pharaohs.view.CartoucheListView android:id="@id/cartoucheListView" android:background="?background_normal" android:layout_width="match_parent" android:layout_height="match_parent" android:cacheColorHint="?background_normal" />
+</LinearLayout>

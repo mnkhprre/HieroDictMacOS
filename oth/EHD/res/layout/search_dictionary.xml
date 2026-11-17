@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout android:orientation="vertical" android:layout_width="match_parent" android:layout_height="match_parent"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <ProgressBar android:id="@id/progressBar" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="-8.0dp" style="@android:style/Widget.ProgressBar.Horizontal" />
+    <RelativeLayout android:background="?background_dark" android:paddingTop="10.0dp" android:paddingRight="10.0dp" android:paddingBottom="10.0dp" android:layout_width="match_parent" android:layout_height="match_parent">
+        <LinearLayout android:orientation="vertical" android:paddingRight="10.0dp" android:layout_width="wrap_content" android:layout_height="match_parent">
+            <es.doneill.android.hieroglyph.dictionary.view.SearchTargetDictionaryView android:id="@id/targetDictionaryView" android:background="?background_normal" android:layout_width="match_parent" android:layout_height="match_parent" android:layout_marginBottom="10.0dp" android:layout_weight="1.0" />
+            <es.doneill.android.hieroglyph.dictionary.view.DictionaryListView android:id="@id/dictionaryListView" android:background="?background_normal" android:layout_width="match_parent" android:layout_height="match_parent" android:cacheColorHint="?background_normal" android:layout_weight="1.0" android:fadeScrollbars="false" />
+        </LinearLayout>
+        <LinearLayout android:orientation="vertical" android:id="@id/searchHieroglyphLists" android:layout_width="wrap_content" android:layout_height="match_parent" android:layout_alignParentRight="true">
+            <es.doneill.android.hieroglyph.dictionary.view.SearchHieroglyphListView android:id="@id/searchHieroglyphListView" android:background="?background_normal" android:layout_width="100.0dp" android:layout_height="match_parent" android:cacheColorHint="?background_normal" android:layout_weight="1.0" android:fadeScrollbars="false" />
+        </LinearLayout>
+        <es.doneill.android.hieroglyph.dictionary.view.OverlayView android:id="@id/overlay" android:visibility="invisible" android:layout_width="match_parent" android:layout_height="match_parent" />
+    </RelativeLayout>
+</LinearLayout>

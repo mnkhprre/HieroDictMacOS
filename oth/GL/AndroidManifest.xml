@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" android:compileSdkVersion="29" android:compileSdkVersionCodename="10" package="es.doneill.android.hieroglyph.gardinerlist" platformBuildVersionCode="29" platformBuildVersionName="10">
+    <application android:allowBackup="false" android:icon="@drawable/ic_launcher" android:label="@string/app_name" android:name="es.doneill.android.hieroglyph.gardinerlist.application.GardinerListApplication" android:theme="@style/AppBlackTheme">
+        <activity android:label="@string/app_name" android:name="es.doneill.android.hieroglyph.gardinerlist.activity.StartScreenActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+        <activity android:label="@string/gardiners_list" android:name="es.doneill.android.hieroglyph.gardinerlist.activity.GardinerListActivity"/>
+        <activity android:label="@string/gardiners_list" android:name="es.doneill.android.hieroglyph.gardinerlist.activity.GardinerVertListActivity"/>
+        <activity android:label="@string/details" android:name="es.doneill.android.hieroglyph.gardinerlist.activity.DetailGardinerActivity"/>
+        <activity android:label="@string/types" android:name="es.doneill.android.hieroglyph.gardinerlist.activity.GardinerTypesActivity"/>
+        <activity android:label="@string/settings" android:name="es.doneill.android.hieroglyph.gardinerlist.prefs.PreferencesActivity"/>
+        <activity android:label="@string/custom_text_size" android:name="es.doneill.android.hieroglyph.gardinerlist.prefs.CustomTextSizePreferenceActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+            </intent-filter>
+        </activity>
+        <activity android:label="@string/gallery" android:name="es.doneill.android.hieroglyph.gardinerlist.activity.GalleryActivity"/>
+        <meta-data android:name="com.android.dynamic.apk.fused.modules" android:value="base"/>
+        <meta-data android:name="com.android.vending.splits" android:resource="@xml/splits0"/>
+        <meta-data android:name="com.android.vending.derived.apk.id" android:value="14"/>
+    </application>
+</manifest>

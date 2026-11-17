@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu
+  xmlns:android="http://schemas.android.com/apk/res/android" xmlns:cartouche="http://schemas.android.com/apk/res-auto">
+    <item android:icon="@drawable/ic_action_kingdom" android:id="@id/action_kingdoms" android:title="@string/kingdoms" cartouche:showAsAction="always" />
+    <item android:icon="@drawable/ic_action_more" android:id="@id/action_variants" android:title="@string/variants" cartouche:showAsAction="always" />
+    <item android:icon="@drawable/ic_action_more" android:id="@id/action_menu" android:title="@string/action_menu" cartouche:showAsAction="always">
+        <menu />
+    </item>
+</menu>

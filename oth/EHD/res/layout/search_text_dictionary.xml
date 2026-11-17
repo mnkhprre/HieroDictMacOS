@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout android:orientation="vertical" android:layout_width="match_parent" android:layout_height="match_parent"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <RelativeLayout android:background="?background_dark" android:paddingTop="10.0dp" android:paddingBottom="10.0dp" android:layout_width="match_parent" android:layout_height="match_parent">
+        <LinearLayout android:orientation="vertical" android:layout_width="match_parent" android:layout_height="wrap_content">
+            <RelativeLayout android:layout_width="match_parent" android:layout_height="wrap_content">
+                <EditText android:textAppearance="?android:textAppearanceMedium" android:id="@id/editText" android:layout_width="match_parent" android:layout_height="wrap_content" android:singleLine="true" android:inputType="text" />
+                <ImageButton android:id="@id/search_button" android:paddingTop="18.0dp" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_alignTop="@id/editText" android:layout_alignBottom="@id/editText" />
+            </RelativeLayout>
+            <es.doneill.android.hieroglyph.dictionary.view.DictionaryListView android:id="@id/dictionaryListView" android:background="?background_normal" android:layout_width="match_parent" android:layout_height="wrap_content" android:cacheColorHint="?background_normal" android:fadeScrollbars="false" />
+        </LinearLayout>
+        <android.inputmethodservice.KeyboardView android:id="@id/keyboardView" android:focusable="true" android:focusableInTouchMode="true" android:visibility="gone" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_alignParentBottom="true" android:layout_centerHorizontal="true" />
+    </RelativeLayout>
+</LinearLayout>

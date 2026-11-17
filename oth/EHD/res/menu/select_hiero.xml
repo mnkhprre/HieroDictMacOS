@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu
+  xmlns:android="http://schemas.android.com/apk/res/android" xmlns:cartouche="http://schemas.android.com/apk/res-auto">
+    <item android:icon="@drawable/ic_action_gardiner" android:id="@id/action_gardiner" android:title="@string/gardiner" cartouche:showAsAction="always" />
+    <item android:icon="@drawable/ic_action_horizontal" android:id="@id/action_horizontal" android:title="@string/select_horizontal" cartouche:showAsAction="always" />
+    <item android:icon="@drawable/ic_action_vertical" android:id="@id/action_vertical" android:title="@string/select_vertical" cartouche:showAsAction="always" />
+    <item android:icon="@drawable/ic_action_circle" android:id="@id/action_circle" android:title="@string/select_round" cartouche:showAsAction="always" />
+    <item android:icon="@drawable/ic_action_ligature" android:id="@id/action_ligature" android:title="@string/select_ligature" cartouche:showAsAction="always" />
+    <item android:icon="@drawable/ic_action_more" android:id="@id/action_menu" android:title="@string/action_menu" cartouche:showAsAction="always">
+        <menu />
+    </item>
+</menu>

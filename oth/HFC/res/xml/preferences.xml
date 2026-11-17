@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <ListPreference android:entries="@array/hieroSet" android:title="@string/hiero_set" android:key="prefHieroSet" android:summary="@string/hiero_set_summary" android:defaultValue="0" android:entryValues="@array/hieroSetValues" />
+    <ListPreference android:entries="@array/transliterationModel" android:title="@string/transliteration_model" android:key="prefTransliterationModel" android:summary="@string/transliteration_model_summary" android:defaultValue="0" android:entryValues="@array/transliterationModelValues" />
+    <ListPreference android:entries="@array/slideShowTime" android:title="@string/slide_show_time" android:key="prefSlideShowTime" android:summary="@string/slide_show_time_summary" android:defaultValue="2000" android:entryValues="@array/slideShowTimeValues" />
+    <ListPreference android:entries="@array/themes" android:title="@string/theme" android:key="prefTheme" android:summary="@string/theme_summary" android:defaultValue="0" android:entryValues="@array/themesValues" />
+    <CheckBoxPreference android:title="@string/splash_screen" android:key="prefSplashScreen" android:summary="@string/splash_screen_summary" android:defaultValue="true" />
+</PreferenceScreen>

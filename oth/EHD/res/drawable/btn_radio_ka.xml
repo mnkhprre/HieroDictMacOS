@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_enabled="false" android:state_checked="true" android:drawable="@drawable/abc_btn_radio_to_on_mtrl_015_light" />
+    <item android:state_enabled="true" android:state_checked="true" android:drawable="@drawable/abc_btn_radio_to_on_mtrl_015_light" />
+    <item android:state_enabled="true" android:drawable="@drawable/abc_btn_radio_to_on_mtrl_000_light" />
+    <item android:drawable="@drawable/abc_btn_radio_to_on_mtrl_000_light" />
+</selector>
