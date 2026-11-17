@@ -1,7 +1,16 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose.compiler)
-    alias(libs.plugins.ksp)
+}
+
+val generatedHieroAssetsDir = layout.buildDirectory.dir("generated/hieroAssets")
+
+val syncHieroAssets by tasks.registering(Copy::class) {
+    from(rootProject.file("database/hierodict.db"))
+    from(rootProject.file("macos/Sources/HieroDict/Resources")) {
+        include("*.ttf")
+    }
+    into(generatedHieroAssetsDir)
 }
 
 android {
@@ -55,6 +64,16 @@ android {
     buildFeatures {
         compose = true
     }
+
+    sourceSets {
+        getByName("main") {
+            assets.directories.add(generatedHieroAssetsDir.get().asFile.path)
+        }
+    }
+}
+
+tasks.named("preBuild").configure {
+    dependsOn(syncHieroAssets)
 }
 
 dependencies {
@@ -69,7 +88,4 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
-    implementation(libs.androidx.room.runtime)
-    implementation(libs.androidx.room.ktx)
-    ksp(libs.androidx.room.compiler)
 }

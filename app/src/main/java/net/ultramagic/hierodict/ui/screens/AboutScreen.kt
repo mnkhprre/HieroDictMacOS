@@ -1,225 +1,172 @@
 package net.ultramagic.hierodict.ui.screens
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import net.ultramagic.hierodict.ui.components.HieroGlyphView
+import net.ultramagic.hierodict.R
+import net.ultramagic.hierodict.model.HieroFontChoice
+import net.ultramagic.hierodict.model.HieroUiState
+import net.ultramagic.hierodict.model.HieroglyphTranslitData
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AboutScreen(
-    onOpenSettings: () -> Unit
+    uiState: HieroUiState,
+    onSelectFont: (HieroFontChoice) -> Unit,
+    onClearBookmarks: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Scaffold(
-        contentWindowInsets = WindowInsets(0.dp),
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "About HieroDict",
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                },
-                actions = {
-                    IconButton(
-                        onClick = onOpenSettings,
-                        modifier = Modifier.testTag("about_settings_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "Settings",
-                            tint = MaterialTheme.colorScheme.onPrimary
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary
+    val context = LocalContext.current
+    val googlePlayUrl = stringResource(R.string.about_google_play_url)
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 16.dp)
+    ) {
+        Text(
+            text = "HieroDict",
+            style = MaterialTheme.typography.headlineSmall
+        )
+        Text(
+            text = "Middle Egyptian Hieroglyphic Dictionary · ${uiState.allEntries.size} words · ${uiState.totalSignCount} Gardiner signs",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+
+        Spacer(modifier = Modifier.height(18.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "Hieroglyph Font",
+            style = MaterialTheme.typography.titleMedium
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+
+        HieroFontChoice.entries.forEach { choice ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onSelectFont(choice) }
+                    .padding(vertical = 6.dp)
+                    .testTag("font_option_${choice.name}"),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RadioButton(
+                    selected = uiState.fontChoice == choice,
+                    onClick = { onSelectFont(choice) }
                 )
-            )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = choice.displayName,
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            }
         }
-    ) { innerPadding ->
-        Column(
+
+        Spacer(modifier = Modifier.height(14.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "Transliteration Guide",
+            style = MaterialTheme.typography.titleMedium
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        HieroglyphTranslitData.guideItems.forEach { item ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = item.glyph,
+                    fontFamily = uiState.hieroFontFamily,
+                    fontSize = 22.sp,
+                    modifier = Modifier.width(42.dp)
+                )
+                Text(
+                    text = "${item.symbol} (${item.ascii})",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontStyle = FontStyle.Italic,
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier.width(72.dp)
+                )
+                Text(
+                    text = item.sound,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "Sources & References",
+            style = MaterialTheme.typography.titleMedium
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = "Vocabulary and sign classification derived from James P. Allen (Middle Egyptian), Mark Vygus, Hanno Rein, and George Douros Egyptian fonts.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = stringResource(R.string.about_google_play_label),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary,
             modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .background(MaterialTheme.colorScheme.background)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .clickable {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(googlePlayUrl)))
+                }
+                .padding(vertical = 8.dp)
+                .testTag("google_play_source_link")
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Start
         ) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
-                shape = RoundedCornerShape(12.dp)
+            OutlinedButton(
+                onClick = onClearBookmarks,
+                modifier = Modifier.testTag("clear_bookmarks_button")
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    HieroGlyphView(
-                        glyph = "𓋹𓍑𓋴",
-                        fontSize = 38.sp
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = "HieroDict",
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = "Middle Egyptian Hieroglyphic Dictionary",
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.secondary
-                    )
-                    Text(
-                        text = "Version 1.0",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Column(modifier = Modifier.padding(18.dp)) {
-                    Text(
-                        text = "EGYPTIAN TRANSLITERATION GUIDE",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp,
-                        color = MaterialTheme.colorScheme.secondary
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    val transLetters = listOf(
-                        Triple("ꜣ", "G1 (vulture)", "Glottal stop, 'alef'"),
-                        Triple("ỉ", "M17 (reed)", "Yodh / i sound"),
-                        Triple("ꜥ", "D36 (arm)", "Voiced pharyngeal, 'ayin'"),
-                        Triple("w", "G43 (quail)", "W or u sound"),
-                        Triple("b", "D58 (foot)", "Standard b sound"),
-                        Triple("p", "Q3 (stool)", "Standard p sound"),
-                        Triple("f", "I9 (viper)", "Standard f sound"),
-                        Triple("m", "G17 (owl)", "Standard m sound"),
-                        Triple("n", "N35 (water)", "Standard n sound"),
-                        Triple("r", "D21 (mouth)", "Standard r sound"),
-                        Triple("h", "O4 (shelter)", "Standard English h"),
-                        Triple("ḥ", "V28 (wick)", "Emphatic pharyngeal h"),
-                        Triple("ḫ", "Aa1 (placenta)", "Velar fricative, German 'ch' in Bach"),
-                        Triple("ẖ", "F32 (belly)", "Palatal fricative, German 'ch' in Ich"),
-                        Triple("s / z", "S29 / O34", "s or z sound"),
-                        Triple("š", "N37 (pool)", "Sh sound as in 'ship'"),
-                        Triple("ḳ", "N29 (hill)", "Uvular voiceless plosive, 'q'"),
-                        Triple("k", "V31 (basket)", "Standard k sound"),
-                        Triple("g", "W11 (stand)", "Standard g sound"),
-                        Triple("t", "X1 (loaf)", "Standard t sound"),
-                        Triple("ṯ", "V13 (tether)", "Tch sound as in 'church'"),
-                        Triple("d", "D46 (hand)", "Standard d sound"),
-                        Triple("ḏ", "I10 (cobra)", "Dj sound as in 'judge'")
-                    )
-
-                    transLetters.forEachIndexed { idx, (sym, sign, desc) ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = sym,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.width(44.dp)
-                            )
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = sign,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = desc,
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                        if (idx < transLetters.size - 1) {
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
-                        }
-                    }
-                }
-            }
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Column(modifier = Modifier.padding(18.dp)) {
-                    Text(
-                        text = "SOURCES & ACKNOWLEDGEMENTS",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp,
-                        color = MaterialTheme.colorScheme.secondary
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = "• James P. Allen: Middle Egyptian (2000, 3rd ed.) vocabulary & grammar notes\n" +
-                            "• Hanno Rein: HieroDict open-source dataset & JSesh integration\n" +
-                            "• Mark Vygus: Middle Egyptian Dictionary\n" +
-                            "• George Douros: Nilus & Abydos TrueType fonts for Ancient Egyptian Scripts\n" +
-                            "• Manuel de Codage (MdC) standardization for hieroglyphs\n" +
-                            "• License: Attribution-ShareAlike 2.0 Generic (CC BY-SA 2.0)",
-                        fontSize = 13.sp,
-                        lineHeight = 20.sp,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
+                Text("Clear Bookmarked Words")
             }
         }
     }

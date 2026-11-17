@@ -1,12 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">HieroDict</string>
-    <string name="title_dictionary">Dictionary</string>
-    <string name="title_search">Search</string>
-    <string name="title_sign_list">Sign List</string>
-    <string name="title_favorites">Saved Words</string>
-    <string name="title_about">About &amp; Grammar</string>
-    <string name="title_settings">Settings</string>
-    <string name="action_search_hint">Search English, Transliteration, MdC or Gardiner code…</string>
-    <string name="no_results">No hieroglyphic words found matching your query.</string>
+    <string name="nav_search">Search</string>
+    <string name="nav_dictionary">Dictionary</string>
+    <string name="nav_sign_list">Signs</string>
+    <string name="nav_about">About</string>
+    <string name="search_placeholder">Search English, translit, MdC, Gardiner (G43) or 𓋹</string>
+    <string name="empty_search_title">Universal Hieroglyphic Search</string>
+    <string name="empty_search_subtitle">Type an English meaning, transliteration, Manuel de Codage, Gardiner code, or paste a hieroglyph.</string>
+    <string name="no_results_title">No matching entries or signs</string>
+    <string name="no_results_subtitle">Try another spelling, Gardiner code, or transliteration.</string>
+    <string name="filter_all">All Words</string>
+    <string name="filter_bookmarks">Bookmarks</string>
+    <string name="about_google_play_label">Google Play Source Reference</string>
+    <string name="about_google_play_url">https://play.google.com/store/apps/details?id=net.ultramagic.hierodict&amp;hl=en</string>
 </resources>

@@ -1,166 +1,209 @@
 package net.ultramagic.hierodict.viewmodel
 
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
+import android.app.Application
+import android.content.Context
+import android.graphics.Typeface
+import androidx.compose.ui.text.font.FontFamily
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import net.ultramagic.hierodict.data.DictionaryRepository
-import net.ultramagic.hierodict.data.GardinerCategory
-import net.ultramagic.hierodict.data.GardinerSign
-import net.ultramagic.hierodict.data.GlyphScale
-import net.ultramagic.hierodict.data.HieroEntry
-import net.ultramagic.hierodict.data.NavigationDestination
-import net.ultramagic.hierodict.data.SearchMode
-import net.ultramagic.hierodict.data.ThemePreference
+import kotlinx.coroutines.withContext
+import net.ultramagic.hierodict.data.HieroDatabaseHelper
+import net.ultramagic.hierodict.model.GardinerCategory
+import net.ultramagic.hierodict.model.GardinerSign
+import net.ultramagic.hierodict.model.HieroEntry
+import net.ultramagic.hierodict.model.HieroFontChoice
+import net.ultramagic.hierodict.model.HieroUiState
 
-@OptIn(ExperimentalCoroutinesApi::class)
-class HieroDictViewModel(
-    private val repository: DictionaryRepository
-) : ViewModel() {
+class HieroDictViewModel(application: Application) : AndroidViewModel(application) {
+    private val db = HieroDatabaseHelper(application)
+    private val prefs = application.getSharedPreferences("hierodict_prefs", Context.MODE_PRIVATE)
 
-    private val _isLoaded = MutableStateFlow(false)
-    val isLoaded: StateFlow<Boolean> = _isLoaded.asStateFlow()
+    private val _uiState = MutableStateFlow(HieroUiState())
+    val uiState: StateFlow<HieroUiState> = _uiState.asStateFlow()
 
-    private val _currentScreen = MutableStateFlow(NavigationDestination.SEARCH)
-    val currentScreen: StateFlow<NavigationDestination> = _currentScreen.asStateFlow()
-
-    private val _searchMode = MutableStateFlow(SearchMode.GLYPH)
-    val searchMode: StateFlow<SearchMode> = _searchMode.asStateFlow()
-
-    private val _searchQuery = MutableStateFlow("")
-    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
-
-    private val _activeSignFilter = MutableStateFlow<String?>(null)
-    val activeSignFilter: StateFlow<String?> = _activeSignFilter.asStateFlow()
-
-    private val _selectedWord = MutableStateFlow<HieroEntry?>(null)
-    val selectedWord: StateFlow<HieroEntry?> = _selectedWord.asStateFlow()
-
-    val glyphScale: StateFlow<GlyphScale> = repository.glyphScale
-    val themePreference: StateFlow<ThemePreference> = repository.themePreference
-
-    val allEntries: StateFlow<List<HieroEntry>> = repository.entries
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    val dictionaryEntries: StateFlow<List<HieroEntry>> = _activeSignFilter
-        .flatMapLatest { signCode ->
-            if (signCode == null) {
-                repository.entries
-            } else {
-                repository.observeEntriesBySign(signCode)
-            }
-        }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    val categories: StateFlow<List<GardinerCategory>> = repository.categories
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    val searchResults: StateFlow<List<HieroEntry>> = combine(_searchQuery, _searchMode) { query, mode ->
-        query to mode
-    }.flatMapLatest { (query, mode) ->
-        if (query.isBlank()) {
-            flowOf(emptyList())
-        } else {
-            repository.search(query, mode)
-        }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    private var searchJob: Job? = null
 
     init {
+        val savedFont = HieroFontChoice.fromAssetName(prefs.getString("hiero_font", null))
+        val fontFamily = loadAssetFontFamily(savedFont)
+        _uiState.update { it.copy(fontChoice = savedFont, hieroFontFamily = fontFamily) }
+        loadInitialData()
+    }
+
+    private fun loadInitialData() {
         viewModelScope.launch {
-            repository.ensureSeeded()
-            _isLoaded.value = true
+            val loaded = withContext(Dispatchers.IO) {
+                val entries = db.fetchAllEntries()
+                val categories = db.fetchCategories()
+                val defaultCat = categories.firstOrNull()?.code ?: "A"
+                val signs = db.fetchSignsByCategory(defaultCat)
+                val signCount = db.countSigns()
+                LoadedSnapshot(entries, categories, defaultCat, signs, signCount)
+            }
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    allEntries = loaded.entries,
+                    categories = loaded.categories,
+                    selectedCategoryCode = loaded.defaultCategory,
+                    categorySigns = loaded.signs,
+                    totalSignCount = loaded.signCount
+                )
+            }
         }
+    }
+
+    fun updateSearchQuery(query: String) {
+        _uiState.update { it.copy(searchQuery = query) }
+        searchJob?.cancel()
+        if (query.trim().isEmpty()) {
+            _uiState.update { it.copy(searchEntries = emptyList(), searchSigns = emptyList()) }
+            return
+        }
+        searchJob = viewModelScope.launch {
+            val (entries, signs) = withContext(Dispatchers.IO) {
+                db.searchEntriesUniversal(query) to db.searchSignsUniversal(query)
+            }
+            _uiState.update { it.copy(searchEntries = entries, searchSigns = signs) }
+        }
+    }
+
+    fun appendToSearchQuery(token: String) {
+        updateSearchQuery(_uiState.value.searchQuery + token)
+    }
+
+    fun updateDictionaryFilter(filter: String) {
+        _uiState.update { it.copy(dictionaryFilter = filter) }
+    }
+
+    fun setShowBookmarksOnly(bookmarksOnly: Boolean) {
+        _uiState.update { it.copy(showBookmarksOnly = bookmarksOnly) }
+    }
+
+    fun selectCategory(categoryCode: String) {
+        _uiState.update { it.copy(selectedCategoryCode = categoryCode) }
         viewModelScope.launch {
-            allEntries.collect { list ->
-                val currentSelected = _selectedWord.value
-                if (currentSelected != null) {
-                    _selectedWord.value = list.firstOrNull { it.id == currentSelected.id }
+            val signs = withContext(Dispatchers.IO) {
+                db.fetchSignsByCategory(categoryCode)
+            }
+            _uiState.update { it.copy(categorySigns = signs) }
+        }
+    }
+
+    fun inspectEntry(entry: HieroEntry) {
+        _uiState.update { it.copy(inspectedEntry = entry, inspectedEntrySigns = emptyList()) }
+        viewModelScope.launch {
+            val signs = withContext(Dispatchers.IO) {
+                db.fetchSignsForCodes(entry.gardinerCodes)
+            }
+            _uiState.update { state ->
+                if (state.inspectedEntry?.id == entry.id) {
+                    state.copy(inspectedEntrySigns = signs)
+                } else {
+                    state
                 }
             }
         }
     }
 
-    fun navigateTo(destination: NavigationDestination) {
-        _currentScreen.value = destination
+    fun dismissInspectedEntry() {
+        _uiState.update { it.copy(inspectedEntry = null, inspectedEntrySigns = emptyList()) }
     }
 
-    fun onSearchModeChange(mode: SearchMode) {
-        _searchMode.value = mode
-        _searchQuery.value = ""
-    }
-
-    fun onSearchQueryChange(query: String) {
-        _searchQuery.value = query
-    }
-
-    fun appendGlyph(glyph: String) {
-        _searchQuery.value += glyph
-    }
-
-    fun backspaceQuery() {
-        val current = _searchQuery.value
-        if (current.isEmpty()) return
-        val lastIdx = current.length - 1
-        val cp = Character.codePointBefore(current, current.length)
-        val count = Character.charCount(cp)
-        _searchQuery.value = current.substring(0, (lastIdx + 1 - count).coerceAtLeast(0))
-    }
-
-    fun clearQuery() {
-        _searchQuery.value = ""
-    }
-
-    fun selectWord(entry: HieroEntry?) {
-        _selectedWord.value = entry
-    }
-
-    fun toggleFavorite(id: Int) {
+    fun inspectSign(sign: GardinerSign) {
+        _uiState.update { it.copy(inspectedSign = sign, inspectedSignWords = emptyList()) }
         viewModelScope.launch {
-            repository.toggleFavorite(id)
+            val words = withContext(Dispatchers.IO) {
+                db.fetchEntriesBySign(sign.code)
+            }
+            _uiState.update { state ->
+                if (state.inspectedSign?.code == sign.code) {
+                    state.copy(inspectedSignWords = words)
+                } else {
+                    state
+                }
+            }
+        }
+    }
+
+    fun dismissInspectedSign() {
+        _uiState.update { it.copy(inspectedSign = null, inspectedSignWords = emptyList()) }
+    }
+
+    fun toggleFavorite(entry: HieroEntry) {
+        val nextFavorite = !entry.isFavorite
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                db.setFavorite(entry.id, nextFavorite)
+            }
+            _uiState.update { state ->
+                val updatedAll = state.allEntries.map {
+                    if (it.id == entry.id) it.copy(isFavorite = nextFavorite) else it
+                }
+                val updatedSearch = state.searchEntries.map {
+                    if (it.id == entry.id) it.copy(isFavorite = nextFavorite) else it
+                }
+                val updatedSignWords = state.inspectedSignWords.map {
+                    if (it.id == entry.id) it.copy(isFavorite = nextFavorite) else it
+                }
+                val updatedInspected = if (state.inspectedEntry?.id == entry.id) {
+                    state.inspectedEntry.copy(isFavorite = nextFavorite)
+                } else {
+                    state.inspectedEntry
+                }
+                state.copy(
+                    allEntries = updatedAll,
+                    searchEntries = updatedSearch,
+                    inspectedSignWords = updatedSignWords,
+                    inspectedEntry = updatedInspected
+                )
+            }
         }
     }
 
     fun clearAllFavorites() {
         viewModelScope.launch {
-            repository.clearAllFavorites()
+            withContext(Dispatchers.IO) {
+                db.clearAllFavorites()
+            }
+            _uiState.update { state ->
+                state.copy(
+                    allEntries = state.allEntries.map { it.copy(isFavorite = false) },
+                    searchEntries = state.searchEntries.map { it.copy(isFavorite = false) },
+                    inspectedSignWords = state.inspectedSignWords.map { it.copy(isFavorite = false) },
+                    inspectedEntry = state.inspectedEntry?.copy(isFavorite = false)
+                )
+            }
         }
     }
 
-    fun filterBySign(signCode: String) {
-        _selectedWord.value = null
-        _activeSignFilter.value = signCode
-        _currentScreen.value = NavigationDestination.DICTIONARY
+    fun selectFontChoice(choice: HieroFontChoice) {
+        prefs.edit().putString("hiero_font", choice.assetFileName).apply()
+        val family = loadAssetFontFamily(choice)
+        _uiState.update { it.copy(fontChoice = choice, hieroFontFamily = family) }
     }
 
-    fun clearSignFilter() {
-        _activeSignFilter.value = null
-    }
-
-    fun updateGlyphScale(scale: GlyphScale) {
-        repository.setGlyphScale(scale)
-    }
-
-    fun updateThemePreference(preference: ThemePreference) {
-        repository.setThemePreference(preference)
-    }
-
-    suspend fun getSignDetails(code: String): GardinerSign? {
-        return repository.getSignDetails(code)
-    }
-
-    class Factory(private val repository: DictionaryRepository) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return HieroDictViewModel(repository) as T
+    private fun loadAssetFontFamily(choice: HieroFontChoice): FontFamily {
+        return try {
+            val typeface = Typeface.createFromAsset(getApplication<Application>().assets, choice.assetFileName)
+            FontFamily(typeface)
+        } catch (_: Exception) {
+            FontFamily.Default
         }
     }
+
+    private data class LoadedSnapshot(
+        val entries: List<HieroEntry>,
+        val categories: List<GardinerCategory>,
+        val defaultCategory: String,
+        val signs: List<GardinerSign>,
+        val signCount: Int
+    )
 }
