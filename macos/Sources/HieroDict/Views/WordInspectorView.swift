@@ -10,7 +10,6 @@ struct WordInspectorView: View {
     let onClose: () -> Void
     let onToggleFavorite: (Int) -> Void
     let onSignSelected: (String) -> Void
-    let onOpenInStackStudio: (HieroEntry, Int) -> Void
     let getSignDetails: (String) -> GardinerSign?
 
     @Environment(\.hieroFontChoice) private var hieroFontChoice
@@ -19,7 +18,7 @@ struct WordInspectorView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 16) {
+            VStack(spacing: 18) {
                 HStack {
                     Button {
                         onToggleFavorite(entry.id)
@@ -28,8 +27,10 @@ struct WordInspectorView: View {
                             entry.isFavorite ? "Bookmarked" : "Bookmark",
                             systemImage: entry.isFavorite ? "bookmark.fill" : "bookmark"
                         )
+                        .font(.system(size: 12.5, weight: .medium))
                     }
                     .buttonStyle(.bordered)
+                    .controlSize(.small)
                     .tint(entry.isFavorite ? AppTheme.slateAccent : .secondary)
 
                     Spacer()
@@ -64,12 +65,7 @@ struct WordInspectorView: View {
                     }
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 20)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(AppTheme.glyphTileBackground)
-                )
+                .padding(.vertical, 10)
 
                 VStack(spacing: 4) {
                     Text(entry.displayTranslit)
@@ -95,21 +91,24 @@ struct WordInspectorView: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text("TRANSLATION")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.system(size: 11, weight: .semibold))
                         .tracking(1)
                         .foregroundStyle(.secondary)
 
                     Text(entry.translation)
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.system(size: 15.5, weight: .regular))
+                        .lineSpacing(3)
                         .foregroundStyle(.primary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .textSelection(.enabled)
                 }
 
                 if !entry.gardinerCodes.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: 10) {
                         Text("GARDINER SIGNS (\(entry.gardinerCodes.count))")
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.system(size: 11, weight: .semibold))
                             .tracking(1)
                             .foregroundStyle(.secondary)
 
@@ -139,12 +138,8 @@ struct WordInspectorView: View {
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 6)
                                     .background(
-                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                        RoundedRectangle(cornerRadius: 7, style: .continuous)
                                             .fill(AppTheme.glyphTileBackground)
-                                    )
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                            .stroke(AppTheme.subtleBorder, lineWidth: 1)
                                     )
                                 }
                                 .buttonStyle(.plain)
@@ -157,20 +152,22 @@ struct WordInspectorView: View {
 
                 let squares = QuadratEngine.splitSquares(mdc: entry.mdc)
                 if !squares.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: 10) {
                         Text("IMAGINARY SQUARES (\(squares.count))")
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.system(size: 11, weight: .semibold))
                             .tracking(1)
                             .foregroundStyle(.secondary)
 
                         FlowLayout(spacing: 8) {
                             ForEach(Array(squares.enumerated()), id: \.offset) { idx, sqMdc in
                                 Button {
-                                    onOpenInStackStudio(entry, idx)
+                                    copyToPasteboard(sqMdc, feedback: "Copied Q\(idx + 1) MdC")
                                 } label: {
                                     VStack(spacing: 4) {
                                         Text("Q\(idx + 1)")
-                                            .font(.system(size: 9, weight: .bold))
+                                            .font(.system(size: 9.5, weight: .bold))
                                             .foregroundStyle(.secondary)
                                         QuadratWordView(
                                             mdc: sqMdc,
@@ -185,54 +182,45 @@ struct WordInspectorView: View {
                                     }
                                     .padding(8)
                                     .background(
-                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                        RoundedRectangle(cornerRadius: 7, style: .continuous)
                                             .fill(AppTheme.glyphTileBackground)
-                                    )
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                            .stroke(AppTheme.subtleBorder, lineWidth: 1)
                                     )
                                 }
                                 .buttonStyle(.plain)
-                                .help("Inspect or remix Square Q\(idx + 1)")
+                                .help("Copy MdC for Square Q\(idx + 1)")
                             }
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
-                HStack(spacing: 10) {
-                    Button {
-                        let resolved = entry.glyph.isEmpty
-                            ? QuadratEngine.resolveUnicodeString(mdc: entry.mdc, signLookup: signLookup)
-                            : entry.glyph
-                        copyToPasteboard(resolved, feedback: "Copied hieroglyphs")
-                    } label: {
-                        Label("Glyphs", systemImage: "doc.on.doc")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
+                Divider()
 
-                    Button {
-                        copyToPasteboard(
-                            "\(entry.displayTranslit) — \(entry.translation)",
-                            feedback: "Copied meaning"
-                        )
-                    } label: {
-                        Label("Meaning", systemImage: "doc.on.doc")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-                }
+                VStack(spacing: 10) {
+                    HStack(spacing: 10) {
+                        Button {
+                            let resolved = entry.glyph.isEmpty
+                                ? QuadratEngine.resolveUnicodeString(mdc: entry.mdc, signLookup: signLookup)
+                                : entry.glyph
+                            copyToPasteboard(resolved, feedback: "Copied hieroglyphs")
+                        } label: {
+                            Label("Glyphs", systemImage: "doc.on.doc")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
 
-                Button {
-                    onOpenInStackStudio(entry, 0)
-                } label: {
-                    Label("Open in Imaginary Stacks", systemImage: "square.stack.3d.up")
-                        .frame(maxWidth: .infinity)
+                        Button {
+                            copyToPasteboard(
+                                "\(entry.displayTranslit) — \(entry.translation)",
+                                feedback: "Copied meaning"
+                            )
+                        } label: {
+                            Label("Meaning", systemImage: "doc.on.doc")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                    }
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(AppTheme.prominentButtonTint)
 
                 if let badge = copiedBadgeText {
                     Text(badge)
@@ -241,9 +229,9 @@ struct WordInspectorView: View {
                         .transition(.opacity)
                 }
             }
-            .padding(18)
+            .padding(20)
         }
-        .frame(minWidth: 280, idealWidth: 320, maxWidth: 380)
+        .frame(minWidth: 270, idealWidth: 315, maxWidth: 370)
         .onDisappear {
             badgeTask?.cancel()
         }

@@ -6,6 +6,7 @@ struct MenuBarSearchView: View {
     @Environment(\.openWindow) private var openWindow
     @Environment(\.dismiss) private var dismiss
     @Environment(\.hieroFontChoice) private var hieroFontChoice
+    @Environment(\.colorScheme) private var colorScheme
 
     @FocusState private var isQueryFocused: Bool
     @State private var copiedFeedback: String? = nil
@@ -30,6 +31,13 @@ struct MenuBarSearchView: View {
             footerSection
         }
         .frame(width: 440, height: 500)
+        .background {
+            ZStack {
+                AppTheme.windowBackground
+                    .ignoresSafeArea()
+                OpaquePopoverWindowBackdrop(colorScheme: colorScheme)
+            }
+        }
         .onAppear {
             isQueryFocused = true
         }
@@ -39,10 +47,10 @@ struct MenuBarSearchView: View {
     }
 
     private var headerSection: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 10) {
             HStack {
                 Label("HieroDict Quick Search", systemImage: "text.book.closed")
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(AppTheme.slateAccent)
 
                 Spacer()
@@ -67,7 +75,7 @@ struct MenuBarSearchView: View {
             .pickerStyle(.segmented)
             .labelsHidden()
 
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(AppTheme.slateAccent)
                     .font(.system(size: 13))
@@ -80,7 +88,7 @@ struct MenuBarSearchView: View {
                     )
                 )
                 .textFieldStyle(.plain)
-                .font(store.menuBarSearchMode == .glyph ? .hiero(size: 20, choice: hieroFontChoice) : .system(size: 13))
+                .font(store.menuBarSearchMode == .glyph ? .hiero(size: 20, choice: hieroFontChoice) : .system(size: 13.5))
                 .focused($isQueryFocused)
 
                 if !store.menuBarSearchQuery.isEmpty {
@@ -104,14 +112,10 @@ struct MenuBarSearchView: View {
                 }
             }
             .padding(.horizontal, 10)
-            .padding(.vertical, 7)
+            .padding(.vertical, 8)
             .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
                     .fill(AppTheme.cardBackground)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(AppTheme.subtleBorder, lineWidth: 1)
             )
 
             if store.menuBarSearchMode == .glyph {
@@ -133,10 +137,13 @@ struct MenuBarSearchView: View {
                         }
                     }
                 }
-            } else if store.menuBarSearchMode == .mdc {
+            } else if store.menuBarSearchMode == .mdcTranslit {
                 let trimmedMdc = store.menuBarSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !trimmedMdc.isEmpty {
-                    HStack(spacing: 8) {
+                let resolvedMdcGlyphs = !trimmedMdc.isEmpty
+                    ? QuadratEngine.extractResolvedHieroglyphs(mdc: trimmedMdc, signLookup: store.signCache)
+                    : ""
+                if !trimmedMdc.isEmpty, !resolvedMdcGlyphs.isEmpty {
+                    HStack(spacing: 10) {
                         QuadratWordView(
                             mdc: trimmedMdc,
                             fallbackGlyph: nil,
@@ -144,53 +151,48 @@ struct MenuBarSearchView: View {
                             quadratSize: 28,
                             showGrid: store.showQuadratGuides
                         )
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(
-                            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .fill(AppTheme.glyphTileBackground)
-                        )
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
 
                         Spacer()
-
-                        Button {
-                            store.openCustomMdcInStackStudio(trimmedMdc)
-                            openMainAppWindow()
-                        } label: {
-                            Label("Open in Squares", systemImage: "square.stack.3d.up")
-                                .font(.system(size: 11, weight: .medium))
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
                     }
                 }
             }
         }
-        .padding(12)
+        .padding(14)
     }
 
     @ViewBuilder
     private var resultsSection: some View {
         let trimmed = store.menuBarSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
-            VStack(spacing: 10) {
+            VStack(spacing: 12) {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 24))
                     .foregroundStyle(.secondary)
                 Text("Quick Dropdown Dictionary")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 14.5, weight: .semibold))
                 Text("Search Middle Egyptian words from anywhere on macOS.")
-                    .font(.system(size: 12))
+                    .font(.system(size: 12.5))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
 
                 HStack(spacing: 6) {
                     ForEach(quickExamples, id: \.self) { example in
-                        Button(example) {
+                        Button {
                             store.updateMenuBarQuery(example)
+                        } label: {
+                            Text(example)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(AppTheme.slateAccent)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .fill(AppTheme.cardBackground)
+                                )
                         }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
+                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -199,13 +201,13 @@ struct MenuBarSearchView: View {
         } else if store.menuBarResults.isEmpty {
             VStack(spacing: 8) {
                 Text("No words found matching \"\(trimmed)\"")
-                    .font(.system(size: 13))
+                    .font(.system(size: 13.5))
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             ScrollView {
-                LazyVStack(spacing: 6) {
+                LazyVStack(spacing: 0) {
                     HStack {
                         let count = store.menuBarResults.count
                         Text(count >= 150 ? "Top \(count) results" : "\(count) results")
@@ -213,13 +215,16 @@ struct MenuBarSearchView: View {
                             .foregroundStyle(.secondary)
                         Spacer()
                     }
-                    .padding(.horizontal, 4)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
 
-                    ForEach(store.menuBarResults) { entry in
+                    Divider()
+
+                    ForEach(Array(store.menuBarResults.enumerated()), id: \.element.id) { index, entry in
                         Button {
                             store.menuBarSelectedWord = entry
                         } label: {
-                            HStack(spacing: 10) {
+                            HStack(spacing: 12) {
                                 HieroGlyphBox(
                                     glyph: entry.glyph,
                                     fontSize: 20,
@@ -227,22 +232,23 @@ struct MenuBarSearchView: View {
                                     signLookup: store.signCache,
                                     useQuadrat: store.useQuadratLayout,
                                     showGrid: store.showQuadratGuides,
-                                    minWidth: 68,
-                                    maxWidth: 140,
-                                    verticalPadding: 5
+                                    minWidth: 64,
+                                    maxWidth: 132,
+                                    verticalPadding: 4,
+                                    showBackground: false
                                 )
 
-                                VStack(alignment: .leading, spacing: 2) {
+                                VStack(alignment: .leading, spacing: 3) {
                                     HStack(spacing: 6) {
                                         Text(entry.displayTranslit)
-                                            .font(.system(size: 14, weight: .bold))
+                                            .font(.system(size: 14.5, weight: .bold))
                                             .foregroundStyle(AppTheme.slateAccent)
                                         Text(entry.mdc)
-                                            .font(.system(size: 10, design: .monospaced))
+                                            .font(.system(size: 10.5, design: .monospaced))
                                             .foregroundStyle(.secondary)
                                     }
                                     Text(entry.translation)
-                                        .font(.system(size: 12))
+                                        .font(.system(size: 12.5))
                                         .foregroundStyle(.primary)
                                         .lineLimit(2)
                                         .multilineTextAlignment(.leading)
@@ -256,27 +262,25 @@ struct MenuBarSearchView: View {
                                         .foregroundStyle(AppTheme.slateAccent)
                                 }
                             }
-                            .padding(8)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .fill(AppTheme.cardBackground)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .stroke(AppTheme.subtleBorder, lineWidth: 1)
-                            )
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+
+                        if index < store.menuBarResults.count - 1 {
+                            Divider()
+                                .padding(.horizontal, 14)
+                        }
                     }
                 }
-                .padding(10)
             }
         }
     }
 
     private func quickDetailView(entry: HieroEntry) -> some View {
         ScrollView {
-            VStack(spacing: 12) {
+            VStack(spacing: 14) {
                 HStack {
                     Button {
                         store.menuBarSelectedWord = nil
@@ -314,18 +318,14 @@ struct MenuBarSearchView: View {
                     }
                 }
                 .frame(maxWidth: .infinity)
-                .padding(14)
-                .background(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(AppTheme.glyphTileBackground)
-                )
+                .padding(.vertical, 10)
 
                 VStack(spacing: 3) {
                     Text(entry.displayTranslit)
-                        .font(.system(size: 20, weight: .bold))
+                        .font(.system(size: 21, weight: .bold))
                         .foregroundStyle(AppTheme.slateAccent)
                     Text("MdC: \(entry.mdc)")
-                        .font(.system(size: 11, design: .monospaced))
+                        .font(.system(size: 11.5, design: .monospaced))
                         .foregroundStyle(.secondary)
                     if !entry.pos.isEmpty {
                         Text(entry.pos)
@@ -335,8 +335,11 @@ struct MenuBarSearchView: View {
                     }
                 }
 
+                Divider()
+
                 Text(entry.translation)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 14.5))
+                    .lineSpacing(3)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
 
@@ -363,29 +366,17 @@ struct MenuBarSearchView: View {
                     .controlSize(.small)
                 }
 
-                HStack(spacing: 8) {
-                    Button {
-                        store.selectWord(entry)
-                        store.selectedSection = .dictionary
-                        openMainAppWindow()
-                    } label: {
-                        Label("Show in Window", systemImage: "macwindow")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-
-                    Button {
-                        store.openInStackStudio(entry)
-                        openMainAppWindow()
-                    } label: {
-                        Label("Stack Studio", systemImage: "square.stack.3d.up")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(AppTheme.prominentButtonTint)
-                    .controlSize(.small)
+                Button {
+                    store.selectWord(entry)
+                    store.selectedSection = .dictionary
+                    openMainAppWindow()
+                } label: {
+                    Label("Show in Main Window", systemImage: "macwindow")
+                        .frame(maxWidth: .infinity)
                 }
+                .buttonStyle(.borderedProminent)
+                .tint(AppTheme.prominentButtonTint)
+                .controlSize(.small)
 
                 if let copiedFeedback {
                     Text(copiedFeedback)
@@ -393,7 +384,7 @@ struct MenuBarSearchView: View {
                         .foregroundStyle(AppTheme.slateAccent)
                 }
             }
-            .padding(14)
+            .padding(16)
         }
     }
 
@@ -407,15 +398,6 @@ struct MenuBarSearchView: View {
 
             Spacer()
 
-            Button("Imaginary Stacks") {
-                store.selectedSection = .stacks
-                openMainAppWindow()
-            }
-            .buttonStyle(.link)
-            .font(.system(size: 12))
-
-            Spacer()
-
             Button("Quit") {
                 NSApp.terminate(nil)
             }
@@ -423,16 +405,14 @@ struct MenuBarSearchView: View {
             .font(.system(size: 12))
             .foregroundStyle(.secondary)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
     }
 
     private var quickExamples: [String] {
         switch store.menuBarSearchMode {
         case .glyph: return ["𓋹", "𓄤", "𓊵", "𓇳"]
-        case .mdc: return ["Htp:t*p", "S34-N35-Aa1", "nfr", "R4:X1*Q3"]
-        case .translit: return ["ꜥnḫ", "nfr", "Htp", "AbDw"]
+        case .mdcTranslit: return ["Htp:t*p", "ꜥnḫ", "S34-N35-Aa1", "nfr"]
         case .gardiner: return ["S34", "F35", "G43", "D21"]
         case .english: return ["life", "king", "god", "water"]
         }
@@ -460,6 +440,74 @@ struct MenuBarSearchView: View {
             guard !Task.isCancelled else { return }
             withAnimation {
                 copiedFeedback = nil
+            }
+        }
+    }
+}
+
+private struct OpaquePopoverWindowBackdrop: NSViewRepresentable {
+    let colorScheme: ColorScheme
+
+    func makeNSView(context: Context) -> OpaquePopoverAnchorView {
+        OpaquePopoverAnchorView()
+    }
+
+    func updateNSView(_ nsView: OpaquePopoverAnchorView, context: Context) {
+        nsView.preferredAppearance = NSAppearance(named: colorScheme == .dark ? .darkAqua : .aqua)
+        nsView.applyOpaqueAppearance()
+    }
+}
+
+private final class OpaquePopoverAnchorView: NSView {
+    var preferredAppearance: NSAppearance?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        applyOpaqueAppearance()
+        DispatchQueue.main.async { [weak self] in
+            self?.applyOpaqueAppearance()
+        }
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        applyOpaqueAppearance()
+    }
+
+    func applyOpaqueAppearance() {
+        guard let window else { return }
+        let appearance = preferredAppearance ?? window.effectiveAppearance
+        let opaqueColor = AppTheme.opaqueWindowNSColor(for: appearance)
+        window.isOpaque = true
+        window.alphaValue = 1.0
+        window.backgroundColor = opaqueColor
+
+        if let contentView = window.contentView {
+            makeOpaque(view: contentView, color: opaqueColor, depth: 0)
+            if let superview = contentView.superview {
+                makeOpaque(view: superview, color: opaqueColor, depth: 0)
+            }
+        }
+    }
+
+    private func makeOpaque(view: NSView, color: NSColor, depth: Int) {
+        guard depth <= 4 else { return }
+        if let effectView = view as? NSVisualEffectView {
+            effectView.state = .inactive
+            effectView.blendingMode = .withinWindow
+            effectView.material = .windowBackground
+            effectView.wantsLayer = true
+            effectView.layer?.backgroundColor = color.cgColor
+            effectView.layer?.isOpaque = true
+        } else if depth <= 1 {
+            view.wantsLayer = true
+            view.layer?.backgroundColor = color.cgColor
+        }
+        for subview in view.subviews {
+            if subview is NSVisualEffectView {
+                makeOpaque(view: subview, color: color, depth: depth + 1)
+            } else if depth < 2 {
+                makeOpaque(view: subview, color: color, depth: depth + 1)
             }
         }
     }

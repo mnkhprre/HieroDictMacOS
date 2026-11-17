@@ -5,6 +5,7 @@ import SwiftUI
 struct HieroDictApp: App {
     @StateObject private var store = HieroDictStore()
     @AppStorage("themePreference") private var themePreferenceRaw: String = ThemePreference.system.rawValue
+    @AppStorage("enableWindowBlur") private var enableWindowBlur: Bool = false
 
     init() {
         if let icon = ResourceLocator.appIconImage() {
@@ -20,8 +21,9 @@ struct HieroDictApp: App {
         WindowGroup("HieroDict", id: "main") {
             MainSplitView(store: store)
                 .environment(\.hieroFontChoice, store.hieroFontChoice)
+                .environment(\.enableWindowBlur, enableWindowBlur)
                 .preferredColorScheme(colorScheme)
-                .frame(minWidth: 880, minHeight: 620)
+                .frame(minWidth: 820, minHeight: 580)
         }
         .defaultSize(width: 1120, height: 740)
         .commands {
@@ -37,28 +39,15 @@ struct HieroDictApp: App {
                 }
                 .keyboardShortcut("2", modifiers: .command)
 
-                Button("Imaginary Stacks") {
-                    store.selectedSection = .stacks
-                }
-                .keyboardShortcut("3", modifiers: .command)
-
                 Button("Sign List") {
                     store.selectedSection = .signList
                 }
-                .keyboardShortcut("4", modifiers: .command)
+                .keyboardShortcut("3", modifiers: .command)
 
                 Button("About HieroDict") {
                     store.selectedSection = .about
                 }
-                .keyboardShortcut("5", modifiers: .command)
-
-                Divider()
-
-                Button("Generate Random Imaginary Stack") {
-                    store.selectedSection = .stacks
-                    store.generateRandomImaginaryStack()
-                }
-                .keyboardShortcut("r", modifiers: [.command, .option])
+                .keyboardShortcut("4", modifiers: .command)
             }
 
             CommandGroup(after: .textEditing) {
@@ -85,6 +74,7 @@ struct HieroDictApp: App {
         Settings {
             SettingsView(store: store)
                 .environment(\.hieroFontChoice, store.hieroFontChoice)
+                .environment(\.enableWindowBlur, enableWindowBlur)
                 .preferredColorScheme(colorScheme)
         }
     }

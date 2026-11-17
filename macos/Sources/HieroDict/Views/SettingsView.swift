@@ -4,6 +4,7 @@ struct SettingsView: View {
     @ObservedObject var store: HieroDictStore
     @AppStorage("glyphScale") private var glyphScaleRaw: String = GlyphScale.medium.rawValue
     @AppStorage("themePreference") private var themePreferenceRaw: String = ThemePreference.system.rawValue
+    @AppStorage("enableWindowBlur") private var enableWindowBlur: Bool = false
 
     @State private var clearedBannerVisible = false
     @State private var clearedTask: Task<Void, Never>? = nil
@@ -35,6 +36,15 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.radioGroup)
+
+                Toggle(isOn: $enableWindowBlur) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Window Blur / Translucency")
+                        Text("Off by default for maximum text and hieroglyph clarity.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
 
             Section("SQLite Database") {

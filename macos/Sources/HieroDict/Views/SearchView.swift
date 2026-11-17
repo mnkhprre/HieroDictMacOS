@@ -4,13 +4,14 @@ struct SearchView: View {
     @ObservedObject var store: HieroDictStore
     let glyphScale: GlyphScale
     @Environment(\.hieroFontChoice) private var hieroFontChoice
+    @Environment(\.enableWindowBlur) private var enableWindowBlur
     @FocusState private var isSearchFieldFocused: Bool
 
     @State private var selectedPickerCategory: String = "A"
 
     var body: some View {
         VStack(spacing: 0) {
-            VStack(spacing: 10) {
+            VStack(spacing: 12) {
                 Picker("Search Mode", selection: Binding(
                     get: { store.searchMode },
                     set: { store.onSearchModeChange($0) }
@@ -22,8 +23,9 @@ struct SearchView: View {
                 .pickerStyle(.segmented)
                 .labelsHidden()
 
-                HStack(spacing: 8) {
+                HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass")
+                        .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(AppTheme.slateAccent)
 
                     TextField(
@@ -34,7 +36,7 @@ struct SearchView: View {
                         )
                     )
                     .textFieldStyle(.plain)
-                    .font(store.searchMode == .glyph ? .hiero(size: 24, choice: hieroFontChoice) : .system(size: 14))
+                    .font(store.searchMode == .glyph ? .hiero(size: 24, choice: hieroFontChoice) : .system(size: 14.5))
                     .focused($isSearchFieldFocused)
 
                     if !store.searchQuery.isEmpty {
@@ -60,18 +62,19 @@ struct SearchView: View {
                     }
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+                .padding(.vertical, 9)
                 .background(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .fill(AppTheme.cardBackground)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(AppTheme.subtleBorder, lineWidth: 1)
                 )
 
                 let trimmedQuery = store.searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-                if store.searchMode == .mdc, !trimmedQuery.isEmpty {
+                let resolvedPreviewGlyphs = store.searchMode == .mdcTranslit && !trimmedQuery.isEmpty
+                    ? QuadratEngine.extractResolvedHieroglyphs(mdc: trimmedQuery, signLookup: store.signCache)
+                    : ""
+                if store.searchMode == .mdcTranslit, !trimmedQuery.isEmpty, !resolvedPreviewGlyphs.isEmpty {
+                    Divider()
+
                     HStack(spacing: 12) {
                         QuadratWordView(
                             mdc: trimmedQuery,
@@ -80,49 +83,27 @@ struct SearchView: View {
                             quadratSize: 38,
                             showGrid: store.showQuadratGuides
                         )
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(AppTheme.glyphTileBackground)
-                        )
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text("LIVE MDC PREVIEW")
-                                .font(.system(size: 10, weight: .bold))
+                                .font(.system(size: 10, weight: .semibold))
                                 .tracking(0.8)
                                 .foregroundStyle(.secondary)
                             Text(trimmedQuery)
-                                .font(.system(size: 12, design: .monospaced))
+                                .font(.system(size: 12.5, design: .monospaced))
                                 .foregroundStyle(AppTheme.slateAccent)
                                 .lineLimit(1)
                         }
 
                         Spacer()
-
-                        Button {
-                            store.openCustomMdcInStackStudio(trimmedQuery)
-                        } label: {
-                            Label("Open in Squares", systemImage: "square.stack.3d.up")
-                                .font(.system(size: 12, weight: .medium))
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 8)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(AppTheme.cardBackground)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .stroke(AppTheme.subtleBorder, lineWidth: 1)
-                    )
+                    .padding(.top, 2)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
 
             Divider()
 
@@ -130,9 +111,9 @@ struct SearchView: View {
                 if store.searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     searchHelpPanel
                 } else if store.searchResults.isEmpty {
-                    VStack(spacing: 8) {
+                    VStack(spacing: 10) {
                         Image(systemName: "text.magnifyingglass")
-                            .font(.system(size: 28))
+                            .font(.system(size: 26))
                             .foregroundStyle(.secondary)
                         Text("No words found matching \"\(store.searchQuery)\"")
                             .font(.system(size: 14))
@@ -146,7 +127,7 @@ struct SearchView: View {
                             store.selectWord(store.searchResults.first { $0.id == newId })
                         }
                     )) {
-                        Section("\(store.searchResults.count) results") {
+                        Section {
                             ForEach(store.searchResults) { entry in
                                 SearchResultRow(
                                     entry: entry,
@@ -157,9 +138,14 @@ struct SearchView: View {
                                 )
                                 .tag(entry.id)
                             }
+                        } header: {
+                            Text("\(store.searchResults.count) results")
+                                .font(.system(size: 11.5, weight: .semibold))
+                                .foregroundStyle(.secondary)
                         }
                     }
                     .listStyle(.inset)
+                    .scrollContentBackground(enableWindowBlur ? .automatic : .hidden)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -193,17 +179,11 @@ struct SearchView: View {
                     "Click signs from the Gardiner palette below to build a Middle Egyptian word:",
                     ["𓋹", "𓄤", "𓊵", "𓇳", "𓉐"]
                 )
-            case .mdc:
+            case .mdcTranslit:
                 return (
-                    "Manuel de Codage (MdC) Search",
-                    "Type Gardiner codes or mnemonics with MdC operators (- next, : stack, * side, ^^ tuck):",
-                    ["Htp:t*p", "S34-N35-Aa1", "nfr", "R4:X1*Q3", "M8:x-t:ra"]
-                )
-            case .translit:
-                return (
-                    "Middle Egyptian Transliteration",
-                    "Type directly with your Mac keyboard (ASCII MdC supported: A, i, a, H, x, X, S, q, T, D):",
-                    ["ꜥnḫ", "nfr", "Htp", "AbDw"]
+                    "MdC & Transliteration Search",
+                    "Type Manuel de Codage (- : * ^^), Unicode transliteration, or ASCII equivalents (A, i, a, H, x, X, S, q, T, D):",
+                    ["Htp:t*p", "S34-N35-Aa1", "ꜥnḫ", "nfr", "R4:X1*Q3"]
                 )
             case .gardiner:
                 return (
@@ -220,12 +200,15 @@ struct SearchView: View {
             }
         }()
 
-        return VStack(spacing: 12) {
+        return VStack(spacing: 14) {
             Text(details.0)
-                .font(.system(size: 16, weight: .bold))
+                .font(.system(size: 16, weight: .semibold))
             Text(details.1)
-                .font(.system(size: 13))
+                .font(.system(size: 13.5))
                 .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 520)
+
             HStack(spacing: 8) {
                 ForEach(details.2, id: \.self) { example in
                     Button {
@@ -236,12 +219,17 @@ struct SearchView: View {
                             .foregroundStyle(AppTheme.slateAccent)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                    .fill(AppTheme.cardBackground)
+                            )
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.plain)
                 }
             }
+            .padding(.top, 2)
         }
-        .padding(24)
+        .padding(28)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
@@ -254,28 +242,30 @@ private struct SearchResultRow: View {
     let showGrid: Bool
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 14) {
             HieroGlyphBox(
                 glyph: entry.glyph,
                 fontSize: glyphScale.listFontSize,
                 mdc: entry.mdc,
                 signLookup: signLookup,
                 useQuadrat: useQuadrat,
-                showGrid: showGrid
+                showGrid: showGrid,
+                showBackground: false
             )
 
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
                     Text(entry.displayTranslit)
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.system(size: 16.5, weight: .bold))
                         .foregroundStyle(AppTheme.slateAccent)
                     Text(entry.mdc)
-                        .font(.system(size: 11, design: .monospaced))
+                        .font(.system(size: 11.5, design: .monospaced))
                         .foregroundStyle(.secondary)
                 }
                 Text(entry.translation)
-                    .font(.system(size: 13))
+                    .font(.system(size: 13.5))
                     .foregroundStyle(.primary)
+                    .lineSpacing(2)
                     .lineLimit(2)
             }
 
@@ -287,12 +277,13 @@ private struct SearchResultRow: View {
                     .font(.system(size: 13))
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 6)
     }
 }
 
 private struct HieroglyphPickerDeck: View {
     @Environment(\.hieroFontChoice) private var hieroFontChoice
+    @Environment(\.enableWindowBlur) private var enableWindowBlur
     let categories: [GardinerCategory]
     @Binding var selectedCategoryCode: String
     let onSignSelected: (GardinerSign) -> Void
@@ -321,23 +312,19 @@ private struct HieroglyphPickerDeck: View {
                                     RoundedRectangle(cornerRadius: 6, style: .continuous)
                                         .fill(isSelected ? AppTheme.prominentButtonTint : AppTheme.cardBackground)
                                 )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                        .stroke(AppTheme.subtleBorder, lineWidth: isSelected ? 0 : 1)
-                                )
                         }
                         .buttonStyle(.plain)
                         .help(cat.title)
                     }
                 }
-                .padding(.horizontal, 12)
+                .padding(.horizontal, 16)
                 .padding(.vertical, 8)
             }
 
             if let currentCategory {
                 ScrollView {
                     LazyVGrid(
-                        columns: [GridItem(.adaptive(minimum: 60), spacing: 6)],
+                        columns: [GridItem(.adaptive(minimum: 58), spacing: 6)],
                         spacing: 6
                     ) {
                         ForEach(currentCategory.signs) { sign in
@@ -355,24 +342,20 @@ private struct HieroglyphPickerDeck: View {
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 6)
                                 .background(
-                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    RoundedRectangle(cornerRadius: 7, style: .continuous)
                                         .fill(AppTheme.cardBackground)
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                        .stroke(AppTheme.subtleBorder, lineWidth: 1)
                                 )
                             }
                             .buttonStyle(.plain)
                             .help("\(sign.code) — \(sign.name)")
                         }
                     }
-                    .padding(.horizontal, 12)
+                    .padding(.horizontal, 16)
                     .padding(.bottom, 10)
                 }
             }
         }
-        .frame(height: 240)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .frame(height: 236)
+        .background(WindowSurfaceBackground(translucent: enableWindowBlur))
     }
 }

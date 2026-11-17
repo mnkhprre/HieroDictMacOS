@@ -3,6 +3,7 @@ import SwiftUI
 struct SignListView: View {
     @ObservedObject var store: HieroDictStore
     @Environment(\.hieroFontChoice) private var hieroFontChoice
+    @Environment(\.enableWindowBlur) private var enableWindowBlur
 
     @State private var filterText: String = ""
     @State private var expandedCategories: Set<String> = ["A"]
@@ -42,7 +43,7 @@ struct SignListView: View {
                         .foregroundStyle(AppTheme.slateAccent)
                     TextField("Filter signs by code or name (e.g. A1, bird, water)…", text: $filterText)
                         .textFieldStyle(.plain)
-                        .font(.system(size: 13))
+                        .font(.system(size: 13.5))
                     if !filterText.isEmpty {
                         Button {
                             filterText = ""
@@ -54,14 +55,10 @@ struct SignListView: View {
                     }
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 7)
+                .padding(.vertical, 8)
                 .background(
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .fill(AppTheme.cardBackground)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(AppTheme.subtleBorder, lineWidth: 1)
                 )
 
                 Button {
@@ -70,6 +67,7 @@ struct SignListView: View {
                     Label("Expand All", systemImage: "arrow.up.left.and.arrow.down.right")
                 }
                 .buttonStyle(.bordered)
+                .controlSize(.small)
 
                 Button {
                     expandedCategories.removeAll()
@@ -77,15 +75,16 @@ struct SignListView: View {
                     Label("Collapse All", systemImage: "arrow.down.right.and.arrow.up.left")
                 }
                 .buttonStyle(.bordered)
+                .controlSize(.small)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
 
             Divider()
 
             ScrollView {
-                LazyVStack(spacing: 10) {
-                    ForEach(filteredCategories) { category in
+                LazyVStack(spacing: 0) {
+                    ForEach(Array(filteredCategories.enumerated()), id: \.element.id) { index, category in
                         let isExpanded = expandedCategories.contains(category.code) || !filterText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
 
                         VStack(spacing: 0) {
@@ -100,9 +99,9 @@ struct SignListView: View {
                                     Text(category.code)
                                         .font(.system(size: 13, weight: .bold))
                                         .foregroundStyle(.white)
-                                        .frame(width: 34, height: 34)
+                                        .frame(width: 32, height: 32)
                                         .background(
-                                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                            RoundedRectangle(cornerRadius: 7, style: .continuous)
                                                 .fill(AppTheme.prominentButtonTint)
                                         )
 
@@ -121,15 +120,15 @@ struct SignListView: View {
                                         .font(.system(size: 12, weight: .semibold))
                                         .foregroundStyle(.secondary)
                                 }
-                                .padding(12)
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 12)
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
 
                             if isExpanded {
-                                Divider()
                                 LazyVGrid(
-                                    columns: [GridItem(.adaptive(minimum: 68), spacing: 8)],
+                                    columns: [GridItem(.adaptive(minimum: 66), spacing: 8)],
                                     spacing: 8
                                 ) {
                                     ForEach(category.signs) { sign in
@@ -147,7 +146,7 @@ struct SignListView: View {
                                             .frame(maxWidth: .infinity)
                                             .padding(.vertical, 8)
                                             .background(
-                                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                                RoundedRectangle(cornerRadius: 7, style: .continuous)
                                                     .fill(AppTheme.glyphTileBackground)
                                             )
                                         }
@@ -155,20 +154,18 @@ struct SignListView: View {
                                         .help("\(sign.code) — \(sign.name)")
                                     }
                                 }
-                                .padding(12)
+                                .padding(.horizontal, 20)
+                                .padding(.bottom, 16)
                             }
                         }
-                        .background(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(AppTheme.cardBackground)
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .stroke(AppTheme.subtleBorder, lineWidth: 1)
-                        )
+
+                        if index < filteredCategories.count - 1 {
+                            Divider()
+                                .padding(.horizontal, 20)
+                        }
                     }
                 }
-                .padding(16)
+                .padding(.vertical, 6)
             }
         }
         .sheet(item: $selectedSignDetail) { sign in
@@ -181,6 +178,7 @@ struct SignListView: View {
                     store.filterBySign(code)
                 }
             )
+            .background(WindowSurfaceBackground(translucent: enableWindowBlur))
         }
     }
 }
@@ -208,12 +206,7 @@ private struct SignDetailSheetView: View {
 
             Text(sign.glyph)
                 .font(.hiero(size: 56, choice: hieroFontChoice))
-                .padding(.horizontal, 28)
-                .padding(.vertical, 16)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(AppTheme.glyphTileBackground)
-                )
+                .padding(.vertical, 10)
 
             Text(sign.name)
                 .font(.system(size: 18, weight: .bold))
@@ -225,6 +218,8 @@ private struct SignDetailSheetView: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
+
+            Divider()
 
             HStack(spacing: 10) {
                 Button("Close", action: onDismiss)
@@ -238,7 +233,6 @@ private struct SignDetailSheetView: View {
                 .tint(AppTheme.prominentButtonTint)
                 .keyboardShortcut(.defaultAction)
             }
-            .padding(.top, 6)
         }
         .padding(24)
         .frame(width: 380)

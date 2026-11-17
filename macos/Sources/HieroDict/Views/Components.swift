@@ -8,9 +8,10 @@ struct HieroGlyphBox: View {
     var signLookup: [String: GardinerSign] = [:]
     var useQuadrat: Bool = false
     var showGrid: Bool = false
-    var minWidth: CGFloat = 88
-    var maxWidth: CGFloat = 240
-    var verticalPadding: CGFloat = 8
+    var minWidth: CGFloat = 82
+    var maxWidth: CGFloat = 230
+    var verticalPadding: CGFloat = 6
+    var showBackground: Bool = true
 
     private var adaptedQuadratSize: CGFloat {
         let count = QuadratEngine.splitSquares(mdc: mdc ?? "").count
@@ -39,10 +40,12 @@ struct HieroGlyphBox: View {
         .frame(minWidth: minWidth, maxWidth: maxWidth)
         .padding(.horizontal, 8)
         .padding(.vertical, verticalPadding)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(AppTheme.glyphTileBackground)
-        )
+        .background {
+            if showBackground {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(AppTheme.glyphTileBackground)
+            }
+        }
     }
 }
 

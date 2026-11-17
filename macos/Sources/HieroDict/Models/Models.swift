@@ -42,7 +42,6 @@ struct GardinerCategory: Identifiable, Hashable {
 enum SidebarSection: String, CaseIterable, Identifiable {
     case search = "Search"
     case dictionary = "Dictionary"
-    case stacks = "Imaginary Squares"
     case signList = "Sign List"
     case about = "About"
 
@@ -52,7 +51,6 @@ enum SidebarSection: String, CaseIterable, Identifiable {
         switch self {
         case .search: return "magnifyingglass"
         case .dictionary: return "book.closed"
-        case .stacks: return "square.stack.3d.up"
         case .signList: return "square.grid.2x2"
         case .about: return "info.circle"
         }
@@ -61,8 +59,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
 
 enum SearchMode: String, CaseIterable, Identifiable {
     case glyph = "Hieroglyphs"
-    case mdc = "MdC"
-    case translit = "Translit"
+    case mdcTranslit = "MdC / Translit"
     case gardiner = "Gardiner"
     case english = "English"
 
@@ -71,8 +68,7 @@ enum SearchMode: String, CaseIterable, Identifiable {
     var placeholder: String {
         switch self {
         case .glyph: return "Click hieroglyphs from palette below…"
-        case .mdc: return "Enter MdC (e.g. Htp:t*p, S34-N35-Aa1, nfr)…"
-        case .translit: return "Type transliteration (or ASCII: A, i, a, H, x, S, q, T, D)…"
+        case .mdcTranslit: return "Type MdC or transliteration (e.g. Htp:t*p, S34-N35-Aa1, ꜥnḫ, nfr)…"
         case .gardiner: return "Enter Gardiner code (e.g. G43, D21, S34)…"
         case .english: return "Type English meaning (e.g. life, king, water)…"
         }

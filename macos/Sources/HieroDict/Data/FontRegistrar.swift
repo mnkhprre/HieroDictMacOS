@@ -110,10 +110,19 @@ private struct HieroFontChoiceKey: EnvironmentKey {
     static let defaultValue: HieroFontChoice = .uniHieroglyphica
 }
 
+private struct EnableWindowBlurKey: EnvironmentKey {
+    static let defaultValue: Bool = false
+}
+
 extension EnvironmentValues {
     var hieroFontChoice: HieroFontChoice {
         get { self[HieroFontChoiceKey.self] }
         set { self[HieroFontChoiceKey.self] = newValue }
+    }
+
+    var enableWindowBlur: Bool {
+        get { self[EnableWindowBlurKey.self] }
+        set { self[EnableWindowBlurKey.self] = newValue }
     }
 }
 
@@ -125,6 +134,28 @@ extension Font {
 }
 
 enum AppTheme {
+    static func opaqueWindowNSColor(for appearance: NSAppearance) -> NSColor {
+        let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        return isDark
+            ? NSColor(red: 0x1A / 255.0, green: 0x1C / 255.0, blue: 0x20 / 255.0, alpha: 1.0)
+            : NSColor(red: 0xFF / 255.0, green: 0xFF / 255.0, blue: 0xFF / 255.0, alpha: 1.0)
+    }
+
+    static let windowBackground = Color(
+        nsColor: NSColor(name: nil) { appearance in
+            opaqueWindowNSColor(for: appearance)
+        }
+    )
+
+    static let sidebarBackground = Color(
+        nsColor: NSColor(name: nil) { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            return isDark
+                ? NSColor(red: 0x1E / 255.0, green: 0x20 / 255.0, blue: 0x25 / 255.0, alpha: 1.0)
+                : NSColor(red: 0xF5 / 255.0, green: 0xF6 / 255.0, blue: 0xF8 / 255.0, alpha: 1.0)
+        }
+    )
+
     static let slateAccent = Color(
         nsColor: NSColor(name: nil) { appearance in
             let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
@@ -138,7 +169,7 @@ enum AppTheme {
         nsColor: NSColor(name: nil) { appearance in
             let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
             return isDark
-                ? NSColor(red: 0x25 / 255.0, green: 0x5E / 255.0, blue: 0x99 / 255.0, alpha: 1.0)
+                ? NSColor(red: 0x2B / 255.0, green: 0x64 / 255.0, blue: 0x9E / 255.0, alpha: 1.0)
                 : NSColor(red: 0x1B / 255.0, green: 0x49 / 255.0, blue: 0x65 / 255.0, alpha: 1.0)
         }
     )
@@ -147,11 +178,31 @@ enum AppTheme {
         nsColor: NSColor(name: nil) { appearance in
             let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
             return isDark
-                ? NSColor(red: 0x28 / 255.0, green: 0x2A / 255.0, blue: 0x2E / 255.0, alpha: 0.9)
-                : NSColor(red: 0xF1 / 255.0, green: 0xF3 / 255.0, blue: 0xF5 / 255.0, alpha: 1.0)
+                ? NSColor(red: 0x23 / 255.0, green: 0x26 / 255.0, blue: 0x2B / 255.0, alpha: 1.0)
+                : NSColor(red: 0xF4 / 255.0, green: 0xF5 / 255.0, blue: 0xF7 / 255.0, alpha: 1.0)
         }
     )
 
-    static let subtleBorder = Color(nsColor: .separatorColor)
-    static let cardBackground = Color(nsColor: .controlBackgroundColor)
+    static let subtleBorder = Color(nsColor: .separatorColor).opacity(0.55)
+    static let cardBackground = Color(
+        nsColor: NSColor(name: nil) { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            return isDark
+                ? NSColor(red: 0x21 / 255.0, green: 0x24 / 255.0, blue: 0x29 / 255.0, alpha: 1.0)
+                : NSColor(red: 0xF9 / 255.0, green: 0xFA / 255.0, blue: 0xFB / 255.0, alpha: 1.0)
+        }
+    )
+}
+
+struct WindowSurfaceBackground: View {
+    let translucent: Bool
+    var isSidebar: Bool = false
+
+    var body: some View {
+        if translucent {
+            Rectangle().fill(isSidebar ? .regularMaterial : .ultraThinMaterial)
+        } else {
+            isSidebar ? AppTheme.sidebarBackground : AppTheme.windowBackground
+        }
+    }
 }

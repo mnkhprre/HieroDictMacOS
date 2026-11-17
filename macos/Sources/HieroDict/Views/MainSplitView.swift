@@ -3,6 +3,7 @@ import SwiftUI
 struct MainSplitView: View {
     @ObservedObject var store: HieroDictStore
     @AppStorage("glyphScale") private var glyphScaleRaw: String = GlyphScale.medium.rawValue
+    @Environment(\.enableWindowBlur) private var enableWindowBlur
 
     private var glyphScale: GlyphScale {
         GlyphScale(rawValue: glyphScaleRaw) ?? .medium
@@ -18,35 +19,22 @@ struct MainSplitView: View {
                     }
                 }
             )) {
-                Section("HieroDict") {
-                    ForEach(SidebarSection.allCases) { section in
-                        Label(section.rawValue, systemImage: section.systemImage)
-                            .tag(section)
-                    }
-                }
-
-                Section("Lexicon") {
-                    LabeledContent("Words") {
-                        Text("\(store.allEntries.count)")
-                            .foregroundStyle(.secondary)
-                    }
-                    LabeledContent("Signs") {
-                        Text("\(store.totalSignCount)")
-                            .foregroundStyle(.secondary)
-                    }
-                    LabeledContent("Saved Stacks") {
-                        Text("\(store.savedStacks.count)")
-                            .foregroundStyle(.secondary)
-                    }
+                ForEach(SidebarSection.allCases) { section in
+                    Label(section.rawValue, systemImage: section.systemImage)
+                        .font(.system(size: 13, weight: .medium))
+                        .padding(.vertical, 2)
+                        .tag(section)
                 }
             }
-            .navigationSplitViewColumnWidth(min: 195, ideal: 220, max: 265)
+            .scrollContentBackground(enableWindowBlur ? .automatic : .hidden)
+            .background(WindowSurfaceBackground(translucent: enableWindowBlur, isSidebar: true))
+            .navigationSplitViewColumnWidth(min: 175, ideal: 200, max: 235)
         } detail: {
             Group {
                 if let error = store.errorMessage {
                     VStack(spacing: 10) {
                         Image(systemName: "exclamationmark.triangle")
-                            .font(.system(size: 32))
+                            .font(.system(size: 28))
                             .foregroundStyle(.red)
                         Text("Database Error")
                             .font(.headline)
@@ -56,6 +44,7 @@ struct MainSplitView: View {
                             .multilineTextAlignment(.center)
                     }
                     .padding(32)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     switch store.selectedSection {
                     case .search:
@@ -68,8 +57,6 @@ struct MainSplitView: View {
                             store: store,
                             glyphScale: glyphScale
                         )
-                    case .stacks:
-                        ImaginaryStacksView(store: store)
                     case .signList:
                         SignListView(store: store)
                     case .about:
@@ -77,6 +64,7 @@ struct MainSplitView: View {
                     }
                 }
             }
+            .background(WindowSurfaceBackground(translucent: enableWindowBlur, isSidebar: false))
             .navigationTitle(store.selectedSection.rawValue)
         }
         .inspector(
@@ -101,14 +89,12 @@ struct MainSplitView: View {
                     onSignSelected: { code in
                         store.filterBySign(code)
                     },
-                    onOpenInStackStudio: { selected, squareIndex in
-                        store.openInStackStudio(selected, focusedSquareIndex: squareIndex)
-                    },
                     getSignDetails: { code in
                         store.signDetails(for: code)
                     }
                 )
-                .inspectorColumnWidth(min: 280, ideal: 330, max: 390)
+                .background(WindowSurfaceBackground(translucent: enableWindowBlur, isSidebar: false))
+                .inspectorColumnWidth(min: 270, ideal: 315, max: 370)
             }
         }
         .toolbar {

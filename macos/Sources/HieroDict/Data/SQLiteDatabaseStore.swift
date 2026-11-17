@@ -151,7 +151,7 @@ final class SQLiteDatabaseStore {
                 """
                 return queryEntries(sql: sql, bindings: [escapedLike, escapedLike])
 
-            case .mdc:
+            case .mdcTranslit:
                 let normalizedMdc = trimmed
                     .replacingOccurrences(of: "^^", with: "-")
                     .replacingOccurrences(of: ":", with: "-")
@@ -185,62 +185,38 @@ final class SQLiteDatabaseStore {
                 FROM entries
                 WHERE mdc LIKE '%' || ? || '%' ESCAPE '\\'
                    OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(mdc, '^^', '-'), ':', '-'), '*', '-'), '&', '-'), '<', ''), '>', ''), '(', ''), ')', '') LIKE '%' || ? || '%' ESCAPE '\\'
+                   OR translit LIKE '%' || ? || '%' ESCAPE '\\'
                    OR translitRaw LIKE '%' || ? || '%' ESCAPE '\\'\(glyphFilter)
                 ORDER BY CASE
-                    WHEN mdc = ? THEN 0
+                    WHEN mdc = ? OR translit = ? OR translitRaw = ? THEN 0
                     \(glyphExactRank)
-                    WHEN mdc GLOB ? || '*' THEN 1
+                    WHEN mdc GLOB ? || '*' OR translit GLOB ? || '*' OR translitRaw GLOB ? || '*' THEN 1
                     \(glyphPrefixRank)
-                    WHEN mdc LIKE ? || '%' ESCAPE '\\' THEN 2
-                    WHEN mdc LIKE '%' || ? || '%' ESCAPE '\\' THEN 2
+                    WHEN mdc LIKE ? || '%' ESCAPE '\\' OR translit LIKE ? || '%' ESCAPE '\\' OR translitRaw LIKE ? || '%' ESCAPE '\\' THEN 2
+                    WHEN mdc LIKE '%' || ? || '%' ESCAPE '\\' OR INSTR(translit, ?) > 0 OR INSTR(translitRaw, ?) > 0 THEN 3
                     \(glyphContainsRank)
                     ELSE 4
                 END, id ASC\(limitClause)
                 """
 
-                var bindings: [String] = [escapedLike, escapedNormMdc, escapedLike]
+                var bindings: [String] = [escapedLike, escapedNormMdc, escapedLike, escapedLike]
                 if hasGlyphs {
                     bindings.append(escapedGlyphs)
                 }
-                bindings.append(trimmed)
+                bindings.append(contentsOf: [trimmed, trimmed, trimmed])
                 if hasGlyphs {
                     bindings.append(cleanGlyphs)
                 }
-                bindings.append(escapedGlob)
+                bindings.append(contentsOf: [escapedGlob, escapedGlob, escapedGlob])
                 if hasGlyphs {
                     bindings.append(escapedGlyphs)
                 }
-                bindings.append(escapedLike)
-                bindings.append(escapedLike)
+                bindings.append(contentsOf: [escapedLike, escapedLike, escapedLike])
+                bindings.append(contentsOf: [escapedLike, trimmed, trimmed])
                 if hasGlyphs {
                     bindings.append(escapedGlyphs)
                 }
                 return queryEntries(sql: sql, bindings: bindings)
-
-            case .translit:
-                let sql = """
-                SELECT id, mdc, glyph, translit, translitRaw, translation, meaning, pos, gardinerCodesCsv, isFavorite
-                FROM entries
-                WHERE translit LIKE '%' || ? || '%' ESCAPE '\\'
-                   OR translitRaw LIKE '%' || ? || '%' ESCAPE '\\'
-                ORDER BY CASE
-                    WHEN translit = ? OR translitRaw = ? THEN 0
-                    WHEN translit GLOB ? || '*' OR translitRaw GLOB ? || '*' THEN 1
-                    WHEN translit LIKE ? || '%' ESCAPE '\\' OR translitRaw LIKE ? || '%' ESCAPE '\\' THEN 2
-                    WHEN INSTR(translit, ?) > 0 OR INSTR(translitRaw, ?) > 0 THEN 3
-                    ELSE 4
-                END, id ASC\(limitClause)
-                """
-                return queryEntries(
-                    sql: sql,
-                    bindings: [
-                        escapedLike, escapedLike,
-                        trimmed, trimmed,
-                        escapedGlob, escapedGlob,
-                        escapedLike, escapedLike,
-                        trimmed, trimmed
-                    ]
-                )
 
             case .gardiner:
                 let sql = """
