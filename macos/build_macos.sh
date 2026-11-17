@@ -7,7 +7,7 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
 fi
 
 if ! command -v swift >/dev/null 2>&1; then
-    echo "Error: 'swift' compiler not found. Install Xcode or run 'xcode-select --install'."
+    echo "Error: 'swift' compiler not found. Run 'xcode-select --install' or install Xcode."
     exit 1
 fi
 
@@ -20,7 +20,6 @@ RESOURCES_DIR="$CONTENTS_DIR/Resources"
 
 CREATE_DMG=false
 TARGET_MODE="universal"
-ARCH_FLAGS=(--arch arm64 --arch x86_64)
 
 for arg in "$@"; do
     case "$arg" in
@@ -29,15 +28,12 @@ for arg in "$@"; do
             ;;
         --universal)
             TARGET_MODE="universal"
-            ARCH_FLAGS=(--arch arm64 --arch x86_64)
             ;;
         --x86-64|--x86_64|--intel)
             TARGET_MODE="x86_64"
-            ARCH_FLAGS=(--arch x86_64)
             ;;
         --arm64|--apple-silicon)
             TARGET_MODE="arm64"
-            ARCH_FLAGS=(--arch arm64)
             ;;
         -h|--help)
             echo "Usage: $0 [--universal | --x86-64 | --arm64] [--dmg]"
@@ -59,50 +55,74 @@ if [[ -z "${SDKROOT:-}" ]] && command -v xcrun >/dev/null 2>&1; then
     fi
 fi
 
+BUILT_EXE=""
+BUILT_BUNDLE=""
+
+build_slice() {
+    local arch="$1"
+    echo "-> Building $arch slice..."
+    swift build -c release --arch "$arch"
+
+    local bin_path
+    bin_path="$(swift build -c release --arch "$arch" --show-bin-path 2>/dev/null | tail -n 1 || true)"
+
+    local candidate_dirs=()
+    if [[ -n "$bin_path" ]]; then
+        candidate_dirs+=("$bin_path")
+    fi
+    candidate_dirs+=(
+        "$SCRIPT_DIR/.build/${arch}-apple-macosx/release"
+        "$SCRIPT_DIR/.build/release"
+    )
+
+    BUILT_EXE=""
+    BUILT_BUNDLE=""
+    for dir in "${candidate_dirs[@]}"; do
+        if [[ -z "$BUILT_EXE" && -x "$dir/HieroDict" ]]; then
+            BUILT_EXE="$dir/HieroDict"
+        fi
+        if [[ -z "$BUILT_BUNDLE" && -d "$dir/HieroDict_HieroDict.bundle" ]]; then
+            BUILT_BUNDLE="$dir/HieroDict_HieroDict.bundle"
+        fi
+    done
+
+    if [[ -z "$BUILT_EXE" || ! -f "$BUILT_EXE" ]]; then
+        echo "Error: Compiled binary for '$arch' not found (checked BIN_PATH='$bin_path')"
+        exit 1
+    fi
+}
+
 echo "Building HieroDict for macOS ($TARGET_MODE, deployment target $MACOSX_DEPLOYMENT_TARGET)..."
 cd "$SCRIPT_DIR"
-swift build -c release "${ARCH_FLAGS[@]}"
-
-BIN_PATH="$(swift build -c release "${ARCH_FLAGS[@]}" --show-bin-path 2>/dev/null | tail -n 1 || true)"
-
-SEARCH_BIN_DIRS=()
-if [[ -n "$BIN_PATH" ]]; then
-    SEARCH_BIN_DIRS+=("$BIN_PATH")
-fi
-if [[ "$TARGET_MODE" == "universal" ]]; then
-    SEARCH_BIN_DIRS+=("$SCRIPT_DIR/.build/apple/Products/Release")
-elif [[ "$TARGET_MODE" == "x86_64" ]]; then
-    SEARCH_BIN_DIRS+=("$SCRIPT_DIR/.build/x86_64-apple-macosx/release")
-elif [[ "$TARGET_MODE" == "arm64" ]]; then
-    SEARCH_BIN_DIRS+=("$SCRIPT_DIR/.build/arm64-apple-macosx/release")
-fi
-SEARCH_BIN_DIRS+=(
-    "$SCRIPT_DIR/.build/apple/Products/Release"
-    "$SCRIPT_DIR/.build/arm64-apple-macosx/release"
-    "$SCRIPT_DIR/.build/x86_64-apple-macosx/release"
-    "$SCRIPT_DIR/.build/release"
-)
-
-EXECUTABLE=""
-RESOURCE_BUNDLE=""
-for candidate_dir in "${SEARCH_BIN_DIRS[@]}"; do
-    if [[ -z "$EXECUTABLE" && -x "$candidate_dir/HieroDict" ]]; then
-        EXECUTABLE="$candidate_dir/HieroDict"
-    fi
-    if [[ -z "$RESOURCE_BUNDLE" && -d "$candidate_dir/HieroDict_HieroDict.bundle" ]]; then
-        RESOURCE_BUNDLE="$candidate_dir/HieroDict_HieroDict.bundle"
-    fi
-done
-
-if [[ -z "$EXECUTABLE" || ! -f "$EXECUTABLE" ]]; then
-    echo "Error: Compiled binary not found for target '$TARGET_MODE' (checked BIN_PATH='$BIN_PATH')"
-    exit 1
-fi
 
 rm -rf "$APP_BUNDLE"
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 
-cp "$EXECUTABLE" "$MACOS_DIR/HieroDict"
+RESOURCE_BUNDLE=""
+
+if [[ "$TARGET_MODE" == "universal" ]]; then
+    if ! command -v lipo >/dev/null 2>&1; then
+        echo "Error: 'lipo' tool not found; cannot assemble Universal binary."
+        exit 1
+    fi
+
+    build_slice "arm64"
+    ARM64_EXE="$BUILT_EXE"
+    RESOURCE_BUNDLE="${BUILT_BUNDLE:-}"
+
+    build_slice "x86_64"
+    X86_EXE="$BUILT_EXE"
+    if [[ -z "$RESOURCE_BUNDLE" && -n "$BUILT_BUNDLE" ]]; then
+        RESOURCE_BUNDLE="$BUILT_BUNDLE"
+    fi
+
+    lipo -create "$ARM64_EXE" "$X86_EXE" -output "$MACOS_DIR/HieroDict"
+else
+    build_slice "$TARGET_MODE"
+    cp "$BUILT_EXE" "$MACOS_DIR/HieroDict"
+    RESOURCE_BUNDLE="${BUILT_BUNDLE:-}"
+fi
+
 chmod +x "$MACOS_DIR/HieroDict"
 cp "$SCRIPT_DIR/Packaging/Info.plist" "$CONTENTS_DIR/Info.plist"
 
