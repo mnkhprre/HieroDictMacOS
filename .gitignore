@@ -31,3 +31,7 @@ google-services.json
 
 # Android Profiling
 *.hprof
+.DS_Store
+unknown/META-INF/.DS_Store
+unknown/META-INF/com/.DS_Store
+unknown/META-INF/com/android/.DS_Store
