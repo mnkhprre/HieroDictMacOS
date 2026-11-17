@@ -291,6 +291,9 @@ enum QuadratEngine {
         )
     ]
 
+    private static let parseLock = NSLock()
+    private static var parseCache: [String: [QuadratLine]] = [:]
+
     static func parseLines(
         mdc: String,
         fallbackGlyph: String? = nil,
@@ -316,6 +319,14 @@ enum QuadratEngine {
             }
             return []
         }
+
+        let cacheKey = "\(signLookup.count)|\(fallbackGlyph ?? "")|\(trimmed)"
+        parseLock.lock()
+        if let cached = parseCache[cacheKey] {
+            parseLock.unlock()
+            return cached
+        }
+        parseLock.unlock()
 
         let flatTokens = extractRawTokens(from: trimmed)
         let scalarStrings = (fallbackGlyph ?? "").unicodeScalars.map { String($0) }
@@ -348,6 +359,13 @@ enum QuadratEngine {
             }
         }
 
+        parseLock.lock()
+        if parseCache.count >= 1500 {
+            parseCache.removeAll(keepingCapacity: true)
+        }
+        parseCache[cacheKey] = resultLines
+        parseLock.unlock()
+
         return resultLines
     }
 
@@ -367,6 +385,17 @@ enum QuadratEngine {
         return lines.map { line in
             line.items.map { flattenNode($0) }.joined()
         }.joined(separator: "\n")
+    }
+
+    static func extractResolvedHieroglyphs(
+        mdc: String,
+        signLookup: [String: GardinerSign]
+    ) -> String {
+        let raw = resolveUnicodeString(mdc: mdc, signLookup: signLookup)
+        let scalars = raw.unicodeScalars.filter { scalar in
+            (0x13000...0x1345F).contains(scalar.value)
+        }
+        return String(String.UnicodeScalarView(scalars))
     }
 
     static func generateImaginaryStack(signLookup: [String: GardinerSign]) -> (title: String, mdc: String) {
@@ -619,7 +648,12 @@ enum QuadratEngine {
         modifySlot(inSquare: squareMdc, slotIndex: slotIndex, transform: transform)
     }
 
+    static func isLacunaToken(_ token: String) -> Bool {
+        token == "//" || token == "h/" || token == "v/" || token == "q/"
+    }
+
     static func cycleRotation(in token: String) -> String {
+        guard !isLacunaToken(token) else { return token }
         if token.contains("\\R90") {
             return token.replacingOccurrences(of: "\\R90", with: "\\R180")
         }
@@ -633,6 +667,7 @@ enum QuadratEngine {
     }
 
     static func toggleMirror(in token: String) -> String {
+        guard !isLacunaToken(token) else { return token }
         if token.contains("\\H") {
             return token.replacingOccurrences(of: "\\H", with: "")
         }
@@ -640,6 +675,7 @@ enum QuadratEngine {
     }
 
     static func toggleRed(in token: String) -> String {
+        guard !isLacunaToken(token) else { return token }
         if token.contains("\\red") {
             return token.replacingOccurrences(of: "\\red", with: "")
         }
@@ -647,6 +683,7 @@ enum QuadratEngine {
     }
 
     static func toggleShading(in token: String) -> String {
+        guard !isLacunaToken(token) else { return token }
         for suffix in ["#t", "#b", "#l", "#r", "#"] {
             if token.hasSuffix(suffix) {
                 return String(token.dropLast(suffix.count))
@@ -656,6 +693,7 @@ enum QuadratEngine {
     }
 
     static func setScalePercent(_ percent: Int, in token: String) -> String {
+        guard !isLacunaToken(token) else { return token }
         var cleaned = token
         for p in ["\\50", "\\75", "\\100", "\\125"] {
             cleaned = cleaned.replacingOccurrences(of: p, with: "")

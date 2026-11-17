@@ -17,7 +17,7 @@ final class SQLiteDatabaseStore {
         }
         self.db = handle
         sqlite3_busy_timeout(handle, 3000)
-        sqlite3_exec(handle, "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;", nil, nil, nil)
+        sqlite3_exec(handle, "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA temp_store=MEMORY; PRAGMA cache_size=-4000;", nil, nil, nil)
         ensureCustomStacksTable()
     }
 
@@ -127,7 +127,12 @@ final class SQLiteDatabaseStore {
         return escaped
     }
 
-    func searchEntries(query: String, mode: SearchMode, limit: Int? = nil) -> [HieroEntry] {
+    func searchEntries(
+        query: String,
+        mode: SearchMode,
+        resolvedGlyphs: String = "",
+        limit: Int? = nil
+    ) -> [HieroEntry] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
         let escapedLike = Self.escapeLike(trimmed)
@@ -145,6 +150,72 @@ final class SQLiteDatabaseStore {
                 ORDER BY id ASC\(limitClause)
                 """
                 return queryEntries(sql: sql, bindings: [escapedLike, escapedLike])
+
+            case .mdc:
+                let normalizedMdc = trimmed
+                    .replacingOccurrences(of: "^^", with: "-")
+                    .replacingOccurrences(of: ":", with: "-")
+                    .replacingOccurrences(of: "*", with: "-")
+                    .replacingOccurrences(of: "&", with: "-")
+                    .replacingOccurrences(of: " ", with: "-")
+                    .replacingOccurrences(of: "<", with: "")
+                    .replacingOccurrences(of: ">", with: "")
+                    .replacingOccurrences(of: "(", with: "")
+                    .replacingOccurrences(of: ")", with: "")
+                let escapedNormMdc = Self.escapeLike(normalizedMdc)
+                let cleanGlyphs = resolvedGlyphs.trimmingCharacters(in: .whitespacesAndNewlines)
+                let escapedGlyphs = Self.escapeLike(cleanGlyphs)
+                let hasGlyphs = !cleanGlyphs.isEmpty
+
+                let glyphFilter = hasGlyphs
+                    ? " OR glyph LIKE '%' || ? || '%' ESCAPE '\\'"
+                    : ""
+                let glyphExactRank = hasGlyphs
+                    ? "WHEN glyph = ? THEN 0"
+                    : ""
+                let glyphPrefixRank = hasGlyphs
+                    ? "WHEN glyph LIKE ? || '%' ESCAPE '\\' THEN 1"
+                    : ""
+                let glyphContainsRank = hasGlyphs
+                    ? "WHEN glyph LIKE '%' || ? || '%' ESCAPE '\\' THEN 3"
+                    : ""
+
+                let sql = """
+                SELECT id, mdc, glyph, translit, translitRaw, translation, meaning, pos, gardinerCodesCsv, isFavorite
+                FROM entries
+                WHERE mdc LIKE '%' || ? || '%' ESCAPE '\\'
+                   OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(mdc, '^^', '-'), ':', '-'), '*', '-'), '&', '-'), '<', ''), '>', ''), '(', ''), ')', '') LIKE '%' || ? || '%' ESCAPE '\\'
+                   OR translitRaw LIKE '%' || ? || '%' ESCAPE '\\'\(glyphFilter)
+                ORDER BY CASE
+                    WHEN mdc = ? THEN 0
+                    \(glyphExactRank)
+                    WHEN mdc GLOB ? || '*' THEN 1
+                    \(glyphPrefixRank)
+                    WHEN mdc LIKE ? || '%' ESCAPE '\\' THEN 2
+                    WHEN mdc LIKE '%' || ? || '%' ESCAPE '\\' THEN 2
+                    \(glyphContainsRank)
+                    ELSE 4
+                END, id ASC\(limitClause)
+                """
+
+                var bindings: [String] = [escapedLike, escapedNormMdc, escapedLike]
+                if hasGlyphs {
+                    bindings.append(escapedGlyphs)
+                }
+                bindings.append(trimmed)
+                if hasGlyphs {
+                    bindings.append(cleanGlyphs)
+                }
+                bindings.append(escapedGlob)
+                if hasGlyphs {
+                    bindings.append(escapedGlyphs)
+                }
+                bindings.append(escapedLike)
+                bindings.append(escapedLike)
+                if hasGlyphs {
+                    bindings.append(escapedGlyphs)
+                }
+                return queryEntries(sql: sql, bindings: bindings)
 
             case .translit:
                 let sql = """
@@ -279,7 +350,7 @@ final class SQLiteDatabaseStore {
             var stmt: OpaquePointer?
             defer { sqlite3_finalize(stmt) }
             if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
-                sqlite3_bind_int(stmt, 1, Int32(id))
+                sqlite3_bind_int64(stmt, 1, sqlite3_int64(id))
                 sqlite3_step(stmt)
             }
         }
@@ -307,7 +378,7 @@ final class SQLiteDatabaseStore {
 
             var items: [SavedStack] = []
             while sqlite3_step(stmt) == SQLITE_ROW {
-                let id = Int(sqlite3_column_int(stmt, 0))
+                let id = Int(sqlite3_column_int64(stmt, 0))
                 let title = columnString(stmt, 1)
                 let mdc = columnString(stmt, 2)
                 let dirRaw = columnString(stmt, 3)
@@ -352,7 +423,7 @@ final class SQLiteDatabaseStore {
             var stmt: OpaquePointer?
             defer { sqlite3_finalize(stmt) }
             if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
-                sqlite3_bind_int(stmt, 1, Int32(id))
+                sqlite3_bind_int64(stmt, 1, sqlite3_int64(id))
                 sqlite3_step(stmt)
             }
         }
@@ -385,7 +456,7 @@ final class SQLiteDatabaseStore {
 
         var results: [HieroEntry] = []
         while sqlite3_step(stmt) == SQLITE_ROW {
-            let id = Int(sqlite3_column_int(stmt, 0))
+            let id = Int(sqlite3_column_int64(stmt, 0))
             let mdc = columnString(stmt, 1)
             let glyph = columnString(stmt, 2)
             let translit = columnString(stmt, 3)

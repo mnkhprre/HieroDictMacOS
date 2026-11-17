@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct HieroGlyphBox: View {
+    @Environment(\.hieroFontChoice) private var hieroFontChoice
     let glyph: String
     let fontSize: CGFloat
     var mdc: String? = nil
@@ -30,7 +31,7 @@ struct HieroGlyphBox: View {
                 )
             } else {
                 Text(glyph.isEmpty ? "—" : glyph)
-                    .font(.hiero(size: fontSize))
+                    .font(.hiero(size: fontSize, choice: hieroFontChoice))
                     .foregroundStyle(.primary)
                     .multilineTextAlignment(.center)
             }
@@ -42,90 +43,6 @@ struct HieroGlyphBox: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(AppTheme.glyphTileBackground)
         )
-    }
-}
-
-struct TranslitKeyboardView: View {
-    let onCharTyped: (String) -> Void
-    let onBackspace: () -> Void
-    let onClear: () -> Void
-
-    private let row1 = ["q", "w", "ꜥ", "r", "t", "ṯ", "y", "ỉ", "ḳ", "p"]
-    private let row2 = ["ꜣ", "s", "d", "ḏ", "f", "g", "h", "j", "k", "l"]
-    private let row3 = [".", "z", "š", "ḫ", "ẖ", "ḥ", "b", "n", "m"]
-
-    var body: some View {
-        VStack(spacing: 6) {
-            keyRow(row1)
-            keyRow(row2)
-            HStack(spacing: 5) {
-                ForEach(row3, id: \.self) { char in
-                    keyButton(label: char) {
-                        onCharTyped(char)
-                    }
-                }
-                Button(action: onBackspace) {
-                    Image(systemName: "delete.left")
-                        .font(.system(size: 14, weight: .semibold))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 34)
-                }
-                .buttonStyle(.bordered)
-                .frame(minWidth: 52)
-                .help("Backspace")
-            }
-            HStack(spacing: 6) {
-                keyButton(label: "-") {
-                    onCharTyped("-")
-                }
-                .frame(width: 56)
-
-                Button(action: onClear) {
-                    Text("Clear")
-                        .font(.system(size: 12, weight: .semibold))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 34)
-                }
-                .buttonStyle(.bordered)
-                .tint(.red)
-                .frame(width: 84)
-
-                Button {
-                    onCharTyped(" ")
-                } label: {
-                    Text("Space")
-                        .font(.system(size: 12, weight: .medium))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 34)
-                }
-                .buttonStyle(.bordered)
-            }
-        }
-        .padding(10)
-        .background(AppTheme.cardBackground)
-        .overlay(alignment: .top) {
-            Divider()
-        }
-    }
-
-    private func keyRow(_ keys: [String]) -> some View {
-        HStack(spacing: 5) {
-            ForEach(keys, id: \.self) { char in
-                keyButton(label: char) {
-                    onCharTyped(char)
-                }
-            }
-        }
-    }
-
-    private func keyButton(label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(label)
-                .font(.system(size: 15, weight: .semibold))
-                .frame(maxWidth: .infinity)
-                .frame(height: 34)
-        }
-        .buttonStyle(.bordered)
     }
 }
 

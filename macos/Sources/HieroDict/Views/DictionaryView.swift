@@ -5,6 +5,7 @@ struct DictionaryView: View {
     let glyphScale: GlyphScale
 
     var body: some View {
+        let list = store.filteredDictionaryEntries
         VStack(spacing: 0) {
             if let activeSign = store.activeSignFilter {
                 HStack {
@@ -53,7 +54,7 @@ struct DictionaryView: View {
 
                     Spacer()
 
-                    Text("\(store.filteredDictionaryEntries.count) Middle Egyptian words")
+                    Text("\(list.count) Middle Egyptian words")
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                         .padding(.leading, 8)
@@ -64,7 +65,6 @@ struct DictionaryView: View {
 
             Divider()
 
-            let list = store.filteredDictionaryEntries
             if list.isEmpty {
                 VStack(spacing: 8) {
                     Image(systemName: "book.closed")

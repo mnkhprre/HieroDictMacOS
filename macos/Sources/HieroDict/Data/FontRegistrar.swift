@@ -24,6 +24,15 @@ enum ResourceLocator {
         }
         return nil
     }
+
+    static func appIconImage() -> NSImage? {
+        if let icnsURL = Bundle.main.url(forResource: "AppIcon", withExtension: "icns")
+            ?? url(forResource: "AppIcon", withExtension: "icns"),
+           let image = NSImage(contentsOf: icnsURL) {
+            return image
+        }
+        return nil
+    }
 }
 
 enum FontRegistrar {
@@ -50,6 +59,13 @@ enum FontRegistrar {
         lock.lock()
         defer { lock.unlock() }
         return _cadratReferenceHeight
+    }
+
+    static func postScriptName(for choice: HieroFontChoice) -> String {
+        lock.lock()
+        defer { lock.unlock() }
+        registerFontsLocked()
+        return fontNamesByChoice[choice] ?? choice.fallbackPostScriptName
     }
 
     static func registerFonts() {
@@ -81,12 +97,6 @@ enum FontRegistrar {
             }
         }
 
-        for extra in ["abydos_b", "nilus"] {
-            if let url = ResourceLocator.url(forResource: extra, withExtension: "ttf") {
-                CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
-            }
-        }
-
         applyFontChoiceLocked(_currentFontChoice)
     }
 
@@ -96,9 +106,21 @@ enum FontRegistrar {
     }
 }
 
+private struct HieroFontChoiceKey: EnvironmentKey {
+    static let defaultValue: HieroFontChoice = .uniHieroglyphica
+}
+
+extension EnvironmentValues {
+    var hieroFontChoice: HieroFontChoice {
+        get { self[HieroFontChoiceKey.self] }
+        set { self[HieroFontChoiceKey.self] = newValue }
+    }
+}
+
 extension Font {
-    static func hiero(size: CGFloat) -> Font {
-        Font.custom(FontRegistrar.hieroFontName, size: max(4, size))
+    static func hiero(size: CGFloat, choice: HieroFontChoice? = nil) -> Font {
+        let resolvedName = choice.map { FontRegistrar.postScriptName(for: $0) } ?? FontRegistrar.hieroFontName
+        return Font.custom(resolvedName, size: max(4, size))
     }
 }
 

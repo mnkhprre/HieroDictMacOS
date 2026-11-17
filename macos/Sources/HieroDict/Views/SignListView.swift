@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SignListView: View {
     @ObservedObject var store: HieroDictStore
+    @Environment(\.hieroFontChoice) private var hieroFontChoice
 
     @State private var filterText: String = ""
     @State private var expandedCategories: Set<String> = ["A"]
@@ -137,7 +138,7 @@ struct SignListView: View {
                                         } label: {
                                             VStack(spacing: 3) {
                                                 Text(sign.glyph)
-                                                    .font(.hiero(size: 28))
+                                                    .font(.hiero(size: 28, choice: hieroFontChoice))
                                                     .foregroundStyle(.primary)
                                                 Text(sign.code)
                                                     .font(.system(size: 11, weight: .bold))
@@ -185,6 +186,7 @@ struct SignListView: View {
 }
 
 private struct SignDetailSheetView: View {
+    @Environment(\.hieroFontChoice) private var hieroFontChoice
     let sign: GardinerSign
     let onDismiss: () -> Void
     let onFindWords: () -> Void
@@ -205,7 +207,7 @@ private struct SignDetailSheetView: View {
             }
 
             Text(sign.glyph)
-                .font(.hiero(size: 56))
+                .font(.hiero(size: 56, choice: hieroFontChoice))
                 .padding(.horizontal, 28)
                 .padding(.vertical, 16)
                 .background(

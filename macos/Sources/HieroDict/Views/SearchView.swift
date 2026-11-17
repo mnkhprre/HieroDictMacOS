@@ -3,6 +3,7 @@ import SwiftUI
 struct SearchView: View {
     @ObservedObject var store: HieroDictStore
     let glyphScale: GlyphScale
+    @Environment(\.hieroFontChoice) private var hieroFontChoice
     @FocusState private var isSearchFieldFocused: Bool
 
     @State private var selectedPickerCategory: String = "A"
@@ -33,7 +34,7 @@ struct SearchView: View {
                         )
                     )
                     .textFieldStyle(.plain)
-                    .font(store.searchMode == .glyph ? .hiero(size: 24) : .system(size: 14))
+                    .font(store.searchMode == .glyph ? .hiero(size: 24, choice: hieroFontChoice) : .system(size: 14))
                     .focused($isSearchFieldFocused)
 
                     if !store.searchQuery.isEmpty {
@@ -68,6 +69,57 @@ struct SearchView: View {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .stroke(AppTheme.subtleBorder, lineWidth: 1)
                 )
+
+                let trimmedQuery = store.searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+                if store.searchMode == .mdc, !trimmedQuery.isEmpty {
+                    HStack(spacing: 12) {
+                        QuadratWordView(
+                            mdc: trimmedQuery,
+                            fallbackGlyph: nil,
+                            signLookup: store.signCache,
+                            quadratSize: 38,
+                            showGrid: store.showQuadratGuides
+                        )
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(AppTheme.glyphTileBackground)
+                        )
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("LIVE MDC PREVIEW")
+                                .font(.system(size: 10, weight: .bold))
+                                .tracking(0.8)
+                                .foregroundStyle(.secondary)
+                            Text(trimmedQuery)
+                                .font(.system(size: 12, design: .monospaced))
+                                .foregroundStyle(AppTheme.slateAccent)
+                                .lineLimit(1)
+                        }
+
+                        Spacer()
+
+                        Button {
+                            store.openCustomMdcInStackStudio(trimmedQuery)
+                        } label: {
+                            Label("Open in Squares", systemImage: "square.stack.3d.up")
+                                .font(.system(size: 12, weight: .medium))
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(AppTheme.cardBackground)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(AppTheme.subtleBorder, lineWidth: 1)
+                    )
+                }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
@@ -120,18 +172,6 @@ struct SearchView: View {
                         store.appendGlyph(sign.glyph)
                     }
                 )
-            } else if store.searchMode == .translit {
-                TranslitKeyboardView(
-                    onCharTyped: { char in
-                        store.updateSearchQuery(store.searchQuery + char)
-                    },
-                    onBackspace: {
-                        store.backspaceQuery()
-                    },
-                    onClear: {
-                        store.clearQuery()
-                    }
-                )
             }
         }
         .onAppear {
@@ -150,14 +190,20 @@ struct SearchView: View {
             case .glyph:
                 return (
                     "Enter Hieroglyphs Directly",
-                    "Click signs below to build a Middle Egyptian word:",
+                    "Click signs from the Gardiner palette below to build a Middle Egyptian word:",
                     ["𓋹", "𓄤", "𓊵", "𓇳", "𓉐"]
+                )
+            case .mdc:
+                return (
+                    "Manuel de Codage (MdC) Search",
+                    "Type Gardiner codes or mnemonics with MdC operators (- next, : stack, * side, ^^ tuck):",
+                    ["Htp:t*p", "S34-N35-Aa1", "nfr", "R4:X1*Q3", "M8:x-t:ra"]
                 )
             case .translit:
                 return (
                     "Middle Egyptian Transliteration",
-                    "Use the Egyptological keyboard below or type directly:",
-                    ["ꜥnḫ", "nfr", "rꜥ", "snb"]
+                    "Type directly with your Mac keyboard (ASCII MdC supported: A, i, a, H, x, X, S, q, T, D):",
+                    ["ꜥnḫ", "nfr", "Htp", "AbDw"]
                 )
             case .gardiner:
                 return (
@@ -186,7 +232,7 @@ struct SearchView: View {
                         store.updateSearchQuery(example)
                     } label: {
                         Text(example)
-                            .font(store.searchMode == .glyph ? .hiero(size: 22) : .system(size: 13, weight: .semibold))
+                            .font(store.searchMode == .glyph ? .hiero(size: 22, choice: hieroFontChoice) : .system(size: 13, weight: .semibold))
                             .foregroundStyle(AppTheme.slateAccent)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
@@ -246,6 +292,7 @@ private struct SearchResultRow: View {
 }
 
 private struct HieroglyphPickerDeck: View {
+    @Environment(\.hieroFontChoice) private var hieroFontChoice
     let categories: [GardinerCategory]
     @Binding var selectedCategoryCode: String
     let onSignSelected: (GardinerSign) -> Void
@@ -299,7 +346,7 @@ private struct HieroglyphPickerDeck: View {
                             } label: {
                                 VStack(spacing: 2) {
                                     Text(sign.glyph)
-                                        .font(.hiero(size: 24))
+                                        .font(.hiero(size: 24, choice: hieroFontChoice))
                                         .foregroundStyle(.primary)
                                     Text(sign.code)
                                         .font(.system(size: 10, weight: .medium))

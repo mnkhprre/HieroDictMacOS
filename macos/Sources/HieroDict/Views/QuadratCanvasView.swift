@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct QuadratWordView: View {
+    @Environment(\.hieroFontChoice) private var hieroFontChoice
     let mdc: String
     let fallbackGlyph: String?
     let signLookup: [String: GardinerSign]
@@ -33,11 +34,12 @@ struct QuadratWordView: View {
     }
 
     var body: some View {
+        let _ = hieroFontChoice
         let allEmpty = indexedLines.allSatisfy { $0.items.isEmpty }
         let content = Group {
             if allEmpty {
                 Text(fallbackGlyph?.isEmpty == false ? fallbackGlyph! : "—")
-                    .font(.hiero(size: quadratSize * 0.72))
+                    .font(.hiero(size: quadratSize * 0.72, choice: hieroFontChoice))
                     .foregroundStyle(.primary)
             } else if direction == .vertical {
                 HStack(alignment: .top, spacing: max(6, quadratSize * 0.22)) {
@@ -172,7 +174,7 @@ struct QuadratWordView: View {
                         )
                 }
             }
-            .modifier(InteractiveCellModifier(onTap: onSelectSquare.map { cb in { cb(originalIndex) } }))
+            .modifier(InteractiveCellModifier(onSelect: onSelectSquare.map { cb in { cb(originalIndex) } }))
         }
     }
 
@@ -192,11 +194,11 @@ struct QuadratWordView: View {
 }
 
 private struct InteractiveCellModifier: ViewModifier {
-    let onTap: (() -> Void)?
+    let onSelect: (() -> Void)?
 
     func body(content: Content) -> some View {
-        if let onTap {
-            Button(action: onTap) {
+        if let onSelect {
+            Button(action: onSelect) {
                 content
             }
             .buttonStyle(.plain)
@@ -211,11 +213,40 @@ private enum CadratLayoutSolver {
     static let horizontalGapEm: CGFloat = 0.050
     static let maxCadratWidthEm: CGFloat = 1.35
 
+    private struct MeasureKey: Hashable {
+        let fontName: String
+        let node: QuadratNode
+    }
+
+    private static let measureLock = NSLock()
+    private static var measureCache: [MeasureKey: CGSize] = [:]
+
     static func measureEm(_ node: QuadratNode) -> CGSize {
+        let fontName = FontRegistrar.hieroFontName
+        let key = MeasureKey(fontName: fontName, node: node)
+        measureLock.lock()
+        if let cached = measureCache[key] {
+            measureLock.unlock()
+            return cached
+        }
+        measureLock.unlock()
+
+        let computed = computeEm(node)
+
+        measureLock.lock()
+        if measureCache.count >= 4096 {
+            measureCache.removeAll(keepingCapacity: true)
+        }
+        measureCache[key] = computed
+        measureLock.unlock()
+        return computed
+    }
+
+    private static func computeEm(_ node: QuadratNode) -> CGSize {
         switch node {
         case .atom(let atom):
             let base = QuadratGlyphMetricsCache.shared.designSizeEm(for: atom.glyph)
-            let isQuarterTurn = abs(atom.rotationDegrees.truncatingRemainder(dividingBy: 180)) == 90
+            let isQuarterTurn = abs(abs(atom.rotationDegrees.truncatingRemainder(dividingBy: 180)) - 90) < 0.01
             let rawW = isQuarterTurn ? base.height : base.width
             let rawH = isQuarterTurn ? base.width : base.height
             let userScale = min(max(atom.scale, 0.25), 1.50)

@@ -8,6 +8,8 @@
     <string>HieroDict</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
+    <key>CFBundleIconName</key>
+    <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
     <string>net.ultramagic.hierodict.macos</string>
     <key>CFBundleInfoDictionaryVersion</key>
@@ -24,6 +26,11 @@
     <string>1</string>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.reference</string>
+    <key>LSArchitecturePriority</key>
+    <array>
+        <string>arm64</string>
+        <string>x86_64</string>
+    </array>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
     <key>NSHighResolutionCapable</key>

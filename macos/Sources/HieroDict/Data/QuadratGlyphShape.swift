@@ -30,7 +30,6 @@ struct CachedGlyphVector {
     let boundingBox: CGRect
     let designSizeEm: CGSize
     let naturalAspectRatio: CGFloat
-    let inkDensity: QuadrantInkDensity
 }
 
 final class QuadratGlyphMetricsCache {
@@ -39,6 +38,7 @@ final class QuadratGlyphMetricsCache {
     private static let referencePointSize: CGFloat = 100.0
 
     private var cache: [String: CachedGlyphVector] = [:]
+    private var inkDensityCache: [String: QuadrantInkDensity] = [:]
     private var fontCache: [String: CTFont] = [:]
     private let lock = NSLock()
 
@@ -79,9 +79,11 @@ final class QuadratGlyphMetricsCache {
                 if !staleKeys.isEmpty {
                     for staleKey in staleKeys {
                         cache.removeValue(forKey: staleKey)
+                        inkDensityCache.removeValue(forKey: staleKey)
                     }
                 } else {
                     cache.removeAll(keepingCapacity: true)
+                    inkDensityCache.removeAll(keepingCapacity: true)
                 }
             }
             cache[key] = built
@@ -99,7 +101,23 @@ final class QuadratGlyphMetricsCache {
     }
 
     func bestTuckCorner(for glyph: String, mirrored: Bool) -> TuckCorner {
-        vector(for: glyph)?.inkDensity.bestTuckCorner(mirrored: mirrored) ?? .topRight
+        let active = activeFontAndScale()
+        let key = "\(active.fontName)|\(glyph)"
+        lock.lock()
+        if let cachedDensity = inkDensityCache[key] {
+            lock.unlock()
+            return cachedDensity.bestTuckCorner(mirrored: mirrored)
+        }
+        lock.unlock()
+
+        guard let vec = vector(for: glyph) else {
+            return .topRight
+        }
+        let density = measureInkDensity(in: vec.path, bbox: vec.boundingBox)
+        lock.lock()
+        inkDensityCache[key] = density
+        lock.unlock()
+        return density.bestTuckCorner(mirrored: mirrored)
     }
 
     private func buildVector(for text: String, primaryFont: CTFont, refHeight: CGFloat) -> CachedGlyphVector? {
@@ -164,13 +182,11 @@ final class QuadratGlyphMetricsCache {
         let designW = max(bbox.width / refHeight, 0.08)
         let designH = max(bbox.height / refHeight, 0.08)
         let ratio = min(max(bbox.height / bbox.width, 0.14), 5.0)
-        let density = measureInkDensity(in: combined, bbox: bbox)
         return CachedGlyphVector(
             path: combined,
             boundingBox: bbox,
             designSizeEm: CGSize(width: designW, height: designH),
-            naturalAspectRatio: ratio,
-            inkDensity: density
+            naturalAspectRatio: ratio
         )
     }
 
@@ -248,7 +264,7 @@ struct EpigraphicHatchOverlay: View {
                             iterations += 1
                         }
                     }
-                    .stroke(Color.primary.opacity(0.45), lineWidth: max(0.8, min(w, h) * 0.025))
+                    .stroke(Color.primary.opacity(0.45), lineWidth: max(1.0, min(w, h) * 0.025))
                     .clipShape(Path { p in p.addRect(targetRect) })
                 }
             }
@@ -257,6 +273,7 @@ struct EpigraphicHatchOverlay: View {
 }
 
 struct QuadratGlyphVectorView: View {
+    @Environment(\.hieroFontChoice) private var hieroFontChoice
     let glyph: String
     let width: CGFloat
     let height: CGFloat
@@ -290,11 +307,12 @@ struct QuadratGlyphVectorView: View {
 
     @ViewBuilder
     private var glyphBody: some View {
+        let _ = hieroFontChoice
         if safeWidth > 1,
            safeHeight > 1,
            let vector = QuadratGlyphMetricsCache.shared.vector(for: glyph) {
             let bbox = vector.boundingBox
-            let isQuarterTurn = abs(rotationDegrees.truncatingRemainder(dividingBy: 180)) == 90
+            let isQuarterTurn = abs(abs(rotationDegrees.truncatingRemainder(dividingBy: 180)) - 90) < 0.01
             let effectiveW = isQuarterTurn ? bbox.height : bbox.width
             let effectiveH = isQuarterTurn ? bbox.width : bbox.height
             let fitScale = min((safeWidth * 0.96) / max(effectiveW, 0.5), (safeHeight * 0.96) / max(effectiveH, 0.5))
@@ -308,7 +326,7 @@ struct QuadratGlyphVectorView: View {
                     .scaledBy(x: fitScale, y: -fitScale)
                     .translatedBy(x: -bbox.midX, y: -bbox.midY)
 
-                if let transformed = withUnsafePointer(to: &transform, { vector.path.copy(using: $0) }) {
+                if let transformed = vector.path.copy(using: &transform) {
                     Path(transformed)
                         .fill(inkColor, style: FillStyle(eoFill: false))
                         .frame(width: safeWidth, height: safeHeight)
@@ -325,12 +343,12 @@ struct QuadratGlyphVectorView: View {
 
     private var fallbackText: some View {
         Text(glyph)
-            .font(.hiero(size: max(8, min(width, height) * 0.85)))
+            .font(.hiero(size: max(8, min(safeWidth, safeHeight) * 0.85), choice: hieroFontChoice))
             .foregroundStyle(inkColor)
             .minimumScaleFactor(0.3)
             .lineLimit(1)
             .rotationEffect(.degrees(rotationDegrees))
             .scaleEffect(x: isFlipped ? -1 : 1, y: 1)
-            .frame(width: width, height: height)
+            .frame(width: safeWidth, height: safeHeight)
     }
 }

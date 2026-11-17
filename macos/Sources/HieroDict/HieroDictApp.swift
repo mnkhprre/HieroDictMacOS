@@ -1,9 +1,16 @@
+import AppKit
 import SwiftUI
 
 @main
 struct HieroDictApp: App {
     @StateObject private var store = HieroDictStore()
     @AppStorage("themePreference") private var themePreferenceRaw: String = ThemePreference.system.rawValue
+
+    init() {
+        if let icon = ResourceLocator.appIconImage() {
+            NSApplication.shared.applicationIconImage = icon
+        }
+    }
 
     private var colorScheme: ColorScheme? {
         (ThemePreference(rawValue: themePreferenceRaw) ?? .system).colorScheme
@@ -12,6 +19,7 @@ struct HieroDictApp: App {
     var body: some Scene {
         WindowGroup("HieroDict", id: "main") {
             MainSplitView(store: store)
+                .environment(\.hieroFontChoice, store.hieroFontChoice)
                 .preferredColorScheme(colorScheme)
                 .frame(minWidth: 880, minHeight: 620)
         }
@@ -69,13 +77,14 @@ struct HieroDictApp: App {
 
         MenuBarExtra("HieroDict", systemImage: "text.book.closed") {
             MenuBarSearchView(store: store)
-                .id(store.hieroFontChoice)
+                .environment(\.hieroFontChoice, store.hieroFontChoice)
                 .preferredColorScheme(colorScheme)
         }
         .menuBarExtraStyle(.window)
 
         Settings {
             SettingsView(store: store)
+                .environment(\.hieroFontChoice, store.hieroFontChoice)
                 .preferredColorScheme(colorScheme)
         }
     }

@@ -5,13 +5,13 @@ struct MenuBarSearchView: View {
     @ObservedObject var store: HieroDictStore
     @Environment(\.openWindow) private var openWindow
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.hieroFontChoice) private var hieroFontChoice
 
     @FocusState private var isQueryFocused: Bool
     @State private var copiedFeedback: String? = nil
     @State private var feedbackTask: Task<Void, Never>? = nil
 
     private let quickHieroglyphs = ["𓋹", "𓄤", "𓊵", "𓇳", "𓉐", "𓈖", "𓂋", "𓁹", "𓅓", "𓏏", "𓎟", "𓆣"]
-    private let quickDiacritics = ["ꜣ", "ỉ", "ꜥ", "ḥ", "ḫ", "ẖ", "š", "ḳ", "ṯ", "ḏ"]
 
     var body: some View {
         VStack(spacing: 0) {
@@ -29,7 +29,7 @@ struct MenuBarSearchView: View {
 
             footerSection
         }
-        .frame(width: 400, height: 500)
+        .frame(width: 440, height: 500)
         .onAppear {
             isQueryFocused = true
         }
@@ -80,7 +80,7 @@ struct MenuBarSearchView: View {
                     )
                 )
                 .textFieldStyle(.plain)
-                .font(store.menuBarSearchMode == .glyph ? .hiero(size: 20) : .system(size: 13))
+                .font(store.menuBarSearchMode == .glyph ? .hiero(size: 20, choice: hieroFontChoice) : .system(size: 13))
                 .focused($isQueryFocused)
 
                 if !store.menuBarSearchQuery.isEmpty {
@@ -122,7 +122,7 @@ struct MenuBarSearchView: View {
                                 store.appendMenuBarGlyph(glyph)
                             } label: {
                                 Text(glyph)
-                                    .font(.hiero(size: 18))
+                                    .font(.hiero(size: 18, choice: hieroFontChoice))
                                     .frame(width: 28, height: 28)
                                     .background(
                                         RoundedRectangle(cornerRadius: 6, style: .continuous)
@@ -133,20 +133,35 @@ struct MenuBarSearchView: View {
                         }
                     }
                 }
-            } else if store.menuBarSearchMode == .translit {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 4) {
-                        ForEach(quickDiacritics, id: \.self) { char in
-                            Button {
-                                store.updateMenuBarQuery(store.menuBarSearchQuery + char)
-                            } label: {
-                                Text(char)
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .frame(width: 28, height: 24)
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
+            } else if store.menuBarSearchMode == .mdc {
+                let trimmedMdc = store.menuBarSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmedMdc.isEmpty {
+                    HStack(spacing: 8) {
+                        QuadratWordView(
+                            mdc: trimmedMdc,
+                            fallbackGlyph: nil,
+                            signLookup: store.signCache,
+                            quadratSize: 28,
+                            showGrid: store.showQuadratGuides
+                        )
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(AppTheme.glyphTileBackground)
+                        )
+
+                        Spacer()
+
+                        Button {
+                            store.openCustomMdcInStackStudio(trimmedMdc)
+                            openMainAppWindow()
+                        } label: {
+                            Label("Open in Squares", systemImage: "square.stack.3d.up")
+                                .font(.system(size: 11, weight: .medium))
                         }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
                     }
                 }
             }
@@ -295,7 +310,7 @@ struct MenuBarSearchView: View {
                         )
                     } else {
                         Text(entry.glyph.isEmpty ? "—" : entry.glyph)
-                            .font(.hiero(size: 42))
+                            .font(.hiero(size: 42, choice: hieroFontChoice))
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -416,7 +431,8 @@ struct MenuBarSearchView: View {
     private var quickExamples: [String] {
         switch store.menuBarSearchMode {
         case .glyph: return ["𓋹", "𓄤", "𓊵", "𓇳"]
-        case .translit: return ["ꜥnḫ", "nfr", "rꜥ", "snb"]
+        case .mdc: return ["Htp:t*p", "S34-N35-Aa1", "nfr", "R4:X1*Q3"]
+        case .translit: return ["ꜥnḫ", "nfr", "Htp", "AbDw"]
         case .gardiner: return ["S34", "F35", "G43", "D21"]
         case .english: return ["life", "king", "god", "water"]
         }
@@ -424,8 +440,10 @@ struct MenuBarSearchView: View {
 
     private func openMainAppWindow() {
         dismiss()
-        NSApp.activate()
         openWindow(id: "main")
+        DispatchQueue.main.async {
+            NSApp.activate()
+        }
     }
 
     private func copyToPasteboard(_ text: String, feedback: String) {

@@ -13,6 +13,7 @@ struct WordInspectorView: View {
     let onOpenInStackStudio: (HieroEntry, Int) -> Void
     let getSignDetails: (String) -> GardinerSign?
 
+    @Environment(\.hieroFontChoice) private var hieroFontChoice
     @State private var copiedBadgeText: String? = nil
     @State private var badgeTask: Task<Void, Never>? = nil
 
@@ -56,7 +57,7 @@ struct WordInspectorView: View {
                         }
                     } else {
                         Text(entry.glyph.isEmpty ? "—" : entry.glyph)
-                            .font(.hiero(size: glyphScale.detailFontSize))
+                            .font(.hiero(size: glyphScale.detailFontSize, choice: hieroFontChoice))
                             .foregroundStyle(.primary)
                             .multilineTextAlignment(.center)
                             .textSelection(.enabled)
@@ -121,7 +122,7 @@ struct WordInspectorView: View {
                                     HStack(spacing: 6) {
                                         if let info, !info.glyph.isEmpty {
                                             Text(info.glyph)
-                                                .font(.hiero(size: 20))
+                                                .font(.hiero(size: 20, choice: hieroFontChoice))
                                                 .foregroundStyle(.primary)
                                         }
                                         VStack(alignment: .leading, spacing: 1) {

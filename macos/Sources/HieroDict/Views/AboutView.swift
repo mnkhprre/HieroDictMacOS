@@ -1,18 +1,29 @@
 import SwiftUI
 
 struct AboutView: View {
+    @Environment(\.hieroFontChoice) private var hieroFontChoice
+
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
                 VStack(spacing: 8) {
-                    Text("𓋹𓍑𓋴")
-                        .font(.hiero(size: 42))
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(AppTheme.glyphTileBackground)
-                        )
+                    if let icon = ResourceLocator.appIconImage() {
+                        Image(nsImage: icon)
+                            .resizable()
+                            .interpolation(.high)
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 84, height: 84)
+                            .shadow(color: .black.opacity(0.18), radius: 6, y: 2)
+                    } else {
+                        Text("𓋹𓍑𓋴")
+                            .font(.hiero(size: 42, choice: hieroFontChoice))
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .fill(AppTheme.glyphTileBackground)
+                            )
+                    }
 
                     Text("HieroDict")
                         .font(.system(size: 22, weight: .bold))
@@ -88,7 +99,7 @@ struct AboutView: View {
                     • Hanno Rein: HieroDict open-source dataset & JSesh integration
                     • Mark Vygus: Middle Egyptian Dictionary
                     • UniHieroglyphica & Google Noto Sans Egyptian Hieroglyphs typefaces
-                    • George Douros: Nilus & Abydos TrueType fonts for Ancient Egyptian Scripts
+                    • George Douros: Abydos TrueType font for Ancient Egyptian Scripts
                     • Manuel de Codage (MdC) standardization for hieroglyphs
                     • License: Attribution-ShareAlike 2.0 Generic (CC BY-SA 2.0)
                     """)

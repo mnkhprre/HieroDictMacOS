@@ -77,7 +77,6 @@ struct MainSplitView: View {
                     }
                 }
             }
-            .id(store.hieroFontChoice)
             .navigationTitle(store.selectedSection.rawValue)
         }
         .inspector(
@@ -109,7 +108,6 @@ struct MainSplitView: View {
                         store.signDetails(for: code)
                     }
                 )
-                .id(store.hieroFontChoice)
                 .inspectorColumnWidth(min: 280, ideal: 330, max: 390)
             }
         }

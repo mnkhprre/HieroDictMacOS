@@ -191,12 +191,53 @@ final class HieroDictStore: ObservableObject {
 
     func toggleFavorite(id: Int) {
         database?.toggleFavorite(id: id)
-        reloadEntriesPreservingSelection()
+        var targetState: Bool?
+        if let idx = allEntries.firstIndex(where: { $0.id == id }) {
+            allEntries[idx].isFavorite.toggle()
+            targetState = allEntries[idx].isFavorite
+        }
+        let newState = targetState
+        if let idx = dictionaryEntries.firstIndex(where: { $0.id == id }) {
+            dictionaryEntries[idx].isFavorite = newState ?? !dictionaryEntries[idx].isFavorite
+        }
+        if let idx = searchResults.firstIndex(where: { $0.id == id }) {
+            searchResults[idx].isFavorite = newState ?? !searchResults[idx].isFavorite
+        }
+        if let idx = menuBarResults.firstIndex(where: { $0.id == id }) {
+            menuBarResults[idx].isFavorite = newState ?? !menuBarResults[idx].isFavorite
+        }
+        if var current = selectedWord, current.id == id {
+            current.isFavorite = newState ?? !current.isFavorite
+            selectedWord = current
+        }
+        if var currentMenu = menuBarSelectedWord, currentMenu.id == id {
+            currentMenu.isFavorite = newState ?? !currentMenu.isFavorite
+            menuBarSelectedWord = currentMenu
+        }
     }
 
     func clearAllFavorites() {
         database?.clearAllFavorites()
-        reloadEntriesPreservingSelection()
+        for i in allEntries.indices {
+            allEntries[i].isFavorite = false
+        }
+        for i in dictionaryEntries.indices {
+            dictionaryEntries[i].isFavorite = false
+        }
+        for i in searchResults.indices {
+            searchResults[i].isFavorite = false
+        }
+        for i in menuBarResults.indices {
+            menuBarResults[i].isFavorite = false
+        }
+        if var current = selectedWord {
+            current.isFavorite = false
+            selectedWord = current
+        }
+        if var currentMenu = menuBarSelectedWord {
+            currentMenu.isFavorite = false
+            menuBarSelectedWord = currentMenu
+        }
     }
 
     func filterBySign(_ signCode: String) {
@@ -224,6 +265,18 @@ final class HieroDictStore: ObservableObject {
         composerDirection = .ltr
         composerFrame = .none
         selectedSquareIndex = focusedSquareIndex
+        selectedSlotIndex = nil
+        selectedSection = .stacks
+    }
+
+    func openCustomMdcInStackStudio(_ mdc: String) {
+        let trimmed = mdc.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        composerTitle = trimmed
+        composerMdc = trimmed
+        composerDirection = .ltr
+        composerFrame = .none
+        selectedSquareIndex = 0
         selectedSlotIndex = nil
         selectedSection = .stacks
     }
@@ -508,7 +561,15 @@ final class HieroDictStore: ObservableObject {
         if trimmed.isEmpty {
             menuBarResults = []
         } else {
-            menuBarResults = database.searchEntries(query: trimmed, mode: menuBarSearchMode, limit: 150)
+            let resolved = menuBarSearchMode == .mdc
+                ? QuadratEngine.extractResolvedHieroglyphs(mdc: trimmed, signLookup: signCache)
+                : ""
+            menuBarResults = database.searchEntries(
+                query: trimmed,
+                mode: menuBarSearchMode,
+                resolvedGlyphs: resolved,
+                limit: 150
+            )
         }
     }
 
@@ -518,7 +579,14 @@ final class HieroDictStore: ObservableObject {
         if trimmed.isEmpty {
             searchResults = []
         } else {
-            searchResults = database.searchEntries(query: trimmed, mode: searchMode)
+            let resolved = searchMode == .mdc
+                ? QuadratEngine.extractResolvedHieroglyphs(mdc: trimmed, signLookup: signCache)
+                : ""
+            searchResults = database.searchEntries(
+                query: trimmed,
+                mode: searchMode,
+                resolvedGlyphs: resolved
+            )
         }
     }
 

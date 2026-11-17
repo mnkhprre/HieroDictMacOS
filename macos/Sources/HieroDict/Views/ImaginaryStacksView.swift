@@ -691,7 +691,7 @@ struct ImaginaryStacksView: View {
                         } label: {
                             VStack(spacing: 2) {
                                 Text(sign.glyph)
-                                    .font(.hiero(size: 24))
+                                    .font(.hiero(size: 24, choice: store.hieroFontChoice))
                                     .foregroundStyle(.primary)
                                 Text(sign.code)
                                     .font(.system(size: 10, weight: .medium))

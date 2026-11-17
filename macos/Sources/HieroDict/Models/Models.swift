@@ -61,6 +61,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
 
 enum SearchMode: String, CaseIterable, Identifiable {
     case glyph = "Hieroglyphs"
+    case mdc = "MdC"
     case translit = "Translit"
     case gardiner = "Gardiner"
     case english = "English"
@@ -69,10 +70,11 @@ enum SearchMode: String, CaseIterable, Identifiable {
 
     var placeholder: String {
         switch self {
-        case .glyph: return "Tap hieroglyphs below to search…"
-        case .translit: return "Type transliteration using keyboard below…"
+        case .glyph: return "Click hieroglyphs from palette below…"
+        case .mdc: return "Enter MdC (e.g. Htp:t*p, S34-N35-Aa1, nfr)…"
+        case .translit: return "Type transliteration (or ASCII: A, i, a, H, x, S, q, T, D)…"
         case .gardiner: return "Enter Gardiner code (e.g. G43, D21, S34)…"
-        case .english: return "Type English word (e.g. life, king, water)…"
+        case .english: return "Type English meaning (e.g. life, king, water)…"
         }
     }
 }
