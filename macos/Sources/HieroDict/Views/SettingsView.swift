@@ -6,6 +6,8 @@ struct SettingsView: View {
     @AppStorage("glyphScale") private var glyphScaleRaw: String = GlyphScale.medium.rawValue
     @AppStorage("themePreference") private var themePreferenceRaw: String = ThemePreference.system.rawValue
     @AppStorage("enableWindowBlur") private var enableWindowBlur: Bool = false
+    @AppStorage("transliterationModel") private var transliterationModelRaw: String = TransliterationModel.british.rawValue
+    @AppStorage("showPronunciation") private var showPronunciation: Bool = false
 
     @State private var clearedBannerVisible = false
     @State private var clearedTask: Task<Void, Never>? = nil
@@ -19,6 +21,24 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.radioGroup)
+            }
+
+            Section("Transliteration & Pronunciation") {
+                Picker("Transliteration Model", selection: $transliterationModelRaw) {
+                    ForEach(TransliterationModel.allCases) { model in
+                        Text(model.rawValue).tag(model.rawValue)
+                    }
+                }
+                .pickerStyle(.radioGroup)
+
+                Toggle(isOn: $showPronunciation) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Schematic Pronunciation")
+                        Text("Show an Egyptological pronunciation guide beside transliterations.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
 
             Section("Hieroglyph Size") {

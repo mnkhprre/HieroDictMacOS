@@ -4,6 +4,8 @@ struct MainSplitView: View {
     @ObservedObject var store: HieroDictStore
     @EnvironmentObject var updater: GitHubUpdater
     @AppStorage("glyphScale") private var glyphScaleRaw: String = GlyphScale.medium.rawValue
+    @AppStorage("transliterationModel") private var transliterationModelRaw: String = TransliterationModel.british.rawValue
+    @AppStorage("showPronunciation") private var showPronunciation: Bool = false
     @Environment(\.enableWindowBlur) private var enableWindowBlur
 
     private var glyphScale: GlyphScale {
@@ -139,6 +141,16 @@ struct MainSplitView: View {
                             Text(scale.rawValue).tag(scale.rawValue)
                         }
                     }
+
+                    Divider()
+
+                    Picker("Transliteration Model", selection: $transliterationModelRaw) {
+                        ForEach(TransliterationModel.allCases) { model in
+                            Text(model.rawValue).tag(model.rawValue)
+                        }
+                    }
+
+                    Toggle("Schematic Pronunciation", isOn: $showPronunciation)
                 } label: {
                     Label("Font & Size", systemImage: "textformat.size")
                 }

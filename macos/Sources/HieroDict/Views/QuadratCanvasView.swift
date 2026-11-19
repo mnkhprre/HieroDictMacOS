@@ -269,6 +269,23 @@ private enum CadratLayoutSolver {
 
         case .ligature(_, let children):
             let sizes = children.map { measureEm($0) }
+            let tokens = ligatureTokens(for: children)
+            if let rule = LigatureCatalog.shared.rule(for: tokens) {
+                let layout = rule.layoutFrames(for: sizes)
+                var w = layout.size.width
+                var h = layout.size.height
+                if h > 1.0 {
+                    let s = 1.0 / h
+                    w *= s
+                    h = 1.0
+                }
+                if w > maxCadratWidthEm {
+                    let s = maxCadratWidthEm / w
+                    w = maxCadratWidthEm
+                    h *= s
+                }
+                return CGSize(width: max(0.08, w), height: max(0.08, h))
+            }
             return CGSize(
                 width: max(0.08, sizes.map(\.width).max() ?? 0.6),
                 height: max(0.08, sizes.map(\.height).max() ?? 0.6)
@@ -309,6 +326,15 @@ private enum CadratLayoutSolver {
             return CGSize(width: 0.90, height: 0.90)
         }
     }
+
+    static func ligatureTokens(for children: [QuadratNode]) -> [String] {
+        children.map { child in
+            if case .atom(let atom) = child {
+                return atom.token
+            }
+            return ""
+        }
+    }
 }
 
 private struct QuadratNodeRenderer: View {
@@ -335,29 +361,63 @@ private struct QuadratNodeRenderer: View {
             )
 
         case .ligature(_, let children):
-            let natural = CadratLayoutSolver.measureEm(node)
-            let localScale = min(
-                placedSize.width / max(natural.width, 0.01),
-                placedSize.height / max(natural.height, 0.01)
-            )
-            ZStack {
-                ForEach(Array(children.enumerated()), id: \.offset) { idx, child in
-                    let childEm = CadratLayoutSolver.measureEm(child)
-                    let factor: CGFloat = idx == 0 ? 1.0 : 0.65
-                    let childSize = CGSize(
-                        width: childEm.width * localScale * factor,
-                        height: childEm.height * localScale * factor
-                    )
-                    QuadratNodeRenderer(
-                        node: child,
-                        placedSize: childSize,
-                        unitSize: unitSize,
-                        globalFlip: globalFlip,
-                        showSubGrid: false
-                    )
+            let childEms = children.map { CadratLayoutSolver.measureEm($0) }
+            let tokens = CadratLayoutSolver.ligatureTokens(for: children)
+            if let rule = LigatureCatalog.shared.rule(for: tokens) {
+                let layout = rule.layoutFrames(for: childEms)
+                let localScale = min(
+                    placedSize.width / max(layout.size.width, 0.01),
+                    placedSize.height / max(layout.size.height, 0.01)
+                )
+                let canvasW = layout.size.width * localScale
+                let canvasH = layout.size.height * localScale
+                ZStack(alignment: .topLeading) {
+                    ForEach(Array(children.enumerated()), id: \.offset) { idx, child in
+                        let rect = layout.frames[idx]
+                        let cw = max(2, rect.width * localScale)
+                        let ch = max(2, rect.height * localScale)
+                        let xPos = globalFlip
+                            ? (canvasW - (rect.minX + rect.width) * localScale)
+                            : (rect.minX * localScale)
+                        let yPos = rect.minY * localScale
+                        QuadratNodeRenderer(
+                            node: child,
+                            placedSize: CGSize(width: cw, height: ch),
+                            unitSize: unitSize,
+                            globalFlip: globalFlip,
+                            showSubGrid: false
+                        )
+                        .frame(width: cw, height: ch)
+                        .offset(x: xPos, y: yPos)
+                    }
                 }
+                .frame(width: canvasW, height: canvasH, alignment: .topLeading)
+                .frame(width: placedSize.width, height: placedSize.height)
+            } else {
+                let natural = CadratLayoutSolver.measureEm(node)
+                let localScale = min(
+                    placedSize.width / max(natural.width, 0.01),
+                    placedSize.height / max(natural.height, 0.01)
+                )
+                ZStack {
+                    ForEach(Array(children.enumerated()), id: \.offset) { idx, child in
+                        let childEm = childEms[idx]
+                        let factor: CGFloat = idx == 0 ? 1.0 : 0.65
+                        let childSize = CGSize(
+                            width: childEm.width * localScale * factor,
+                            height: childEm.height * localScale * factor
+                        )
+                        QuadratNodeRenderer(
+                            node: child,
+                            placedSize: childSize,
+                            unitSize: unitSize,
+                            globalFlip: globalFlip,
+                            showSubGrid: false
+                        )
+                    }
+                }
+                .frame(width: placedSize.width, height: placedSize.height)
             }
-            .frame(width: placedSize.width, height: placedSize.height)
 
         case .tuck(_, let container, let tucked, let corner):
             let resolvedCorner = resolveTuckCorner(corner, container: container)

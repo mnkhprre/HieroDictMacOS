@@ -115,6 +115,15 @@ class HieroDatabaseHelper(context: Context) {
         }
     }
 
+    fun fetchAllSigns(): List<GardinerSign> {
+        synchronized(lock) {
+            return querySigns(
+                "SELECT code, categoryCode, glyph, name, meaning, num FROM gardiner_signs ORDER BY categoryCode ASC, num ASC, code ASC",
+                emptyArray()
+            )
+        }
+    }
+
     fun fetchSignsForCodes(codes: List<String>): List<GardinerSign> {
         val cleaned = codes.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
         if (cleaned.isEmpty()) return emptyList()

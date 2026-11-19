@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -57,16 +58,25 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import net.ultramagic.hierodict.model.GardinerSign
 import net.ultramagic.hierodict.model.HieroEntry
+import net.ultramagic.hierodict.model.HieroFontChoice
 import net.ultramagic.hierodict.model.HieroglyphTranslitData
+import net.ultramagic.hierodict.model.TransliterationModel
 
 @Composable
 fun HieroEntryRow(
     entry: HieroEntry,
     hieroFontFamily: FontFamily,
+    signLookup: Map<String, GardinerSign> = emptyMap(),
+    fontChoice: HieroFontChoice = HieroFontChoice.ABYDOS,
+    transliterationModel: TransliterationModel = TransliterationModel.BRITISH,
+    showPronunciation: Boolean = false,
     onClick: () -> Unit,
     onToggleFavorite: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val displayTranslit = entry.formattedTranslit(transliterationModel)
+    val pronunciation = if (showPronunciation) entry.schematicPronunciation() else ""
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -81,20 +91,30 @@ fun HieroEntryRow(
         ) {
             Box(
                 modifier = Modifier
-                    .width(76.dp)
+                    .widthIn(min = 80.dp, max = 116.dp)
                     .clip(MaterialTheme.shapes.small)
                     .background(MaterialTheme.colorScheme.surfaceVariant)
                     .padding(horizontal = 8.dp, vertical = 10.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = entry.glyph.ifEmpty { entry.mdc },
-                    fontFamily = hieroFontFamily,
-                    fontSize = 24.sp,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
+                if (entry.mdc.isNotBlank()) {
+                    QuadratWordView(
+                        mdc = entry.mdc,
+                        signLookup = signLookup,
+                        fontChoice = fontChoice,
+                        quadratSize = 30.dp,
+                        tintColor = MaterialTheme.colorScheme.onSurface
+                    )
+                } else {
+                    Text(
+                        text = entry.glyph,
+                        fontFamily = hieroFontFamily,
+                        fontSize = 24.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(14.dp))
@@ -105,13 +125,22 @@ fun HieroEntryRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = entry.translit.ifEmpty { entry.translitRaw },
+                        text = displayTranslit,
                         style = MaterialTheme.typography.titleMedium,
                         fontStyle = FontStyle.Italic,
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                    if (pronunciation.isNotBlank()) {
+                        Text(
+                            text = "/$pronunciation/",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                     if (entry.pos.isNotBlank()) {
                         Text(
                             text = entry.pos,
@@ -274,12 +303,18 @@ fun WordInspectorSheet(
     entry: HieroEntry,
     constituentSigns: List<GardinerSign>,
     hieroFontFamily: FontFamily,
+    signLookup: Map<String, GardinerSign> = emptyMap(),
+    fontChoice: HieroFontChoice = HieroFontChoice.ABYDOS,
+    transliterationModel: TransliterationModel = TransliterationModel.BRITISH,
+    showPronunciation: Boolean = false,
     onDismiss: () -> Unit,
     onToggleFavorite: () -> Unit,
     onSelectSign: (GardinerSign) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val context = LocalContext.current
+    val displayTranslit = entry.formattedTranslit(transliterationModel)
+    val pronunciation = entry.schematicPronunciation()
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -297,15 +332,25 @@ fun WordInspectorSheet(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = entry.translit.ifEmpty { entry.translitRaw },
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontStyle = FontStyle.Italic,
-                    modifier = Modifier.weight(1f)
-                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = displayTranslit,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontStyle = FontStyle.Italic
+                    )
+                    if (showPronunciation && pronunciation.isNotBlank()) {
+                        Text(
+                            text = "/$pronunciation/",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
                 IconButton(
                     onClick = onToggleFavorite,
-                    modifier = Modifier.minimumInteractiveComponentSize()
+                    modifier = Modifier
+                        .minimumInteractiveComponentSize()
+                        .testTag("inspector_bookmark_button")
                 ) {
                     Icon(
                         imageVector = if (entry.isFavorite) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
@@ -325,12 +370,22 @@ fun WordInspectorSheet(
                     .padding(vertical = 22.dp, horizontal = 16.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = entry.glyph.ifEmpty { entry.mdc },
-                    fontFamily = hieroFontFamily,
-                    fontSize = 44.sp,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                if (entry.mdc.isNotBlank()) {
+                    QuadratWordView(
+                        mdc = entry.mdc,
+                        signLookup = signLookup,
+                        fontChoice = fontChoice,
+                        quadratSize = 52.dp,
+                        tintColor = MaterialTheme.colorScheme.onSurface
+                    )
+                } else {
+                    Text(
+                        text = entry.glyph,
+                        fontFamily = hieroFontFamily,
+                        fontSize = 44.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -363,6 +418,12 @@ fun WordInspectorSheet(
             if (entry.pos.isNotBlank()) {
                 InspectorMetadataRow(label = "Grammar / POS", value = entry.pos)
             }
+            if (showPronunciation && pronunciation.isNotBlank()) {
+                InspectorMetadataRow(
+                    label = "Schematic Pronunciation",
+                    value = "/$pronunciation/"
+                )
+            }
 
             if (constituentSigns.isNotEmpty() || entry.gardinerCodes.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(14.dp))
@@ -384,6 +445,7 @@ fun WordInspectorSheet(
                         constituentSigns.forEach { sign ->
                             AssistChip(
                                 onClick = { onSelectSign(sign) },
+                                modifier = Modifier.testTag("constituent_sign_${sign.code}"),
                                 label = {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -443,7 +505,9 @@ private fun InspectorMetadataRow(
         if (onCopy != null && value.isNotBlank()) {
             IconButton(
                 onClick = onCopy,
-                modifier = Modifier.minimumInteractiveComponentSize()
+                modifier = Modifier
+                    .minimumInteractiveComponentSize()
+                    .testTag("copy_${label.lowercase().replace(' ', '_')}")
             ) {
                 Icon(
                     imageVector = Icons.Outlined.ContentCopy,
@@ -460,6 +524,9 @@ fun SignDetailDialog(
     sign: GardinerSign,
     relatedWords: List<HieroEntry>,
     hieroFontFamily: FontFamily,
+    signLookup: Map<String, GardinerSign> = emptyMap(),
+    fontChoice: HieroFontChoice = HieroFontChoice.ABYDOS,
+    transliterationModel: TransliterationModel = TransliterationModel.BRITISH,
     onDismiss: () -> Unit,
     onSelectWord: (HieroEntry) -> Unit
 ) {
@@ -485,7 +552,9 @@ fun SignDetailDialog(
                     )
                     IconButton(
                         onClick = onDismiss,
-                        modifier = Modifier.minimumInteractiveComponentSize()
+                        modifier = Modifier
+                            .minimumInteractiveComponentSize()
+                            .testTag("close_sign_dialog_button")
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.Close,
@@ -551,18 +620,34 @@ fun SignDetailDialog(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable { onSelectWord(word) }
-                                    .padding(vertical = 8.dp),
+                                    .padding(vertical = 8.dp)
+                                    .testTag("related_word_${word.id}"),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = word.glyph,
-                                    fontFamily = hieroFontFamily,
-                                    fontSize = 22.sp,
-                                    modifier = Modifier.width(56.dp)
-                                )
+                                Box(
+                                    modifier = Modifier.width(68.dp),
+                                    contentAlignment = Alignment.CenterStart
+                                ) {
+                                    if (word.mdc.isNotBlank()) {
+                                        QuadratWordView(
+                                            mdc = word.mdc,
+                                            signLookup = signLookup,
+                                            fontChoice = fontChoice,
+                                            quadratSize = 26.dp,
+                                            tintColor = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    } else {
+                                        Text(
+                                            text = word.glyph,
+                                            fontFamily = hieroFontFamily,
+                                            fontSize = 22.sp
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = word.translit,
+                                        text = word.formattedTranslit(transliterationModel),
                                         style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = FontWeight.Medium,
                                         fontStyle = FontStyle.Italic
@@ -586,7 +671,10 @@ fun SignDetailDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
                 ) {
-                    TextButton(onClick = onDismiss) {
+                    TextButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.testTag("sign_dialog_done_button")
+                    ) {
                         Text("Close")
                     }
                 }

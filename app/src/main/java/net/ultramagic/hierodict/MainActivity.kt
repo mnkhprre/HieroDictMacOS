@@ -18,7 +18,6 @@ import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -31,6 +30,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -66,6 +66,9 @@ class MainActivity : ComponentActivity() {
 private fun HieroDictAppRoot(viewModel: HieroDictViewModel = viewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var activeDestination by rememberSaveable { mutableStateOf(AppDestination.SEARCH) }
+    val signLookup = remember(uiState.allSigns) {
+        uiState.allSigns.associateBy { it.code.uppercase() }
+    }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val useNavigationRail = maxWidth >= 680.dp
@@ -134,6 +137,7 @@ private fun HieroDictAppRoot(viewModel: HieroDictViewModel = viewModel()) {
                 when (activeDestination) {
                     AppDestination.SEARCH -> SearchScreen(
                         uiState = uiState,
+                        signLookup = signLookup,
                         onQueryChange = viewModel::updateSearchQuery,
                         onAppendToken = viewModel::appendToSearchQuery,
                         onSelectEntry = viewModel::inspectEntry,
@@ -144,6 +148,7 @@ private fun HieroDictAppRoot(viewModel: HieroDictViewModel = viewModel()) {
 
                     AppDestination.DICTIONARY -> DictionaryScreen(
                         uiState = uiState,
+                        signLookup = signLookup,
                         onFilterChange = viewModel::updateDictionaryFilter,
                         onToggleBookmarksOnly = viewModel::setShowBookmarksOnly,
                         onSelectEntry = viewModel::inspectEntry,
@@ -153,14 +158,22 @@ private fun HieroDictAppRoot(viewModel: HieroDictViewModel = viewModel()) {
 
                     AppDestination.SIGN_LIST -> SignListScreen(
                         uiState = uiState,
+                        signLookup = signLookup,
                         onSelectCategory = viewModel::selectCategory,
+                        onSelectShapeFilter = viewModel::selectSignShapeFilter,
                         onSelectSign = viewModel::inspectSign,
+                        onSelectLigature = { mdc ->
+                            viewModel.updateSearchQuery(mdc)
+                            activeDestination = AppDestination.SEARCH
+                        },
                         modifier = contentModifier
                     )
 
                     AppDestination.ABOUT -> AboutScreen(
                         uiState = uiState,
                         onSelectFont = viewModel::selectFontChoice,
+                        onSelectTransliterationModel = viewModel::selectTransliterationModel,
+                        onTogglePronunciation = viewModel::setShowPronunciation,
                         onClearBookmarks = viewModel::clearAllFavorites,
                         modifier = contentModifier
                     )
@@ -174,6 +187,10 @@ private fun HieroDictAppRoot(viewModel: HieroDictViewModel = viewModel()) {
                 entry = inspectedEntry,
                 constituentSigns = uiState.inspectedEntrySigns,
                 hieroFontFamily = uiState.hieroFontFamily,
+                signLookup = signLookup,
+                fontChoice = uiState.fontChoice,
+                transliterationModel = uiState.transliterationModel,
+                showPronunciation = uiState.showPronunciation,
                 onDismiss = viewModel::dismissInspectedEntry,
                 onToggleFavorite = { viewModel.toggleFavorite(inspectedEntry) },
                 onSelectSign = { sign ->
@@ -189,6 +206,9 @@ private fun HieroDictAppRoot(viewModel: HieroDictViewModel = viewModel()) {
                 sign = inspectedSign,
                 relatedWords = uiState.inspectedSignWords,
                 hieroFontFamily = uiState.hieroFontFamily,
+                signLookup = signLookup,
+                fontChoice = uiState.fontChoice,
+                transliterationModel = uiState.transliterationModel,
                 onDismiss = viewModel::dismissInspectedSign,
                 onSelectWord = { word ->
                     viewModel.dismissInspectedSign()

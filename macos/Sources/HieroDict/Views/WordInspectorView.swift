@@ -13,8 +13,14 @@ struct WordInspectorView: View {
     let getSignDetails: (String) -> GardinerSign?
 
     @Environment(\.hieroFontChoice) private var hieroFontChoice
+    @AppStorage("transliterationModel") private var transliterationModelRaw: String = TransliterationModel.british.rawValue
+    @AppStorage("showPronunciation") private var showPronunciation: Bool = false
     @State private var copiedBadgeText: String? = nil
     @State private var badgeTask: Task<Void, Never>? = nil
+
+    private var transliterationModel: TransliterationModel {
+        TransliterationModel(rawValue: transliterationModelRaw) ?? .british
+    }
 
     var body: some View {
         ScrollView {
@@ -68,10 +74,20 @@ struct WordInspectorView: View {
                 .padding(.vertical, 10)
 
                 VStack(spacing: 4) {
-                    Text(entry.displayTranslit)
+                    Text(entry.formattedTranslit(for: transliterationModel))
                         .font(.system(size: 26, weight: .bold))
                         .foregroundStyle(AppTheme.slateAccent)
                         .textSelection(.enabled)
+
+                    if showPronunciation {
+                        let pron = entry.schematicPronunciation()
+                        if !pron.isEmpty {
+                            Text("/\(pron)/")
+                                .font(.system(size: 13.5, weight: .medium))
+                                .foregroundStyle(.secondary)
+                                .textSelection(.enabled)
+                        }
+                    }
 
                     Text("MdC: \(entry.mdc)")
                         .font(.system(size: 12, design: .monospaced))
@@ -211,7 +227,7 @@ struct WordInspectorView: View {
 
                         Button {
                             copyToPasteboard(
-                                "\(entry.displayTranslit) — \(entry.translation)",
+                                "\(entry.formattedTranslit(for: transliterationModel)) — \(entry.translation)",
                                 feedback: "Copied meaning"
                             )
                         } label: {

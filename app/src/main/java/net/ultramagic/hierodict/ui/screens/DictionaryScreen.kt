@@ -29,6 +29,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import net.ultramagic.hierodict.R
+import net.ultramagic.hierodict.model.GardinerSign
 import net.ultramagic.hierodict.model.HieroEntry
 import net.ultramagic.hierodict.model.HieroUiState
 import net.ultramagic.hierodict.ui.components.HieroEntryRow
@@ -36,6 +37,7 @@ import net.ultramagic.hierodict.ui.components.HieroEntryRow
 @Composable
 fun DictionaryScreen(
     uiState: HieroUiState,
+    signLookup: Map<String, GardinerSign>,
     onFilterChange: (String) -> Unit,
     onToggleBookmarksOnly: (Boolean) -> Unit,
     onSelectEntry: (HieroEntry) -> Unit,
@@ -78,7 +80,9 @@ fun DictionaryScreen(
                 if (uiState.dictionaryFilter.isNotEmpty()) {
                     IconButton(
                         onClick = { onFilterChange("") },
-                        modifier = Modifier.minimumInteractiveComponentSize()
+                        modifier = Modifier
+                            .minimumInteractiveComponentSize()
+                            .testTag("clear_dictionary_filter")
                     ) {
                         Icon(imageVector = Icons.Outlined.Clear, contentDescription = "Clear filter")
                     }
@@ -148,6 +152,10 @@ fun DictionaryScreen(
                     HieroEntryRow(
                         entry = entry,
                         hieroFontFamily = uiState.hieroFontFamily,
+                        signLookup = signLookup,
+                        fontChoice = uiState.fontChoice,
+                        transliterationModel = uiState.transliterationModel,
+                        showPronunciation = uiState.showPronunciation,
                         onClick = { onSelectEntry(entry) },
                         onToggleFavorite = { onToggleFavorite(entry) }
                     )

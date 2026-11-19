@@ -15,6 +15,117 @@ struct HieroEntry: Identifiable, Hashable {
     var displayTranslit: String {
         translit.isEmpty ? translitRaw : translit
     }
+
+    func formattedTranslit(for model: TransliterationModel) -> String {
+        let base = translit.isEmpty ? translitRaw : translit
+        switch model {
+        case .british:
+            return base
+        case .european:
+            return base
+                .replacingOccurrences(of: "ỉ", with: "j")
+                .replacingOccurrences(of: "ḳ", with: "q")
+        case .computer:
+            if !translitRaw.isEmpty {
+                return translitRaw
+            }
+            let asciiMap: [Character: Character] = [
+                "ꜣ": "A", "ỉ": "i", "ꜥ": "a", "ḥ": "H", "ḫ": "x",
+                "ẖ": "X", "š": "S", "ḳ": "q", "ṯ": "T", "ḏ": "D"
+            ]
+            return String(base.map { asciiMap[$0] ?? $0 })
+        }
+    }
+
+    func schematicPronunciation() -> String {
+        let source = translit.isEmpty ? translitRaw : translit
+        guard !source.isEmpty else { return "" }
+
+        var output = ""
+        var token = ""
+
+        func flushToken() {
+            guard !token.isEmpty else { return }
+            let chars = Array(token)
+            token.removeAll(keepingCapacity: true)
+            var units: [(text: String, isVowel: Bool)] = []
+            let vowelsNext: Set<Character> = ["ꜣ", "ꜥ", "ỉ", "i", "y", "A", "a"]
+
+            for i in chars.indices {
+                let ch = chars[i]
+                if ch == "2" || ch == "3" || ch == "^" { continue }
+                switch ch {
+                case "ꜣ", "ꜥ", "A", "a":
+                    units.append(("a", true))
+                case "ỉ", "i":
+                    units.append(("i", true))
+                case "y":
+                    units.append(("y", true))
+                case "w":
+                    let nextChar: Character? = (i + 1 < chars.count) ? chars[i + 1] : nil
+                    if (nextChar.map { vowelsNext.contains($0) } ?? false) || (i == 0 && chars.count > 1) {
+                        units.append(("w", false))
+                    } else {
+                        units.append(("u", true))
+                    }
+                case "ḥ", "H":
+                    units.append(("h", false))
+                case "ḫ", "x", "ẖ", "X":
+                    units.append(("kh", false))
+                case "š", "S":
+                    units.append(("sh", false))
+                case "ḳ", "q":
+                    units.append(("k", false))
+                case "ṯ", "T":
+                    units.append(("tj", false))
+                case "ḏ", "D":
+                    units.append(("dj", false))
+                default:
+                    if ch.isLetter {
+                        units.append((String(ch).lowercased(), false))
+                    }
+                }
+            }
+
+            let sonorants: Set<String> = ["n", "m", "r"]
+            for i in units.indices {
+                let cur = units[i]
+                output += cur.text
+                if !cur.isVowel && i + 1 < units.count {
+                    let nxt = units[i + 1]
+                    if !nxt.isVowel {
+                        let prevIsVowel = i > 0 && units[i - 1].isVowel
+                        let isSonorantCoda = prevIsVowel &&
+                            sonorants.contains(cur.text) &&
+                            !sonorants.contains(nxt.text) &&
+                            i + 1 == units.count - 1
+                        if !isSonorantCoda {
+                            output += "e"
+                        }
+                    }
+                }
+            }
+        }
+
+        for ch in source {
+            if ch.isWhitespace || ch == "-" || ch == "." || ch == "/" || ch == "," {
+                flushToken()
+                output.append(ch)
+            } else {
+                token.append(ch)
+            }
+        }
+        flushToken()
+        return output
+    }
+}
+
+enum TransliterationModel: String, CaseIterable, Identifiable {
+    case british = "British (Allen)"
+    case european = "European (Continental)"
+    case computer = "Computer (MdC ASCII)"
+
+    var id: String { rawValue }
 }
 
 struct GardinerSign: Identifiable, Hashable {
@@ -173,3 +284,51 @@ struct TranslitGuideItem: Identifiable {
         TranslitGuideItem(symbol: "ḏ", sign: "I10 (cobra)", description: "Dj sound as in 'judge'")
     ]
 }
+
+enum SignShapeFilter: String, CaseIterable, Identifiable {
+    case all = "All"
+    case person = "Person"
+    case animal = "Animal"
+    case bird = "Bird"
+    case tall = "Tall"
+    case wide = "Wide"
+    case square = "Square"
+    case ligatures = "Ligatures"
+
+    var id: String { rawValue }
+
+    var systemImage: String {
+        switch self {
+        case .all: return "square.grid.2x2"
+        case .person: return "person.fill"
+        case .animal: return "hare.fill"
+        case .bird: return "bird.fill"
+        case .tall: return "rectangle.portrait"
+        case .wide: return "rectangle"
+        case .square: return "circle"
+        case .ligatures: return "square.stack.3d.up"
+        }
+    }
+}
+
+struct EgyptianPeriodItem: Identifiable {
+    let name: String
+    let dynasties: String
+
+    var id: String { name }
+
+    static let allPeriods: [EgyptianPeriodItem] = [
+        EgyptianPeriodItem(name: "Pre-dynastic", dynasties: "Predynastic Cultures"),
+        EgyptianPeriodItem(name: "Early Dynastic", dynasties: "Dynasties I – II"),
+        EgyptianPeriodItem(name: "Old Kingdom", dynasties: "Dynasties III – VI"),
+        EgyptianPeriodItem(name: "First Intermediate Period", dynasties: "Dynasties VII – XI"),
+        EgyptianPeriodItem(name: "Middle Kingdom", dynasties: "Dynasties XI – XII"),
+        EgyptianPeriodItem(name: "Second Intermediate Period", dynasties: "Dynasties XIII – XVII"),
+        EgyptianPeriodItem(name: "New Kingdom", dynasties: "Dynasties XVIII – XX"),
+        EgyptianPeriodItem(name: "Third Intermediate Period", dynasties: "Dynasties XXI – XXV"),
+        EgyptianPeriodItem(name: "Late Period", dynasties: "Dynasties XXVI – XXXI"),
+        EgyptianPeriodItem(name: "Ptolemaic Period", dynasties: "Macedonian · Greek (Ptolemaic)"),
+        EgyptianPeriodItem(name: "Roman Period", dynasties: "Roman Imperial")
+    ]
+}
+

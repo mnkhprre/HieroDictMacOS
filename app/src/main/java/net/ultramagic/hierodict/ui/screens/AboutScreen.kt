@@ -18,6 +18,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -27,17 +28,21 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.ultramagic.hierodict.R
 import net.ultramagic.hierodict.model.HieroFontChoice
 import net.ultramagic.hierodict.model.HieroUiState
 import net.ultramagic.hierodict.model.HieroglyphTranslitData
+import net.ultramagic.hierodict.model.TransliterationModel
 
 @Composable
 fun AboutScreen(
     uiState: HieroUiState,
     onSelectFont: (HieroFontChoice) -> Unit,
+    onSelectTransliterationModel: (TransliterationModel) -> Unit,
+    onTogglePronunciation: (Boolean) -> Unit,
     onClearBookmarks: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -97,6 +102,67 @@ fun AboutScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
+            text = "Transliteration & Pronunciation",
+            style = MaterialTheme.typography.titleMedium
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+
+        TransliterationModel.entries.forEach { model ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onSelectTransliterationModel(model) }
+                    .padding(vertical = 6.dp)
+                    .testTag("translit_model_${model.name}"),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RadioButton(
+                    selected = uiState.transliterationModel == model,
+                    onClick = { onSelectTransliterationModel(model) }
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = model.displayName,
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onTogglePronunciation(!uiState.showPronunciation) }
+                .padding(vertical = 8.dp)
+                .testTag("pronunciation_toggle_row"),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Schematic Pronunciation",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Text(
+                    text = "Show Egyptological pronunciation guide beside transliterations",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Switch(
+                checked = uiState.showPronunciation,
+                onCheckedChange = onTogglePronunciation,
+                modifier = Modifier.testTag("pronunciation_switch")
+            )
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
             text = "Transliteration Guide",
             style = MaterialTheme.typography.titleMedium
         )
@@ -135,12 +201,46 @@ fun AboutScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
+            text = "Egyptian Kingdoms & Dynasties",
+            style = MaterialTheme.typography.titleMedium
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        HieroglyphTranslitData.egyptianPeriods.forEach { period ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 5.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = period.name,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = period.dynasties,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
             text = "Sources & References",
             style = MaterialTheme.typography.titleMedium
         )
         Spacer(modifier = Modifier.height(6.dp))
         Text(
-            text = "Vocabulary and sign classification derived from James P. Allen (Middle Egyptian), Mark Vygus, Hanno Rein, and George Douros Egyptian fonts.",
+            text = "Vocabulary and sign classification derived from James P. Allen (Middle Egyptian), Mark Vygus, Hanno Rein, George Douros Egyptian fonts, and 214 Manuel de Codage ligature placement rules from Hierowords (Luca Brigatti).",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

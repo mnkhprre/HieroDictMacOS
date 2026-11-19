@@ -79,7 +79,7 @@ final class GitHubUpdater: ObservableObject {
 
     var currentAppVersion: String {
         (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String)?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? "1.0.0"
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? "1.1.0"
     }
 
     var normalizedRepo: String {

@@ -106,6 +106,13 @@ private struct DictionaryWordRow: View {
     let showGrid: Bool
     let onToggleFavorite: () -> Void
 
+    @AppStorage("transliterationModel") private var transliterationModelRaw: String = TransliterationModel.british.rawValue
+    @AppStorage("showPronunciation") private var showPronunciation: Bool = false
+
+    private var transliterationModel: TransliterationModel {
+        TransliterationModel(rawValue: transliterationModelRaw) ?? .british
+    }
+
     var body: some View {
         HStack(spacing: 14) {
             HieroGlyphBox(
@@ -120,9 +127,17 @@ private struct DictionaryWordRow: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
-                    Text(entry.displayTranslit)
+                    Text(entry.formattedTranslit(for: transliterationModel))
                         .font(.system(size: 16.5, weight: .bold))
                         .foregroundStyle(AppTheme.slateAccent)
+                    if showPronunciation {
+                        let pron = entry.schematicPronunciation()
+                        if !pron.isEmpty {
+                            Text("/\(pron)/")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                     Text(entry.mdc)
                         .font(.system(size: 11.5, design: .monospaced))
                         .foregroundStyle(.secondary)

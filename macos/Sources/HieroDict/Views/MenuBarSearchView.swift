@@ -9,9 +9,15 @@ struct MenuBarSearchView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     @FocusState private var isQueryFocused: Bool
+    @AppStorage("transliterationModel") private var transliterationModelRaw: String = TransliterationModel.british.rawValue
+    @AppStorage("showPronunciation") private var showPronunciation: Bool = false
     @State private var showQuickGlyphs: Bool = false
     @State private var copiedFeedback: String? = nil
     @State private var feedbackTask: Task<Void, Never>? = nil
+
+    private var transliterationModel: TransliterationModel {
+        TransliterationModel(rawValue: transliterationModelRaw) ?? .british
+    }
 
     private let quickHieroglyphs = ["𓋹", "𓄤", "𓊵", "𓇳", "𓉐", "𓈖", "𓂋", "𓁹", "𓅓", "𓏏", "𓎟", "𓆣"]
     private let quickExamples: [(label: String, query: String, isGlyph: Bool)] = [
@@ -324,9 +330,17 @@ struct MenuBarSearchView: View {
 
                                     VStack(alignment: .leading, spacing: 3) {
                                         HStack(spacing: 6) {
-                                            Text(entry.displayTranslit)
+                                            Text(entry.formattedTranslit(for: transliterationModel))
                                                 .font(.system(size: 14.5, weight: .bold))
                                                 .foregroundStyle(AppTheme.slateAccent)
+                                            if showPronunciation {
+                                                let pron = entry.schematicPronunciation()
+                                                if !pron.isEmpty {
+                                                    Text("/\(pron)/")
+                                                        .font(.system(size: 11))
+                                                        .foregroundStyle(.secondary)
+                                                }
+                                            }
                                             Text(entry.mdc)
                                                 .font(.system(size: 10.5, design: .monospaced))
                                                 .foregroundStyle(.secondary)
@@ -411,9 +425,17 @@ struct MenuBarSearchView: View {
                 .padding(.vertical, 10)
 
                 VStack(spacing: 3) {
-                    Text(entry.displayTranslit)
+                    Text(entry.formattedTranslit(for: transliterationModel))
                         .font(.system(size: 21, weight: .bold))
                         .foregroundStyle(AppTheme.slateAccent)
+                    if showPronunciation {
+                        let pron = entry.schematicPronunciation()
+                        if !pron.isEmpty {
+                            Text("/\(pron)/")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                     Text("MdC: \(entry.mdc)")
                         .font(.system(size: 11.5, design: .monospaced))
                         .foregroundStyle(.secondary)
@@ -447,7 +469,7 @@ struct MenuBarSearchView: View {
                     .controlSize(.small)
 
                     Button {
-                        copyToPasteboard("\(entry.displayTranslit) — \(entry.translation)", feedback: "Copied meaning")
+                        copyToPasteboard("\(entry.formattedTranslit(for: transliterationModel)) — \(entry.translation)", feedback: "Copied meaning")
                     } label: {
                         Label("Meaning", systemImage: "doc.on.doc")
                             .frame(maxWidth: .infinity)

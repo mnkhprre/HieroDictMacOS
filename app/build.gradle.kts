@@ -8,7 +8,7 @@ val generatedHieroAssetsDir = layout.buildDirectory.dir("generated/hieroAssets")
 val syncHieroAssets by tasks.registering(Copy::class) {
     from(rootProject.file("database/hierodict.db"))
     from(rootProject.file("macos/Sources/HieroDict/Resources")) {
-        include("*.ttf")
+        include("*.ttf", "ligatures.txt")
     }
     into(generatedHieroAssetsDir)
 }

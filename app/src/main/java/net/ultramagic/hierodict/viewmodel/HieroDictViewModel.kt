@@ -15,11 +15,14 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.ultramagic.hierodict.data.HieroDatabaseHelper
+import net.ultramagic.hierodict.data.LigatureCatalog
 import net.ultramagic.hierodict.model.GardinerCategory
 import net.ultramagic.hierodict.model.GardinerSign
 import net.ultramagic.hierodict.model.HieroEntry
 import net.ultramagic.hierodict.model.HieroFontChoice
 import net.ultramagic.hierodict.model.HieroUiState
+import net.ultramagic.hierodict.model.SignShapeFilter
+import net.ultramagic.hierodict.model.TransliterationModel
 
 class HieroDictViewModel(application: Application) : AndroidViewModel(application) {
     private val db = HieroDatabaseHelper(application)
@@ -32,20 +35,31 @@ class HieroDictViewModel(application: Application) : AndroidViewModel(applicatio
 
     init {
         val savedFont = HieroFontChoice.fromAssetName(prefs.getString("hiero_font", null))
+        val savedTranslitModel = TransliterationModel.fromName(prefs.getString("translit_model", null))
+        val savedPronunciation = prefs.getBoolean("show_pronunciation", false)
         val fontFamily = loadAssetFontFamily(savedFont)
-        _uiState.update { it.copy(fontChoice = savedFont, hieroFontFamily = fontFamily) }
+        _uiState.update {
+            it.copy(
+                fontChoice = savedFont,
+                hieroFontFamily = fontFamily,
+                transliterationModel = savedTranslitModel,
+                showPronunciation = savedPronunciation
+            )
+        }
         loadInitialData()
     }
 
     private fun loadInitialData() {
         viewModelScope.launch {
             val loaded = withContext(Dispatchers.IO) {
+                LigatureCatalog.ensureLoaded(getApplication())
                 val entries = db.fetchAllEntries()
                 val categories = db.fetchCategories()
                 val defaultCat = categories.firstOrNull()?.code ?: "A"
                 val signs = db.fetchSignsByCategory(defaultCat)
+                val allSigns = db.fetchAllSigns()
                 val signCount = db.countSigns()
-                LoadedSnapshot(entries, categories, defaultCat, signs, signCount)
+                LoadedSnapshot(entries, categories, defaultCat, signs, allSigns, signCount)
             }
             _uiState.update {
                 it.copy(
@@ -54,6 +68,7 @@ class HieroDictViewModel(application: Application) : AndroidViewModel(applicatio
                     categories = loaded.categories,
                     selectedCategoryCode = loaded.defaultCategory,
                     categorySigns = loaded.signs,
+                    allSigns = loaded.allSigns,
                     totalSignCount = loaded.signCount
                 )
             }
@@ -85,6 +100,10 @@ class HieroDictViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun setShowBookmarksOnly(bookmarksOnly: Boolean) {
         _uiState.update { it.copy(showBookmarksOnly = bookmarksOnly) }
+    }
+
+    fun selectSignShapeFilter(filter: SignShapeFilter) {
+        _uiState.update { it.copy(signShapeFilter = filter) }
     }
 
     fun selectCategory(categoryCode: String) {
@@ -190,6 +209,16 @@ class HieroDictViewModel(application: Application) : AndroidViewModel(applicatio
         _uiState.update { it.copy(fontChoice = choice, hieroFontFamily = family) }
     }
 
+    fun selectTransliterationModel(model: TransliterationModel) {
+        prefs.edit().putString("translit_model", model.name).apply()
+        _uiState.update { it.copy(transliterationModel = model) }
+    }
+
+    fun setShowPronunciation(enabled: Boolean) {
+        prefs.edit().putBoolean("show_pronunciation", enabled).apply()
+        _uiState.update { it.copy(showPronunciation = enabled) }
+    }
+
     private fun loadAssetFontFamily(choice: HieroFontChoice): FontFamily {
         return try {
             val typeface = Typeface.createFromAsset(getApplication<Application>().assets, choice.assetFileName)
@@ -204,6 +233,7 @@ class HieroDictViewModel(application: Application) : AndroidViewModel(applicatio
         val categories: List<GardinerCategory>,
         val defaultCategory: String,
         val signs: List<GardinerSign>,
+        val allSigns: List<GardinerSign>,
         val signCount: Int
     )
 }

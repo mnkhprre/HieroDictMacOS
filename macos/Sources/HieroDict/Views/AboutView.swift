@@ -27,7 +27,7 @@ struct AboutView: View {
                         .font(.system(size: 14))
                         .foregroundStyle(.secondary)
 
-                    let shortVersion = (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "1.0.0"
+                    let shortVersion = (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "1.1.0"
                     Text("Version \(shortVersion)")
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
@@ -70,6 +70,32 @@ struct AboutView: View {
                 Divider()
 
                 VStack(alignment: .leading, spacing: 10) {
+                    Text("EGYPTIAN KINGDOMS & DYNASTIES")
+                        .font(.system(size: 11.5, weight: .semibold))
+                        .tracking(1)
+                        .foregroundStyle(.secondary)
+
+                    ForEach(Array(EgyptianPeriodItem.allPeriods.enumerated()), id: \.element.id) { index, period in
+                        HStack(alignment: .center, spacing: 14) {
+                            Text(period.name)
+                                .font(.system(size: 13.5, weight: .semibold))
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Text(period.dynasties)
+                                .font(.system(size: 12.5, design: .monospaced))
+                                .foregroundStyle(AppTheme.slateAccent)
+                        }
+                        .padding(.vertical, 3)
+
+                        if index < EgyptianPeriodItem.allPeriods.count - 1 {
+                            Divider()
+                        }
+                    }
+                }
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 10) {
                     Text("SOURCES & ACKNOWLEDGEMENTS")
                         .font(.system(size: 11.5, weight: .semibold))
                         .tracking(1)
@@ -79,6 +105,7 @@ struct AboutView: View {
                     • James P. Allen: Middle Egyptian (2000, 3rd ed.) vocabulary & grammar notes
                     • Hanno Rein: HieroDict open-source dataset & JSesh integration
                     • Mark Vygus: Middle Egyptian Dictionary
+                    • Hierowords ligature placement table (214 MdC & ligature rules)
                     • UniHieroglyphica & Google Noto Sans Egyptian Hieroglyphs typefaces
                     • George Douros: Abydos TrueType font for Ancient Egyptian Scripts
                     • Manuel de Codage (MdC) standardization for hieroglyphs

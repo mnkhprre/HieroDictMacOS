@@ -25,17 +25,20 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -47,11 +50,16 @@ import net.ultramagic.hierodict.model.HieroglyphTranslitData
 import net.ultramagic.hierodict.ui.components.DiacriticKeyboardRow
 import net.ultramagic.hierodict.ui.components.GardinerSignRow
 import net.ultramagic.hierodict.ui.components.HieroEntryRow
+import net.ultramagic.hierodict.ui.components.QuadratWordView
+
+private val gardinerCodePattern = Regex("^[A-Za-z][a-z]?\\d+[A-Za-z]?$")
+private val mdcOperators = charArrayOf('-', ':', '*', '&', '^', '(', '<')
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SearchScreen(
     uiState: HieroUiState,
+    signLookup: Map<String, GardinerSign>,
     onQueryChange: (String) -> Unit,
     onAppendToken: (String) -> Unit,
     onSelectEntry: (HieroEntry) -> Unit,
@@ -60,6 +68,11 @@ fun SearchScreen(
     modifier: Modifier = Modifier
 ) {
     var showDiacriticKeys by rememberSaveable { mutableStateOf(true) }
+    val trimmedQuery = uiState.searchQuery.trim()
+    val showMdcPreview = remember(trimmedQuery) {
+        trimmedQuery.isNotEmpty() &&
+            (trimmedQuery.indexOfAny(mdcOperators) >= 0 || gardinerCodePattern.matches(trimmedQuery))
+    }
 
     Column(modifier = modifier.fillMaxSize()) {
         OutlinedTextField(
@@ -118,6 +131,48 @@ fun SearchScreen(
             DiacriticKeyboardRow(onKeyTap = onAppendToken)
         }
 
+        AnimatedVisibility(visible = showMdcPreview) {
+            Surface(
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                tonalElevation = 1.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                    .testTag("mdc_quadrat_preview_card")
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "QUADRAT PREVIEW",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = trimmedQuery,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontFamily = FontFamily.Monospace,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    QuadratWordView(
+                        mdc = trimmedQuery,
+                        signLookup = signLookup,
+                        fontChoice = uiState.fontChoice,
+                        quadratSize = 42.dp,
+                        tintColor = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        }
+
         if (uiState.isLoading) {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -125,7 +180,7 @@ fun SearchScreen(
             ) {
                 CircularProgressIndicator()
             }
-        } else if (uiState.searchQuery.trim().isEmpty()) {
+        } else if (trimmedQuery.isEmpty()) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -220,6 +275,10 @@ fun SearchScreen(
                         HieroEntryRow(
                             entry = entry,
                             hieroFontFamily = uiState.hieroFontFamily,
+                            signLookup = signLookup,
+                            fontChoice = uiState.fontChoice,
+                            transliterationModel = uiState.transliterationModel,
+                            showPronunciation = uiState.showPronunciation,
                             onClick = { onSelectEntry(entry) },
                             onToggleFavorite = { onToggleFavorite(entry) }
                         )
