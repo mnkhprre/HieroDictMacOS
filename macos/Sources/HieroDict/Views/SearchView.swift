@@ -4,6 +4,8 @@ struct SearchView: View {
     @ObservedObject var store: HieroDictStore
     let glyphScale: GlyphScale
     @Environment(\.hieroFontChoice) private var hieroFontChoice
+    @Environment(\.useColorHieroglyphs) private var useColorHieroglyphs
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.enableWindowBlur) private var enableWindowBlur
     @FocusState private var isSearchFieldFocused: Bool
 
@@ -108,6 +110,7 @@ struct SearchView: View {
 
                 let resolvedPreviewGlyphs = store.resolveMdcGlyphsIfApplicable(for: store.searchQuery)
                 if !trimmedQuery.isEmpty, !resolvedPreviewGlyphs.isEmpty {
+                    let previewPlate = AppTheme.resolvedGlyphTileBackground(useColor: useColorHieroglyphs, colorScheme: colorScheme)
                     Divider()
 
                     HStack(spacing: 12) {
@@ -120,6 +123,12 @@ struct SearchView: View {
                         )
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
+                        .background {
+                            if useColorHieroglyphs && colorScheme == .dark {
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .fill(previewPlate)
+                            }
+                        }
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text("MDC QUADRAT")
@@ -166,23 +175,30 @@ struct SearchView: View {
                                     .padding(.horizontal, 20)
 
                                 ScrollView(.horizontal, showsIndicators: false) {
+                                    let chipBg = AppTheme.resolvedGlyphTileBackground(useColor: useColorHieroglyphs, colorScheme: colorScheme)
+                                    let chipInk = AppTheme.resolvedGlyphInkColor(useColor: useColorHieroglyphs, colorScheme: colorScheme)
+                                    let codeInk = useColorHieroglyphs ? chipInk : AppTheme.slateAccent
                                     HStack(spacing: 8) {
                                         ForEach(store.searchSigns) { sign in
                                             Button {
                                                 selectedSignDetail = sign
                                             } label: {
                                                 HStack(spacing: 8) {
-                                                    Text(sign.glyph)
-                                                        .font(.hiero(size: 24, choice: hieroFontChoice))
-                                                        .foregroundStyle(.primary)
+                                                    HieroGlyphTileView(
+                                                        glyph: sign.glyph,
+                                                        code: sign.code,
+                                                        size: 24,
+                                                        signLookup: store.signCache,
+                                                        monochromeColor: chipInk
+                                                    )
 
                                                     VStack(alignment: .leading, spacing: 1) {
                                                         Text(sign.code)
                                                             .font(.system(size: 12, weight: .bold))
-                                                            .foregroundStyle(AppTheme.slateAccent)
+                                                            .foregroundStyle(codeInk)
                                                         Text(sign.name)
                                                             .font(.system(size: 10.5))
-                                                            .foregroundStyle(.secondary)
+                                                            .foregroundStyle(useColorHieroglyphs ? chipInk.opacity(0.75) : .secondary)
                                                             .lineLimit(1)
                                                     }
                                                 }
@@ -191,7 +207,7 @@ struct SearchView: View {
                                                 .frame(maxWidth: 190, alignment: .leading)
                                                 .background(
                                                     RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                                        .fill(AppTheme.glyphTileBackground)
+                                                        .fill(chipBg)
                                                 )
                                             }
                                             .buttonStyle(.plain)
@@ -248,6 +264,7 @@ struct SearchView: View {
             if showGlyphPalette {
                 HieroglyphPickerDeck(
                     categories: store.categories,
+                    signLookup: store.signCache,
                     selectedCategoryCode: $selectedPickerCategory,
                     onSignSelected: { sign in
                         store.appendGlyph(sign.glyph)
@@ -258,6 +275,7 @@ struct SearchView: View {
         .sheet(item: $selectedSignDetail) { sign in
             SignDetailSheetView(
                 sign: sign,
+                signLookup: store.signCache,
                 onDismiss: { selectedSignDetail = nil },
                 onFindWords: {
                     let code = sign.code
@@ -395,8 +413,11 @@ private struct SearchResultRow: View {
 
 private struct HieroglyphPickerDeck: View {
     @Environment(\.hieroFontChoice) private var hieroFontChoice
+    @Environment(\.useColorHieroglyphs) private var useColorHieroglyphs
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.enableWindowBlur) private var enableWindowBlur
     let categories: [GardinerCategory]
+    let signLookup: [String: GardinerSign]
     @Binding var selectedCategoryCode: String
     let onSignSelected: (GardinerSign) -> Void
 
@@ -405,33 +426,49 @@ private struct HieroglyphPickerDeck: View {
     }
 
     var body: some View {
+        let tileBg = AppTheme.resolvedGlyphTileBackground(useColor: useColorHieroglyphs, colorScheme: colorScheme)
+        let tileInk = AppTheme.resolvedGlyphInkColor(useColor: useColorHieroglyphs, colorScheme: colorScheme)
+
         VStack(spacing: 0) {
             Divider()
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    ForEach(categories) { cat in
-                        let isSelected = cat.code == currentCategory?.code
-                        Button {
-                            selectedCategoryCode = cat.code
-                        } label: {
-                            Text(cat.code)
-                                .font(.system(size: 12, weight: .bold))
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 5)
-                                .foregroundStyle(isSelected ? Color.white : Color.primary)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                        .fill(isSelected ? AppTheme.prominentButtonTint : AppTheme.cardBackground)
-                                )
+            HStack(spacing: 10) {
+                if !categories.isEmpty {
+                    Picker("Category", selection: $selectedCategoryCode) {
+                        ForEach(categories) { cat in
+                            Text("\(cat.code) · \(cat.title) (\(cat.count))")
+                                .tag(cat.code)
                         }
-                        .buttonStyle(.plain)
-                        .help(cat.title)
+                    }
+                    .labelsHidden()
+                    .frame(maxWidth: 230)
+                }
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(categories) { cat in
+                            let isSelected = cat.code == currentCategory?.code
+                            Button {
+                                selectedCategoryCode = cat.code
+                            } label: {
+                                Text(cat.code)
+                                    .font(.system(size: 12, weight: .bold))
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
+                                    .foregroundStyle(isSelected ? Color.white : Color.primary)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                            .fill(isSelected ? AppTheme.prominentButtonTint : AppTheme.cardBackground)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            .help(cat.title)
+                        }
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
 
             if let currentCategory {
                 ScrollView {
@@ -444,18 +481,22 @@ private struct HieroglyphPickerDeck: View {
                                 onSignSelected(sign)
                             } label: {
                                 VStack(spacing: 2) {
-                                    Text(sign.glyph)
-                                        .font(.hiero(size: 24, choice: hieroFontChoice))
-                                        .foregroundStyle(.primary)
+                                    HieroGlyphTileView(
+                                        glyph: sign.glyph,
+                                        code: sign.code,
+                                        size: 24,
+                                        signLookup: signLookup,
+                                        monochromeColor: tileInk
+                                    )
                                     Text(sign.code)
                                         .font(.system(size: 10, weight: .medium))
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(useColorHieroglyphs ? tileInk.opacity(0.8) : .secondary)
                                 }
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 6)
                                 .background(
                                     RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                        .fill(AppTheme.cardBackground)
+                                        .fill(tileBg)
                                 )
                             }
                             .buttonStyle(.plain)

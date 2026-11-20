@@ -2,6 +2,8 @@ import SwiftUI
 
 struct QuadratWordView: View {
     @Environment(\.hieroFontChoice) private var hieroFontChoice
+    @Environment(\.useColorHieroglyphs) private var useColorHieroglyphs
+    @Environment(\.colorScheme) private var colorScheme
     let mdc: String
     let fallbackGlyph: String?
     let signLookup: [String: GardinerSign]
@@ -36,11 +38,15 @@ struct QuadratWordView: View {
     var body: some View {
         let _ = hieroFontChoice
         let allEmpty = indexedLines.allSatisfy { $0.items.isEmpty }
+        let monochromeInk = AppTheme.resolvedGlyphInkColor(useColor: useColorHieroglyphs, colorScheme: colorScheme)
         let content = Group {
             if allEmpty {
-                Text(fallbackGlyph?.isEmpty == false ? fallbackGlyph! : "—")
-                    .font(.hiero(size: quadratSize * 0.72, choice: hieroFontChoice))
-                    .foregroundStyle(.primary)
+                HieroGlyphTileView(
+                    glyph: fallbackGlyph?.isEmpty == false ? fallbackGlyph! : "—",
+                    size: quadratSize * 0.72,
+                    signLookup: signLookup,
+                    monochromeColor: monochromeInk
+                )
             } else if direction == .vertical {
                 HStack(alignment: .top, spacing: max(6, quadratSize * 0.22)) {
                     let orderedLines = Array(indexedLines.reversed())
@@ -88,6 +94,7 @@ struct QuadratWordView: View {
     @ViewBuilder
     private func quadratCell(_ node: QuadratNode, originalIndex: Int) -> some View {
         let isSelected = selectedSquareIndex == originalIndex
+        let monochromeInk = AppTheme.resolvedGlyphInkColor(useColor: useColorHieroglyphs, colorScheme: colorScheme)
         if case .enclosure(_, let encFrame, let encChildren) = node {
             let orderedChildren = direction == .rtl ? Array(encChildren.reversed()) : encChildren
             let innerContent = Group {
@@ -97,7 +104,7 @@ struct QuadratWordView: View {
                 } else {
                     HStack(spacing: max(2, quadratSize * 0.08)) {
                         ForEach(Array(orderedChildren.enumerated()), id: \.offset) { _, child in
-                            let em = CadratLayoutSolver.measureEm(child)
+                            let em = CadratLayoutSolver.measureEm(child, signLookup: signLookup, useColor: useColorHieroglyphs)
                             let cw = max(em.width, 0.24) * quadratSize
                             let ch = min(em.height, 1.0) * quadratSize
                             QuadratNodeRenderer(
@@ -105,7 +112,9 @@ struct QuadratWordView: View {
                                 placedSize: CGSize(width: cw, height: ch),
                                 unitSize: quadratSize,
                                 globalFlip: direction == .rtl,
-                                showSubGrid: showGrid
+                                showSubGrid: showGrid,
+                                signLookup: signLookup,
+                                monochromeInk: monochromeInk
                             )
                             .frame(width: cw, height: quadratSize)
                         }
@@ -141,7 +150,7 @@ struct QuadratWordView: View {
 
             interactiveWrapper(wrapped, originalIndex: originalIndex)
         } else {
-            let em = CadratLayoutSolver.measureEm(node)
+            let em = CadratLayoutSolver.measureEm(node, signLookup: signLookup, useColor: useColorHieroglyphs)
             let contentW = em.width * quadratSize
             let contentH = em.height * quadratSize
             let cellWidth = max(contentW + quadratSize * 0.04, quadratSize * 0.24)
@@ -151,7 +160,9 @@ struct QuadratWordView: View {
                 placedSize: CGSize(width: contentW, height: contentH),
                 unitSize: quadratSize,
                 globalFlip: direction == .rtl,
-                showSubGrid: showGrid
+                showSubGrid: showGrid,
+                signLookup: signLookup,
+                monochromeInk: monochromeInk
             )
             .frame(width: cellWidth, height: quadratSize, alignment: .center)
             .background {
@@ -215,15 +226,16 @@ private enum CadratLayoutSolver {
 
     private struct MeasureKey: Hashable {
         let fontName: String
+        let useColor: Bool
         let node: QuadratNode
     }
 
     private static let measureLock = NSLock()
     private static var measureCache: [MeasureKey: CGSize] = [:]
 
-    static func measureEm(_ node: QuadratNode) -> CGSize {
+    static func measureEm(_ node: QuadratNode, signLookup: [String: GardinerSign], useColor: Bool) -> CGSize {
         let fontName = FontRegistrar.hieroFontName
-        let key = MeasureKey(fontName: fontName, node: node)
+        let key = MeasureKey(fontName: fontName, useColor: useColor, node: node)
         measureLock.lock()
         if let cached = measureCache[key] {
             measureLock.unlock()
@@ -231,7 +243,7 @@ private enum CadratLayoutSolver {
         }
         measureLock.unlock()
 
-        let computed = computeEm(node)
+        let computed = computeEm(node, signLookup: signLookup, useColor: useColor)
 
         measureLock.lock()
         if measureCache.count >= 4096 {
@@ -242,10 +254,21 @@ private enum CadratLayoutSolver {
         return computed
     }
 
-    private static func computeEm(_ node: QuadratNode) -> CGSize {
+    private static func computeEm(_ node: QuadratNode, signLookup: [String: GardinerSign], useColor: Bool) -> CGSize {
         switch node {
         case .atom(let atom):
-            let base = QuadratGlyphMetricsCache.shared.designSizeEm(for: atom.glyph)
+            let base: CGSize
+            if useColor,
+               !atom.isRed,
+               let colorSize = ColorHieroglyphStore.shared.designSizeEm(
+                   forCodeOrToken: atom.token,
+                   glyph: atom.glyph,
+                   signLookup: signLookup
+               ) {
+                base = colorSize
+            } else {
+                base = QuadratGlyphMetricsCache.shared.designSizeEm(for: atom.glyph)
+            }
             let isQuarterTurn = abs(abs(atom.rotationDegrees.truncatingRemainder(dividingBy: 180)) - 90) < 0.01
             let rawW = isQuarterTurn ? base.height : base.width
             let rawH = isQuarterTurn ? base.width : base.height
@@ -268,7 +291,7 @@ private enum CadratLayoutSolver {
             )
 
         case .ligature(_, let children):
-            let sizes = children.map { measureEm($0) }
+            let sizes = children.map { measureEm($0, signLookup: signLookup, useColor: useColor) }
             let tokens = ligatureTokens(for: children)
             if let rule = LigatureCatalog.shared.rule(for: tokens) {
                 let layout = rule.layoutFrames(for: sizes)
@@ -292,11 +315,11 @@ private enum CadratLayoutSolver {
             )
 
         case .tuck(_, let container, _, _):
-            return measureEm(container)
+            return measureEm(container, signLookup: signLookup, useColor: useColor)
 
         case .horizontal(_, let children):
             guard !children.isEmpty else { return CGSize(width: 0.5, height: 0.5) }
-            let sizes = children.map { measureEm($0) }
+            let sizes = children.map { measureEm($0, signLookup: signLookup, useColor: useColor) }
             let totalW = sizes.map(\.width).reduce(0, +) + horizontalGapEm * CGFloat(max(0, children.count - 1))
             let maxH = sizes.map(\.height).max() ?? 0.3
             let fitScale = totalW > maxCadratWidthEm ? (maxCadratWidthEm / totalW) : 1.0
@@ -304,7 +327,7 @@ private enum CadratLayoutSolver {
 
         case .vertical(_, let children):
             guard !children.isEmpty else { return CGSize(width: 0.5, height: 0.5) }
-            let sizes = children.map { measureEm($0) }
+            let sizes = children.map { measureEm($0, signLookup: signLookup, useColor: useColor) }
             let maxChildW = sizes.map(\.width).max() ?? 0.5
             let wScale = maxChildW > maxCadratWidthEm ? (maxCadratWidthEm / maxChildW) : 1.0
             let sumH = sizes.map { $0.height * wScale }.reduce(0, +)
@@ -317,7 +340,7 @@ private enum CadratLayoutSolver {
 
         case .enclosure(_, _, let children):
             guard !children.isEmpty else { return CGSize(width: 0.9, height: 0.9) }
-            let sizes = children.map { measureEm($0) }
+            let sizes = children.map { measureEm($0, signLookup: signLookup, useColor: useColor) }
             let totalW = sizes.map(\.width).reduce(0, +) + horizontalGapEm * CGFloat(max(0, children.count - 1))
             let maxH = sizes.map(\.height).max() ?? 0.8
             return CGSize(width: max(0.24, totalW), height: max(0.24, maxH))
@@ -338,11 +361,14 @@ private enum CadratLayoutSolver {
 }
 
 private struct QuadratNodeRenderer: View {
+    @Environment(\.useColorHieroglyphs) private var useColorHieroglyphs
     let node: QuadratNode
     let placedSize: CGSize
     let unitSize: CGFloat
     let globalFlip: Bool
     let showSubGrid: Bool
+    let signLookup: [String: GardinerSign]
+    let monochromeInk: Color
 
     @ViewBuilder
     var body: some View {
@@ -351,17 +377,20 @@ private struct QuadratNodeRenderer: View {
             let isFlipped = globalFlip != atom.mirrored
             QuadratGlyphVectorView(
                 glyph: atom.glyph,
+                token: atom.token,
+                signLookup: signLookup,
                 width: max(2, placedSize.width),
                 height: max(2, placedSize.height),
                 rotationDegrees: atom.rotationDegrees,
                 isFlipped: isFlipped,
                 scale: atom.scale,
                 isRed: atom.isRed,
-                shading: atom.shading
+                shading: atom.shading,
+                monochromeColor: monochromeInk
             )
 
         case .ligature(_, let children):
-            let childEms = children.map { CadratLayoutSolver.measureEm($0) }
+            let childEms = children.map { CadratLayoutSolver.measureEm($0, signLookup: signLookup, useColor: useColorHieroglyphs) }
             let tokens = CadratLayoutSolver.ligatureTokens(for: children)
             if let rule = LigatureCatalog.shared.rule(for: tokens) {
                 let layout = rule.layoutFrames(for: childEms)
@@ -385,7 +414,9 @@ private struct QuadratNodeRenderer: View {
                             placedSize: CGSize(width: cw, height: ch),
                             unitSize: unitSize,
                             globalFlip: globalFlip,
-                            showSubGrid: false
+                            showSubGrid: false,
+                            signLookup: signLookup,
+                            monochromeInk: monochromeInk
                         )
                         .frame(width: cw, height: ch)
                         .offset(x: xPos, y: yPos)
@@ -394,7 +425,7 @@ private struct QuadratNodeRenderer: View {
                 .frame(width: canvasW, height: canvasH, alignment: .topLeading)
                 .frame(width: placedSize.width, height: placedSize.height)
             } else {
-                let natural = CadratLayoutSolver.measureEm(node)
+                let natural = CadratLayoutSolver.measureEm(node, signLookup: signLookup, useColor: useColorHieroglyphs)
                 let localScale = min(
                     placedSize.width / max(natural.width, 0.01),
                     placedSize.height / max(natural.height, 0.01)
@@ -412,7 +443,9 @@ private struct QuadratNodeRenderer: View {
                             placedSize: childSize,
                             unitSize: unitSize,
                             globalFlip: globalFlip,
-                            showSubGrid: false
+                            showSubGrid: false,
+                            signLookup: signLookup,
+                            monochromeInk: monochromeInk
                         )
                     }
                 }
@@ -421,8 +454,8 @@ private struct QuadratNodeRenderer: View {
 
         case .tuck(_, let container, let tucked, let corner):
             let resolvedCorner = resolveTuckCorner(corner, container: container)
-            let containerEm = CadratLayoutSolver.measureEm(container)
-            let tuckedEm = CadratLayoutSolver.measureEm(tucked)
+            let containerEm = CadratLayoutSolver.measureEm(container, signLookup: signLookup, useColor: useColorHieroglyphs)
+            let tuckedEm = CadratLayoutSolver.measureEm(tucked, signLookup: signLookup, useColor: useColorHieroglyphs)
             let containerScale = min(
                 placedSize.width / max(containerEm.width, 0.01),
                 placedSize.height / max(containerEm.height, 0.01)
@@ -445,7 +478,9 @@ private struct QuadratNodeRenderer: View {
                     placedSize: CGSize(width: containerW, height: containerH),
                     unitSize: unitSize,
                     globalFlip: globalFlip,
-                    showSubGrid: showSubGrid
+                    showSubGrid: showSubGrid,
+                    signLookup: signLookup,
+                    monochromeInk: monochromeInk
                 )
 
                 QuadratNodeRenderer(
@@ -453,7 +488,9 @@ private struct QuadratNodeRenderer: View {
                     placedSize: CGSize(width: tuckW, height: tuckH),
                     unitSize: unitSize,
                     globalFlip: globalFlip,
-                    showSubGrid: false
+                    showSubGrid: false,
+                    signLookup: signLookup,
+                    monochromeInk: monochromeInk
                 )
                 .frame(width: tuckW, height: tuckH)
                 .overlay {
@@ -471,7 +508,7 @@ private struct QuadratNodeRenderer: View {
             .frame(width: containerW, height: containerH)
 
         case .vertical(_, let children):
-            let childEms = children.map { CadratLayoutSolver.measureEm($0) }
+            let childEms = children.map { CadratLayoutSolver.measureEm($0, signLookup: signLookup, useColor: useColorHieroglyphs) }
             let naturalTotalH = childEms.map(\.height).reduce(0, +)
                 + CadratLayoutSolver.verticalGapEm * CGFloat(max(0, children.count - 1))
             let naturalMaxW = childEms.map(\.width).max() ?? 0.5
@@ -490,7 +527,9 @@ private struct QuadratNodeRenderer: View {
                         placedSize: CGSize(width: childW, height: childH),
                         unitSize: unitSize,
                         globalFlip: globalFlip,
-                        showSubGrid: showSubGrid
+                        showSubGrid: showSubGrid,
+                        signLookup: signLookup,
+                        monochromeInk: monochromeInk
                     )
                     .frame(width: childW, height: childH)
                     .overlay {
@@ -508,7 +547,7 @@ private struct QuadratNodeRenderer: View {
 
         case .horizontal(_, let children):
             let ordered = globalFlip ? Array(children.reversed()) : children
-            let childEms = ordered.map { CadratLayoutSolver.measureEm($0) }
+            let childEms = ordered.map { CadratLayoutSolver.measureEm($0, signLookup: signLookup, useColor: useColorHieroglyphs) }
             let naturalTotalW = childEms.map(\.width).reduce(0, +)
                 + CadratLayoutSolver.horizontalGapEm * CGFloat(max(0, ordered.count - 1))
             let naturalMaxH = childEms.map(\.height).max() ?? 0.4
@@ -527,7 +566,9 @@ private struct QuadratNodeRenderer: View {
                         placedSize: CGSize(width: childW, height: childH),
                         unitSize: unitSize,
                         globalFlip: globalFlip,
-                        showSubGrid: showSubGrid
+                        showSubGrid: showSubGrid,
+                        signLookup: signLookup,
+                        monochromeInk: monochromeInk
                     )
                     .frame(width: childW, height: childH)
                     .overlay {
@@ -545,7 +586,7 @@ private struct QuadratNodeRenderer: View {
 
         case .enclosure(_, let frame, let children):
             let ordered = globalFlip ? Array(children.reversed()) : children
-            let childEms = ordered.map { CadratLayoutSolver.measureEm($0) }
+            let childEms = ordered.map { CadratLayoutSolver.measureEm($0, signLookup: signLookup, useColor: useColorHieroglyphs) }
             let naturalTotalW = childEms.map(\.width).reduce(0, +)
                 + CadratLayoutSolver.horizontalGapEm * CGFloat(max(0, ordered.count - 1))
             let naturalMaxH = childEms.map(\.height).max() ?? 0.7
@@ -567,7 +608,9 @@ private struct QuadratNodeRenderer: View {
                                 placedSize: CGSize(width: childW, height: childH),
                                 unitSize: unitSize,
                                 globalFlip: globalFlip,
-                                showSubGrid: showSubGrid
+                                showSubGrid: showSubGrid,
+                                signLookup: signLookup,
+                                monochromeInk: monochromeInk
                             )
                         }
                     }

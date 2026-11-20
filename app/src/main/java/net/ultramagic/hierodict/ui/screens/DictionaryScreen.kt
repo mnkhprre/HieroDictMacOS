@@ -154,6 +154,7 @@ fun DictionaryScreen(
                         hieroFontFamily = uiState.hieroFontFamily,
                         signLookup = signLookup,
                         fontChoice = uiState.fontChoice,
+                        useColorHieroglyphs = uiState.useColorHieroglyphs,
                         transliterationModel = uiState.transliterationModel,
                         showPronunciation = uiState.showPronunciation,
                         onClick = { onSelectEntry(entry) },

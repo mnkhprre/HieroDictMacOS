@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import net.ultramagic.hierodict.data.ColorHieroglyphStore
 import net.ultramagic.hierodict.data.HieroDatabaseHelper
 import net.ultramagic.hierodict.data.LigatureCatalog
 import net.ultramagic.hierodict.model.GardinerCategory
@@ -35,6 +36,7 @@ class HieroDictViewModel(application: Application) : AndroidViewModel(applicatio
 
     init {
         val savedFont = HieroFontChoice.fromAssetName(prefs.getString("hiero_font", null))
+        val savedColorHieroglyphs = prefs.getBoolean("use_color_hieroglyphs", true)
         val savedTranslitModel = TransliterationModel.fromName(prefs.getString("translit_model", null))
         val savedPronunciation = prefs.getBoolean("show_pronunciation", false)
         val fontFamily = loadAssetFontFamily(savedFont)
@@ -42,6 +44,7 @@ class HieroDictViewModel(application: Application) : AndroidViewModel(applicatio
             it.copy(
                 fontChoice = savedFont,
                 hieroFontFamily = fontFamily,
+                useColorHieroglyphs = savedColorHieroglyphs,
                 transliterationModel = savedTranslitModel,
                 showPronunciation = savedPronunciation
             )
@@ -53,6 +56,7 @@ class HieroDictViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             val loaded = withContext(Dispatchers.IO) {
                 LigatureCatalog.ensureLoaded(getApplication())
+                ColorHieroglyphStore.ensureLoaded(getApplication())
                 val entries = db.fetchAllEntries()
                 val categories = db.fetchCategories()
                 val defaultCat = categories.firstOrNull()?.code ?: "A"
@@ -217,6 +221,11 @@ class HieroDictViewModel(application: Application) : AndroidViewModel(applicatio
     fun setShowPronunciation(enabled: Boolean) {
         prefs.edit().putBoolean("show_pronunciation", enabled).apply()
         _uiState.update { it.copy(showPronunciation = enabled) }
+    }
+
+    fun setUseColorHieroglyphs(enabled: Boolean) {
+        prefs.edit().putBoolean("use_color_hieroglyphs", enabled).apply()
+        _uiState.update { it.copy(useColorHieroglyphs = enabled) }
     }
 
     private fun loadAssetFontFamily(choice: HieroFontChoice): FontFamily {

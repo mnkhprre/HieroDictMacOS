@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<es.doneill.android.hieroglyph.flashcards.view.FlashLiteralCardView android:layout_gravity="bottom" android:orientation="vertical" android:layout_width="match_parent" android:layout_height="match_parent" android:weightSum="100.0"
-  xmlns:android="http://schemas.android.com/apk/res/android">
-    <LinearLayout android:layout_width="match_parent" android:layout_height="0.0dp" android:layout_weight="35.0">
-        <es.doneill.android.hieroglyph.flashcards.view.HieroglyphFlashView android:id="@id/hieroglyphView" android:layout_width="match_parent" android:layout_height="match_parent" />
-    </LinearLayout>
-    <GridView android:id="@id/gridView" android:layout_width="match_parent" android:layout_height="0.0dp" android:layout_marginLeft="10.0dp" android:layout_marginTop="10.0dp" android:layout_marginRight="10.0dp" android:layout_marginBottom="10.0dp" android:horizontalSpacing="10.0dp" android:verticalSpacing="10.0dp" android:stretchMode="none" android:numColumns="3" android:layout_weight="65.0" />
-</es.doneill.android.hieroglyph.flashcards.view.FlashLiteralCardView>

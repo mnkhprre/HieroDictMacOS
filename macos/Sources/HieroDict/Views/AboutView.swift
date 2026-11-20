@@ -1,9 +1,14 @@
 import SwiftUI
 
 struct AboutView: View {
+    var signLookup: [String: GardinerSign] = [:]
     @Environment(\.hieroFontChoice) private var hieroFontChoice
+    @Environment(\.useColorHieroglyphs) private var useColorHieroglyphs
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
+        let guideBg = AppTheme.resolvedGlyphTileBackground(useColor: useColorHieroglyphs, colorScheme: colorScheme)
+        let guideInk = AppTheme.resolvedGlyphInkColor(useColor: useColorHieroglyphs, colorScheme: colorScheme)
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 VStack(spacing: 8) {
@@ -44,7 +49,22 @@ struct AboutView: View {
                         .foregroundStyle(.secondary)
 
                     ForEach(Array(TranslitGuideItem.allItems.enumerated()), id: \.element.id) { index, item in
+                        let primaryCode = item.sign.components(separatedBy: " ").first
+                        let fallbackGlyph = primaryCode.flatMap { signLookup[$0.uppercased()]?.glyph } ?? ""
                         HStack(alignment: .center, spacing: 14) {
+                            HieroGlyphTileView(
+                                glyph: fallbackGlyph,
+                                code: primaryCode,
+                                size: 22,
+                                signLookup: signLookup,
+                                monochromeColor: guideInk
+                            )
+                            .frame(width: 34, height: 34)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .fill(guideBg)
+                            )
+
                             Text(item.symbol)
                                 .font(.system(size: 17, weight: .bold))
                                 .foregroundStyle(AppTheme.slateAccent)

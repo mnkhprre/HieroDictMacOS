@@ -1,7 +1,36 @@
 import SwiftUI
 
+struct HieroGlyphTileView: View {
+    @Environment(\.hieroFontChoice) private var hieroFontChoice
+    @Environment(\.useColorHieroglyphs) private var useColorHieroglyphs
+
+    let glyph: String
+    var code: String? = nil
+    let size: CGFloat
+    var signLookup: [String: GardinerSign] = [:]
+    var monochromeColor: Color = .primary
+
+    var body: some View {
+        if useColorHieroglyphs,
+           (!glyph.isEmpty || (code?.isEmpty == false)),
+           let nsImage = ColorHieroglyphStore.shared.image(forCodeOrToken: code, glyph: glyph, signLookup: signLookup) {
+            Image(nsImage: nsImage)
+                .resizable()
+                .interpolation(.high)
+                .aspectRatio(contentMode: .fit)
+                .frame(width: max(8, size * 1.15), height: max(8, size * 1.15))
+        } else {
+            Text(glyph.isEmpty ? "—" : glyph)
+                .font(.hiero(size: size, choice: hieroFontChoice))
+                .foregroundStyle(monochromeColor)
+        }
+    }
+}
+
 struct HieroGlyphBox: View {
     @Environment(\.hieroFontChoice) private var hieroFontChoice
+    @Environment(\.useColorHieroglyphs) private var useColorHieroglyphs
+    @Environment(\.colorScheme) private var colorScheme
     let glyph: String
     let fontSize: CGFloat
     var mdc: String? = nil
@@ -21,6 +50,9 @@ struct HieroGlyphBox: View {
     }
 
     var body: some View {
+        let ink = AppTheme.resolvedGlyphInkColor(useColor: useColorHieroglyphs, colorScheme: colorScheme)
+        let shouldShowPlate = showBackground || (useColorHieroglyphs && colorScheme == .dark)
+
         Group {
             if useQuadrat, let mdc, !mdc.isEmpty {
                 QuadratWordView(
@@ -31,19 +63,22 @@ struct HieroGlyphBox: View {
                     showGrid: showGrid
                 )
             } else {
-                Text(glyph.isEmpty ? "—" : glyph)
-                    .font(.hiero(size: fontSize, choice: hieroFontChoice))
-                    .foregroundStyle(.primary)
-                    .multilineTextAlignment(.center)
+                HieroGlyphTileView(
+                    glyph: glyph,
+                    size: fontSize,
+                    signLookup: signLookup,
+                    monochromeColor: ink
+                )
+                .multilineTextAlignment(.center)
             }
         }
         .frame(minWidth: minWidth, maxWidth: maxWidth)
         .padding(.horizontal, 8)
         .padding(.vertical, verticalPadding)
         .background {
-            if showBackground {
+            if shouldShowPlate {
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(AppTheme.glyphTileBackground)
+                    .fill(AppTheme.resolvedGlyphTileBackground(useColor: useColorHieroglyphs, colorScheme: colorScheme))
             }
         }
     }
@@ -102,13 +137,18 @@ struct FlowLayout: Layout {
 }
 
 struct SignDetailSheetView: View {
-    @Environment(\.hieroFontChoice) private var hieroFontChoice
+    @Environment(\.useColorHieroglyphs) private var useColorHieroglyphs
+    @Environment(\.colorScheme) private var colorScheme
     let sign: GardinerSign
+    var signLookup: [String: GardinerSign] = [:]
     let onDismiss: () -> Void
     let onFindWords: () -> Void
     var onInsertGlyph: ((String) -> Void)? = nil
 
     var body: some View {
+        let tileBg = AppTheme.resolvedGlyphTileBackground(useColor: useColorHieroglyphs, colorScheme: colorScheme)
+        let tileInk = AppTheme.resolvedGlyphInkColor(useColor: useColorHieroglyphs, colorScheme: colorScheme)
+
         VStack(spacing: 16) {
             HStack {
                 Text("Gardiner Sign \(sign.code)")
@@ -123,9 +163,19 @@ struct SignDetailSheetView: View {
                 .buttonStyle(.plain)
             }
 
-            Text(sign.glyph)
-                .font(.hiero(size: 56, choice: hieroFontChoice))
-                .padding(.vertical, 10)
+            HieroGlyphTileView(
+                glyph: sign.glyph,
+                code: sign.code,
+                size: 56,
+                signLookup: signLookup,
+                monochromeColor: tileInk
+            )
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(tileBg)
+            )
 
             Text(sign.name)
                 .font(.system(size: 18, weight: .bold))
@@ -166,4 +216,3 @@ struct SignDetailSheetView: View {
         .frame(width: 400)
     }
 }
-

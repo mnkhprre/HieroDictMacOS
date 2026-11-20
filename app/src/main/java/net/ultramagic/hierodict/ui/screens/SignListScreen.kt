@@ -31,6 +31,11 @@ import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Pets
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SwapHoriz
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -60,11 +65,14 @@ import net.ultramagic.hierodict.model.HieroUiState
 import net.ultramagic.hierodict.model.SignShapeFilter
 import net.ultramagic.hierodict.ui.components.GardinerSignRow
 import net.ultramagic.hierodict.ui.components.QuadratWordView
+import net.ultramagic.hierodict.ui.components.hieroglyphInkColor
+import net.ultramagic.hierodict.ui.components.hieroglyphSurfaceColor
 
 private val personCategories = setOf("A", "B", "C", "D")
 private val animalCategories = setOf("E", "F", "I", "K", "L")
 private val birdCategories = setOf("G", "H")
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SignListScreen(
     uiState: HieroUiState,
@@ -77,6 +85,7 @@ fun SignListScreen(
 ) {
     val context = LocalContext.current
     var signQuery by rememberSaveable { mutableStateOf("") }
+    var categoryDropdownExpanded by remember { mutableStateOf(false) }
     val trimmedQuery = signQuery.trim()
     val activeCategory = uiState.categories.firstOrNull { it.code == uiState.selectedCategoryCode }
 
@@ -204,11 +213,68 @@ fun SignListScreen(
                 .testTag("sign_filter_input")
         )
 
+        if (uiState.signShapeFilter != SignShapeFilter.LIGATURES && uiState.categories.isNotEmpty()) {
+            ExposedDropdownMenuBox(
+                expanded = categoryDropdownExpanded,
+                onExpandedChange = { categoryDropdownExpanded = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .testTag("category_dropdown_box")
+            ) {
+                val dropdownText = if (uiState.signShapeFilter == SignShapeFilter.ALL && trimmedQuery.isEmpty()) {
+                    activeCategory?.let { "${it.code} · ${it.title} (${it.count})" } ?: uiState.selectedCategoryCode
+                } else {
+                    "All Categories · Pick to jump (${activeCategory?.code ?: "A"})"
+                }
+                OutlinedTextField(
+                    value = dropdownText,
+                    onValueChange = {},
+                    readOnly = true,
+                    singleLine = true,
+                    label = { Text("Gardiner Category") },
+                    trailingIcon = {
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryDropdownExpanded)
+                    },
+                    colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                    shape = MaterialTheme.shapes.medium,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                        .testTag("category_dropdown_anchor")
+                )
+                ExposedDropdownMenu(
+                    expanded = categoryDropdownExpanded,
+                    onDismissRequest = { categoryDropdownExpanded = false }
+                ) {
+                    uiState.categories.forEach { cat ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = "${cat.code} · ${cat.title} (${cat.count})",
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            },
+                            onClick = {
+                                categoryDropdownExpanded = false
+                                signQuery = ""
+                                onSelectShapeFilter(SignShapeFilter.ALL)
+                                onSelectCategory(cat.code)
+                            },
+                            contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
+                            modifier = Modifier.testTag("category_dropdown_item_${cat.code}")
+                        )
+                    }
+                }
+            }
+        }
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 6.dp),
+                .padding(horizontal = 16.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             SignShapeFilter.entries.forEach { shapeFilter ->
@@ -244,39 +310,17 @@ fun SignListScreen(
         }
 
         if (uiState.signShapeFilter == SignShapeFilter.ALL && trimmedQuery.isEmpty()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                uiState.categories.forEach { cat ->
-                    FilterChip(
-                        selected = cat.code == uiState.selectedCategoryCode,
-                        onClick = { onSelectCategory(cat.code) },
-                        label = { Text(cat.code) },
-                        modifier = Modifier.testTag("category_chip_${cat.code}")
-                    )
-                }
-            }
-
             if (activeCategory != null) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
                 ) {
-                    Text(
-                        text = "${activeCategory.code} · ${activeCategory.title}",
-                        style = MaterialTheme.typography.titleMedium
-                    )
                     if (activeCategory.description.isNotBlank()) {
                         Text(
                             text = activeCategory.description,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 2.dp)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -329,6 +373,9 @@ fun SignListScreen(
                     )
                 }
             } else {
+                val cardBg = hieroglyphSurfaceColor(uiState.useColorHieroglyphs)
+                val cardInk = hieroglyphInkColor(uiState.useColorHieroglyphs)
+                val codeInk = if (uiState.useColorHieroglyphs) cardInk else MaterialTheme.colorScheme.primary
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(minSize = 112.dp),
                     contentPadding = PaddingValues(16.dp),
@@ -339,7 +386,7 @@ fun SignListScreen(
                     items(filteredLigatures, key = { it.key }) { rule ->
                         Surface(
                             shape = MaterialTheme.shapes.medium,
-                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            color = cardBg,
                             tonalElevation = 1.dp,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -358,14 +405,15 @@ fun SignListScreen(
                                     signLookup = signLookup,
                                     fontChoice = uiState.fontChoice,
                                     quadratSize = 44.dp,
-                                    tintColor = MaterialTheme.colorScheme.onSurface
+                                    tintColor = cardInk,
+                                    useColorHieroglyphs = uiState.useColorHieroglyphs
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
                                     text = rule.displayKey,
                                     style = MaterialTheme.typography.labelMedium,
                                     fontFamily = FontFamily.Monospace,
-                                    color = MaterialTheme.colorScheme.primary,
+                                    color = codeInk,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -380,6 +428,8 @@ fun SignListScreen(
                     GardinerSignRow(
                         sign = sign,
                         hieroFontFamily = uiState.hieroFontFamily,
+                        signLookup = signLookup,
+                        useColorHieroglyphs = uiState.useColorHieroglyphs,
                         onClick = { onSelectSign(sign) }
                     )
                 }

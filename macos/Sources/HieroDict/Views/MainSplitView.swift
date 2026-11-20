@@ -63,7 +63,7 @@ struct MainSplitView: View {
                     case .signList:
                         SignListView(store: store)
                     case .about:
-                        AboutView()
+                        AboutView(signLookup: store.signCache)
                     }
                 }
             }
@@ -128,6 +128,10 @@ struct MainSplitView: View {
 
             ToolbarItem(placement: .primaryAction) {
                 Menu {
+                    Toggle("Colored Hieroglyphs", isOn: $store.useColorHieroglyphs)
+
+                    Divider()
+
                     Picker("Hieroglyph Font", selection: $store.hieroFontChoice) {
                         ForEach(HieroFontChoice.allCases) { fontChoice in
                             Text(fontChoice.rawValue).tag(fontChoice)
@@ -154,7 +158,7 @@ struct MainSplitView: View {
                 } label: {
                     Label("Font & Size", systemImage: "textformat.size")
                 }
-                .help("Hieroglyph Font & Size")
+                .help("Hieroglyph Font, Colors & Size")
             }
 
             if let release = updater.availableRelease {

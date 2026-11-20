@@ -19,6 +19,11 @@ final class HieroDictStore: ObservableObject {
     @Published var focusSearchTrigger: Int = 0
     @Published var useQuadratLayout: Bool = true
     @Published var showQuadratGuides: Bool = false
+    @Published var useColorHieroglyphs: Bool {
+        didSet {
+            UserDefaults.standard.set(useColorHieroglyphs, forKey: "useColorHieroglyphs")
+        }
+    }
     @Published var hieroFontChoice: HieroFontChoice {
         didSet {
             UserDefaults.standard.set(hieroFontChoice.rawValue, forKey: "hieroFontChoice")
@@ -60,7 +65,9 @@ final class HieroDictStore: ObservableObject {
     init() {
         let savedFont = UserDefaults.standard.string(forKey: "hieroFontChoice")
             .flatMap(HieroFontChoice.init(rawValue:)) ?? .uniHieroglyphica
+        let savedColor = UserDefaults.standard.object(forKey: "useColorHieroglyphs") as? Bool ?? true
         self.hieroFontChoice = savedFont
+        self.useColorHieroglyphs = savedColor
         FontRegistrar.setFontChoice(savedFont)
         loadInitialData()
     }
@@ -82,6 +89,7 @@ final class HieroDictStore: ObservableObject {
                 }
             }
             self.signCache = cache
+            ColorHieroglyphStore.shared.loadIfNeeded(signLookup: cache)
             self.isLoaded = true
         } catch {
             self.errorMessage = error.localizedDescription

@@ -14,7 +14,16 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Section("Hieroglyph Font") {
+            Section("Hieroglyph Rendering & Font") {
+                Toggle(isOn: $store.useColorHieroglyphs) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Colored Hieroglyphs")
+                        Text("Display polychrome painted hieroglyphs when available; falls back to font.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
                 Picker("Font Family", selection: $store.hieroFontChoice) {
                     ForEach(HieroFontChoice.allCases) { choice in
                         Text(choice.rawValue).tag(choice)

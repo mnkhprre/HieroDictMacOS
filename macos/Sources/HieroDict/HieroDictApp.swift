@@ -23,6 +23,7 @@ struct HieroDictApp: App {
             MainSplitView(store: store)
                 .environmentObject(updater)
                 .environment(\.hieroFontChoice, store.hieroFontChoice)
+                .environment(\.useColorHieroglyphs, store.useColorHieroglyphs)
                 .environment(\.enableWindowBlur, enableWindowBlur)
                 .preferredColorScheme(colorScheme)
                 .frame(minWidth: 820, minHeight: 580)
@@ -79,6 +80,7 @@ struct HieroDictApp: App {
         MenuBarExtra("HieroDict", systemImage: "text.book.closed") {
             MenuBarSearchView(store: store)
                 .environment(\.hieroFontChoice, store.hieroFontChoice)
+                .environment(\.useColorHieroglyphs, store.useColorHieroglyphs)
                 .preferredColorScheme(colorScheme)
         }
         .menuBarExtraStyle(.window)
@@ -87,6 +89,7 @@ struct HieroDictApp: App {
             SettingsView(store: store)
                 .environmentObject(updater)
                 .environment(\.hieroFontChoice, store.hieroFontChoice)
+                .environment(\.useColorHieroglyphs, store.useColorHieroglyphs)
                 .environment(\.enableWindowBlur, enableWindowBlur)
                 .preferredColorScheme(colorScheme)
         }

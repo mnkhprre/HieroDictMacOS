@@ -114,6 +114,10 @@ private struct EnableWindowBlurKey: EnvironmentKey {
     static let defaultValue: Bool = false
 }
 
+private struct UseColorHieroglyphsKey: EnvironmentKey {
+    static let defaultValue: Bool = true
+}
+
 extension EnvironmentValues {
     var hieroFontChoice: HieroFontChoice {
         get { self[HieroFontChoiceKey.self] }
@@ -123,6 +127,11 @@ extension EnvironmentValues {
     var enableWindowBlur: Bool {
         get { self[EnableWindowBlurKey.self] }
         set { self[EnableWindowBlurKey.self] = newValue }
+    }
+
+    var useColorHieroglyphs: Bool {
+        get { self[UseColorHieroglyphsKey.self] }
+        set { self[UseColorHieroglyphsKey.self] = newValue }
     }
 }
 
@@ -182,6 +191,16 @@ enum AppTheme {
                 : NSColor(red: 0xF4 / 255.0, green: 0xF5 / 255.0, blue: 0xF7 / 255.0, alpha: 1.0)
         }
     )
+
+    static let coloredGlyphPlateDark = Color(red: 0xEA / 255.0, green: 0xE5 / 255.0, blue: 0xD9 / 255.0)
+
+    static func resolvedGlyphTileBackground(useColor: Bool, colorScheme: ColorScheme) -> Color {
+        (useColor && colorScheme == .dark) ? coloredGlyphPlateDark : glyphTileBackground
+    }
+
+    static func resolvedGlyphInkColor(useColor: Bool, colorScheme: ColorScheme) -> Color {
+        (useColor && colorScheme == .dark) ? Color(red: 0x18 / 255.0, green: 0x1A / 255.0, blue: 0x1F / 255.0) : Color.primary
+    }
 
     static let subtleBorder = Color(nsColor: .separatorColor).opacity(0.55)
     static let cardBackground = Color(

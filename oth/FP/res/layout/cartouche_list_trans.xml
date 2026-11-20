@@ -1,3 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<es.doneill.android.hieroglyph.pharaohs.view.CartoucheListView android:id="@id/cartoucheListView" android:background="?background_normal" android:layout_width="match_parent" android:layout_height="match_parent" android:cacheColorHint="?background_normal" cartouche:transliteration="true"
-  xmlns:android="http://schemas.android.com/apk/res/android" xmlns:cartouche="http://schemas.android.com/apk/res-auto" />

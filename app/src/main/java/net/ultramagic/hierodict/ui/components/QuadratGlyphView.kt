@@ -1,7 +1,9 @@
 package net.ultramagic.hierodict.ui.components
 
+import android.content.Context
 import android.graphics.Paint
 import android.graphics.Rect
+import android.graphics.RectF
 import android.graphics.Typeface
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.horizontalScroll
@@ -26,14 +28,23 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import net.ultramagic.hierodict.data.AndroidGlyphMetricsCache
+import net.ultramagic.hierodict.data.ColorHieroglyphStore
 import net.ultramagic.hierodict.data.LigatureCatalog
 import net.ultramagic.hierodict.model.GardinerSign
 import net.ultramagic.hierodict.model.HieroFontChoice
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
 sealed class AndroidQuadratNode {
-    data class Atom(val token: String, val glyph: String) : AndroidQuadratNode()
+    data class Atom(
+        val token: String,
+        val glyph: String,
+        val isRed: Boolean = false,
+        val rotationDegrees: Float = 0f,
+        val isFlipped: Boolean = false
+    ) : AndroidQuadratNode()
+
     data class Ligature(val children: List<AndroidQuadratNode>) : AndroidQuadratNode()
     data class Horizontal(val children: List<AndroidQuadratNode>) : AndroidQuadratNode()
     data class Vertical(val children: List<AndroidQuadratNode>) : AndroidQuadratNode()
@@ -218,33 +229,75 @@ object AndroidQuadratParser {
             val rawToken = tok.toString()
             val cleanBase = rawToken.substringBefore('\\').trimEnd('#', 't', 'b', 'l', 'r')
             val effectiveBase = if (rawToken.contains('#')) rawToken.substringBefore('#').substringBefore('\\') else rawToken.substringBefore('\\')
+            val modifiers = rawToken.split('\\').drop(1).map { it.uppercase() }
+            var isRed = false
+            var rotation = 0f
+            var flipped = false
+            for (mod in modifiers) {
+                when {
+                    mod == "RED" -> isRed = true
+                    mod == "R90" || mod == "90" -> rotation = 90f
+                    mod == "R180" || mod == "180" -> rotation = 180f
+                    mod == "R270" || mod == "270" -> rotation = 270f
+                    mod == "H" || mod == "M" || mod.isEmpty() -> flipped = true
+                }
+            }
             val resolved = signLookup[effectiveBase.uppercase()]?.glyph
                 ?: mdcMnemonicMap[effectiveBase]
                 ?: mdcMnemonicMap[cleanBase]
                 ?: effectiveBase
-            return AndroidQuadratNode.Atom(effectiveBase, resolved)
+            return AndroidQuadratNode.Atom(effectiveBase, resolved, isRed, rotation, flipped)
         }
     }
 }
 
 private data class PlacedGlyph(
+    val token: String,
     val glyph: String,
     val x: Float,
     val y: Float,
     val width: Float,
-    val height: Float
+    val height: Float,
+    val isRed: Boolean,
+    val rotationDegrees: Float,
+    val isFlipped: Boolean
 )
 
 private fun measureNodeEm(
     node: AndroidQuadratNode,
+    context: Context,
+    signLookup: Map<String, GardinerSign>,
+    useColorHieroglyphs: Boolean,
     typeface: Typeface?,
     fontKey: String
 ): Pair<Float, Float> {
     return when (node) {
-        is AndroidQuadratNode.Atom -> AndroidGlyphMetricsCache.measureEm(node.glyph, typeface, fontKey)
+        is AndroidQuadratNode.Atom -> {
+            val base = if (useColorHieroglyphs && !node.isRed) {
+                val ar = ColorHieroglyphStore.aspectRatio(context, node.token, node.glyph, signLookup)
+                if (ar != null) {
+                    var h = 0.92f
+                    var w = h * ar
+                    if (w > 1.35f) {
+                        val s = 1.35f / w
+                        w = 1.35f
+                        h *= s
+                    }
+                    max(0.10f, w) to max(0.10f, h)
+                } else {
+                    AndroidGlyphMetricsCache.measureEm(node.glyph, typeface, fontKey)
+                }
+            } else {
+                AndroidGlyphMetricsCache.measureEm(node.glyph, typeface, fontKey)
+            }
+            val isQuarterTurn = abs(abs(node.rotationDegrees % 180f) - 90f) < 0.1f
+            if (isQuarterTurn) base.second to base.first else base
+        }
         is AndroidQuadratNode.Horizontal -> {
             if (node.children.isEmpty()) return 0.5f to 0.5f
-            val sizes = node.children.map { measureNodeEm(it, typeface, fontKey) }
+            val sizes = node.children.map {
+                measureNodeEm(it, context, signLookup, useColorHieroglyphs, typeface, fontKey)
+            }
             val w = sizes.sumOf { it.first.toDouble() }.toFloat() + 0.05f * max(0, sizes.size - 1)
             val h = sizes.maxOfOrNull { it.second } ?: 0.5f
             val fit = if (w > 1.35f) 1.35f / w else 1f
@@ -252,7 +305,9 @@ private fun measureNodeEm(
         }
         is AndroidQuadratNode.Vertical -> {
             if (node.children.isEmpty()) return 0.5f to 0.5f
-            val sizes = node.children.map { measureNodeEm(it, typeface, fontKey) }
+            val sizes = node.children.map {
+                measureNodeEm(it, context, signLookup, useColorHieroglyphs, typeface, fontKey)
+            }
             val maxW = sizes.maxOfOrNull { it.first } ?: 0.5f
             val wScale = if (maxW > 1.35f) 1.35f / maxW else 1f
             val sumH = sizes.sumOf { (it.second * wScale).toDouble() }.toFloat() + 0.055f * max(0, sizes.size - 1)
@@ -260,7 +315,9 @@ private fun measureNodeEm(
             max(0.08f, maxW * wScale * hScale) to max(0.08f, sumH * hScale)
         }
         is AndroidQuadratNode.Ligature -> {
-            val sizes = node.children.map { measureNodeEm(it, typeface, fontKey) }
+            val sizes = node.children.map {
+                measureNodeEm(it, context, signLookup, useColorHieroglyphs, typeface, fontKey)
+            }
             val tokens = node.children.map { (it as? AndroidQuadratNode.Atom)?.token ?: "" }
             val rule = LigatureCatalog.rule(tokens)
             if (rule != null) {
@@ -285,7 +342,9 @@ private fun measureNodeEm(
         }
         is AndroidQuadratNode.Enclosure -> {
             if (node.children.isEmpty()) return 0.8f to 0.8f
-            val sizes = node.children.map { measureNodeEm(it, typeface, fontKey) }
+            val sizes = node.children.map {
+                measureNodeEm(it, context, signLookup, useColorHieroglyphs, typeface, fontKey)
+            }
             val w = sizes.sumOf { it.first.toDouble() }.toFloat() + 0.06f * max(0, sizes.size - 1)
             val h = sizes.maxOfOrNull { it.second } ?: 0.8f
             max(0.24f, w) to max(0.24f, h)
@@ -299,6 +358,9 @@ private fun layoutNode(
     originY: Float,
     boxW: Float,
     boxH: Float,
+    context: Context,
+    signLookup: Map<String, GardinerSign>,
+    useColorHieroglyphs: Boolean,
     typeface: Typeface?,
     fontKey: String,
     out: MutableList<PlacedGlyph>
@@ -306,11 +368,25 @@ private fun layoutNode(
     when (node) {
         is AndroidQuadratNode.Atom -> {
             if (node.glyph.isNotEmpty()) {
-                out.add(PlacedGlyph(node.glyph, originX, originY, boxW, boxH))
+                out.add(
+                    PlacedGlyph(
+                        token = node.token,
+                        glyph = node.glyph,
+                        x = originX,
+                        y = originY,
+                        width = boxW,
+                        height = boxH,
+                        isRed = node.isRed,
+                        rotationDegrees = node.rotationDegrees,
+                        isFlipped = node.isFlipped
+                    )
+                )
             }
         }
         is AndroidQuadratNode.Horizontal -> {
-            val ems = node.children.map { measureNodeEm(it, typeface, fontKey) }
+            val ems = node.children.map {
+                measureNodeEm(it, context, signLookup, useColorHieroglyphs, typeface, fontKey)
+            }
             val natW = ems.sumOf { it.first.toDouble() }.toFloat() + 0.05f * max(0, ems.size - 1)
             val natH = ems.maxOfOrNull { it.second } ?: 0.5f
             val scale = min(boxW / max(natW, 0.01f), boxH / max(natH, 0.01f))
@@ -325,6 +401,9 @@ private fun layoutNode(
                     originY + (boxH - ch) * 0.5f,
                     cw,
                     ch,
+                    context,
+                    signLookup,
+                    useColorHieroglyphs,
                     typeface,
                     fontKey,
                     out
@@ -333,7 +412,9 @@ private fun layoutNode(
             }
         }
         is AndroidQuadratNode.Vertical -> {
-            val ems = node.children.map { measureNodeEm(it, typeface, fontKey) }
+            val ems = node.children.map {
+                measureNodeEm(it, context, signLookup, useColorHieroglyphs, typeface, fontKey)
+            }
             val natH = ems.sumOf { it.second.toDouble() }.toFloat() + 0.055f * max(0, ems.size - 1)
             val natW = ems.maxOfOrNull { it.first } ?: 0.5f
             val scale = min(boxH / max(natH, 0.01f), boxW / max(natW, 0.01f))
@@ -348,6 +429,9 @@ private fun layoutNode(
                     y,
                     cw,
                     ch,
+                    context,
+                    signLookup,
+                    useColorHieroglyphs,
                     typeface,
                     fontKey,
                     out
@@ -356,7 +440,9 @@ private fun layoutNode(
             }
         }
         is AndroidQuadratNode.Ligature -> {
-            val ems = node.children.map { measureNodeEm(it, typeface, fontKey) }
+            val ems = node.children.map {
+                measureNodeEm(it, context, signLookup, useColorHieroglyphs, typeface, fontKey)
+            }
             val tokens = node.children.map { (it as? AndroidQuadratNode.Atom)?.token ?: "" }
             val rule = LigatureCatalog.rule(tokens)
             if (rule != null) {
@@ -374,6 +460,9 @@ private fun layoutNode(
                         baseY + r.y * scale,
                         max(2f, r.width * scale),
                         max(2f, r.height * scale),
+                        context,
+                        signLookup,
+                        useColorHieroglyphs,
                         typeface,
                         fontKey,
                         out
@@ -390,6 +479,9 @@ private fun layoutNode(
                         originY + (boxH - ch) * 0.5f,
                         cw,
                         ch,
+                        context,
+                        signLookup,
+                        useColorHieroglyphs,
                         typeface,
                         fontKey,
                         out
@@ -400,7 +492,9 @@ private fun layoutNode(
         is AndroidQuadratNode.Enclosure -> {
             val innerW = boxW * 0.84f
             val innerH = boxH * 0.78f
-            val ems = node.children.map { measureNodeEm(it, typeface, fontKey) }
+            val ems = node.children.map {
+                measureNodeEm(it, context, signLookup, useColorHieroglyphs, typeface, fontKey)
+            }
             val natW = ems.sumOf { it.first.toDouble() }.toFloat() + 0.05f * max(0, ems.size - 1)
             val natH = ems.maxOfOrNull { it.second } ?: 0.5f
             val scale = min(innerW / max(natW, 0.01f), innerH / max(natH, 0.01f))
@@ -414,6 +508,9 @@ private fun layoutNode(
                     originY + (boxH - ch) * 0.5f,
                     cw,
                     ch,
+                    context,
+                    signLookup,
+                    useColorHieroglyphs,
                     typeface,
                     fontKey,
                     out
@@ -431,6 +528,7 @@ fun QuadratWordView(
     fontChoice: HieroFontChoice,
     quadratSize: Dp = 36.dp,
     tintColor: Color = MaterialTheme.colorScheme.onSurface,
+    useColorHieroglyphs: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -443,6 +541,7 @@ fun QuadratWordView(
     }
     val nodes = remember(mdc, signLookup) {
         LigatureCatalog.ensureLoaded(context)
+        ColorHieroglyphStore.ensureLoaded(context)
         AndroidQuadratParser.parseSquares(mdc, signLookup)
     }
 
@@ -454,8 +553,8 @@ fun QuadratWordView(
         verticalAlignment = Alignment.CenterVertically
     ) {
         nodes.forEach { node ->
-            val em = remember(node, fontChoice) {
-                measureNodeEm(node, typeface, fontChoice.assetFileName)
+            val em = remember(node, fontChoice, useColorHieroglyphs) {
+                measureNodeEm(node, context, signLookup, useColorHieroglyphs, typeface, fontChoice.assetFileName)
             }
             val cellWidth = (em.first * quadratSize.value).dp.coerceAtLeast(12.dp)
             Box(
@@ -472,6 +571,9 @@ fun QuadratWordView(
                         originY = 0f,
                         boxW = size.width,
                         boxH = size.height,
+                        context = context,
+                        signLookup = signLookup,
+                        useColorHieroglyphs = useColorHieroglyphs,
                         typeface = typeface,
                         fontKey = fontChoice.assetFileName,
                         out = placed
@@ -484,25 +586,65 @@ fun QuadratWordView(
                             this.typeface = typeface
                         }
                     }
+                    val bitmapPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
 
                     placed.forEach { item ->
-                        paint.textSize = 100f
-                        paint.getTextBounds(item.glyph, 0, item.glyph.length, refBounds)
-                        val bw = max(refBounds.width().toFloat(), 1f)
-                        val bh = max(refBounds.height().toFloat(), 1f)
-                        val scale = min((item.width * 0.94f) / bw, (item.height * 0.94f) / bh)
-                        if (scale > 0f && scale.isFinite()) {
-                            paint.textSize = 100f * scale
+                        val bitmap = if (useColorHieroglyphs && !item.isRed) {
+                            ColorHieroglyphStore.getBitmap(context, item.token, item.glyph, signLookup)
+                        } else {
+                            null
+                        }
+                        if (bitmap != null && bitmap.width > 0 && bitmap.height > 0) {
+                            val isQuarter = abs(abs(item.rotationDegrees % 180f) - 90f) < 0.1f
+                            val effW = if (isQuarter) bitmap.height.toFloat() else bitmap.width.toFloat()
+                            val effH = if (isQuarter) bitmap.width.toFloat() else bitmap.height.toFloat()
+                            val scale = min((item.width * 0.94f) / effW, (item.height * 0.94f) / effH)
+                            if (scale > 0f && scale.isFinite()) {
+                                val dw = bitmap.width.toFloat() * scale
+                                val dh = bitmap.height.toFloat() * scale
+                                val cx = item.x + item.width * 0.5f
+                                val cy = item.y + item.height * 0.5f
+                                drawIntoCanvas { canvas ->
+                                    val nc = canvas.nativeCanvas
+                                    nc.save()
+                                    nc.translate(cx, cy)
+                                    if (item.isFlipped) nc.scale(-1f, 1f)
+                                    if (item.rotationDegrees != 0f) nc.rotate(item.rotationDegrees)
+                                    nc.drawBitmap(
+                                        bitmap,
+                                        null,
+                                        RectF(-dw * 0.5f, -dh * 0.5f, dw * 0.5f, dh * 0.5f),
+                                        bitmapPaint
+                                    )
+                                    nc.restore()
+                                }
+                            }
+                        } else {
+                            paint.color = if (item.isRed) 0xFFC2241F.toInt() else tintColor.toArgb()
+                            paint.textSize = 100f
                             paint.getTextBounds(item.glyph, 0, item.glyph.length, refBounds)
-                            val cx = item.x + item.width * 0.5f
-                            val cy = item.y + item.height * 0.5f
-                            drawIntoCanvas { canvas ->
-                                canvas.nativeCanvas.drawText(
-                                    item.glyph,
-                                    cx - refBounds.exactCenterX(),
-                                    cy - refBounds.exactCenterY(),
-                                    paint
-                                )
+                            val bw = max(refBounds.width().toFloat(), 1f)
+                            val bh = max(refBounds.height().toFloat(), 1f)
+                            val scale = min((item.width * 0.94f) / bw, (item.height * 0.94f) / bh)
+                            if (scale > 0f && scale.isFinite()) {
+                                paint.textSize = 100f * scale
+                                paint.getTextBounds(item.glyph, 0, item.glyph.length, refBounds)
+                                val cx = item.x + item.width * 0.5f
+                                val cy = item.y + item.height * 0.5f
+                                drawIntoCanvas { canvas ->
+                                    val nc = canvas.nativeCanvas
+                                    nc.save()
+                                    nc.translate(cx, cy)
+                                    if (item.isFlipped) nc.scale(-1f, 1f)
+                                    if (item.rotationDegrees != 0f) nc.rotate(item.rotationDegrees)
+                                    nc.drawText(
+                                        item.glyph,
+                                        -refBounds.exactCenterX(),
+                                        -refBounds.exactCenterY(),
+                                        paint
+                                    )
+                                    nc.restore()
+                                }
                             }
                         }
                     }

@@ -274,7 +274,10 @@ struct EpigraphicHatchOverlay: View {
 
 struct QuadratGlyphVectorView: View {
     @Environment(\.hieroFontChoice) private var hieroFontChoice
+    @Environment(\.useColorHieroglyphs) private var useColorHieroglyphs
     let glyph: String
+    var token: String = ""
+    var signLookup: [String: GardinerSign] = [:]
     let width: CGFloat
     let height: CGFloat
     let rotationDegrees: Double
@@ -282,9 +285,10 @@ struct QuadratGlyphVectorView: View {
     var scale: CGFloat = 1.0
     var isRed: Bool = false
     var shading: GlyphShading = .none
+    var monochromeColor: Color? = nil
 
     private var inkColor: Color {
-        isRed ? Color(red: 0.76, green: 0.14, blue: 0.12) : Color.primary
+        isRed ? Color(red: 0.76, green: 0.14, blue: 0.12) : (monochromeColor ?? Color.primary)
     }
 
     private var safeWidth: CGFloat {
@@ -308,7 +312,25 @@ struct QuadratGlyphVectorView: View {
     @ViewBuilder
     private var glyphBody: some View {
         let _ = hieroFontChoice
-        if safeWidth > 1,
+        if useColorHieroglyphs,
+           !isRed,
+           safeWidth > 1,
+           safeHeight > 1,
+           let nsImage = ColorHieroglyphStore.shared.image(forCodeOrToken: token, glyph: glyph, signLookup: signLookup) {
+            let isQuarterTurn = abs(abs(rotationDegrees.truncatingRemainder(dividingBy: 180)) - 90) < 0.01
+            let maxW = safeWidth * 0.96
+            let maxH = safeHeight * 0.96
+            let innerW = isQuarterTurn ? maxH : maxW
+            let innerH = isQuarterTurn ? maxW : maxH
+            Image(nsImage: nsImage)
+                .resizable()
+                .interpolation(.high)
+                .aspectRatio(contentMode: .fit)
+                .frame(width: innerW, height: innerH)
+                .rotationEffect(.degrees(rotationDegrees))
+                .scaleEffect(x: isFlipped ? -1 : 1, y: 1)
+                .frame(width: safeWidth, height: safeHeight)
+        } else if safeWidth > 1,
            safeHeight > 1,
            let vector = QuadratGlyphMetricsCache.shared.vector(for: glyph) {
             let bbox = vector.boundingBox

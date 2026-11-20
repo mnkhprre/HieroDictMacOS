@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -44,18 +45,26 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import net.ultramagic.hierodict.data.ColorHieroglyphStore
 import net.ultramagic.hierodict.model.GardinerSign
 import net.ultramagic.hierodict.model.HieroEntry
 import net.ultramagic.hierodict.model.HieroFontChoice
@@ -63,11 +72,70 @@ import net.ultramagic.hierodict.model.HieroglyphTranslitData
 import net.ultramagic.hierodict.model.TransliterationModel
 
 @Composable
+fun hieroglyphSurfaceColor(useColorHieroglyphs: Boolean): Color {
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    return if (useColorHieroglyphs && isDark) {
+        Color(0xFFEAE5D9)
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant
+    }
+}
+
+@Composable
+fun hieroglyphInkColor(useColorHieroglyphs: Boolean): Color {
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    return if (useColorHieroglyphs && isDark) {
+        Color(0xFF181A1F)
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
+}
+
+@Composable
+fun HieroglyphSymbolView(
+    glyph: String,
+    code: String?,
+    hieroFontFamily: FontFamily,
+    signLookup: Map<String, GardinerSign>,
+    useColorHieroglyphs: Boolean,
+    fontSize: TextUnit,
+    sizeDp: Dp,
+    tintColor: Color = MaterialTheme.colorScheme.onSurface,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val bitmap = remember(glyph, code, useColorHieroglyphs, signLookup) {
+        if (useColorHieroglyphs) {
+            ColorHieroglyphStore.getBitmap(context, code, glyph, signLookup)
+        } else {
+            null
+        }
+    }
+    if (bitmap != null) {
+        Image(
+            bitmap = bitmap.asImageBitmap(),
+            contentDescription = code ?: glyph,
+            contentScale = ContentScale.Fit,
+            modifier = modifier.size(sizeDp)
+        )
+    } else {
+        Text(
+            text = glyph,
+            fontFamily = hieroFontFamily,
+            fontSize = fontSize,
+            color = tintColor,
+            modifier = modifier
+        )
+    }
+}
+
+@Composable
 fun HieroEntryRow(
     entry: HieroEntry,
     hieroFontFamily: FontFamily,
     signLookup: Map<String, GardinerSign> = emptyMap(),
     fontChoice: HieroFontChoice = HieroFontChoice.ABYDOS,
+    useColorHieroglyphs: Boolean = true,
     transliterationModel: TransliterationModel = TransliterationModel.BRITISH,
     showPronunciation: Boolean = false,
     onClick: () -> Unit,
@@ -76,6 +144,8 @@ fun HieroEntryRow(
 ) {
     val displayTranslit = entry.formattedTranslit(transliterationModel)
     val pronunciation = if (showPronunciation) entry.schematicPronunciation() else ""
+    val tileBg = hieroglyphSurfaceColor(useColorHieroglyphs)
+    val tileInk = hieroglyphInkColor(useColorHieroglyphs)
 
     Column(
         modifier = modifier
@@ -93,7 +163,7 @@ fun HieroEntryRow(
                 modifier = Modifier
                     .widthIn(min = 80.dp, max = 116.dp)
                     .clip(MaterialTheme.shapes.small)
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .background(tileBg)
                     .padding(horizontal = 8.dp, vertical = 10.dp),
                 contentAlignment = Alignment.Center
             ) {
@@ -103,14 +173,15 @@ fun HieroEntryRow(
                         signLookup = signLookup,
                         fontChoice = fontChoice,
                         quadratSize = 30.dp,
-                        tintColor = MaterialTheme.colorScheme.onSurface
+                        tintColor = tileInk,
+                        useColorHieroglyphs = useColorHieroglyphs
                     )
                 } else {
                     Text(
                         text = entry.glyph,
                         fontFamily = hieroFontFamily,
                         fontSize = 24.sp,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = tileInk,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -193,9 +264,14 @@ fun HieroEntryRow(
 fun GardinerSignRow(
     sign: GardinerSign,
     hieroFontFamily: FontFamily,
+    signLookup: Map<String, GardinerSign> = emptyMap(),
+    useColorHieroglyphs: Boolean = true,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val tileBg = hieroglyphSurfaceColor(useColorHieroglyphs)
+    val tileInk = hieroglyphInkColor(useColorHieroglyphs)
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -212,14 +288,19 @@ fun GardinerSignRow(
                 modifier = Modifier
                     .size(52.dp)
                     .clip(MaterialTheme.shapes.small)
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                    .background(tileBg)
+                    .padding(5.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = sign.glyph,
-                    fontFamily = hieroFontFamily,
+                HieroglyphSymbolView(
+                    glyph = sign.glyph,
+                    code = sign.code,
+                    hieroFontFamily = hieroFontFamily,
+                    signLookup = signLookup,
+                    useColorHieroglyphs = useColorHieroglyphs,
                     fontSize = 26.sp,
-                    color = MaterialTheme.colorScheme.onSurface
+                    sizeDp = 38.dp,
+                    tintColor = tileInk
                 )
             }
 
@@ -305,6 +386,7 @@ fun WordInspectorSheet(
     hieroFontFamily: FontFamily,
     signLookup: Map<String, GardinerSign> = emptyMap(),
     fontChoice: HieroFontChoice = HieroFontChoice.ABYDOS,
+    useColorHieroglyphs: Boolean = true,
     transliterationModel: TransliterationModel = TransliterationModel.BRITISH,
     showPronunciation: Boolean = false,
     onDismiss: () -> Unit,
@@ -315,6 +397,8 @@ fun WordInspectorSheet(
     val context = LocalContext.current
     val displayTranslit = entry.formattedTranslit(transliterationModel)
     val pronunciation = entry.schematicPronunciation()
+    val heroBg = hieroglyphSurfaceColor(useColorHieroglyphs)
+    val heroInk = hieroglyphInkColor(useColorHieroglyphs)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -366,7 +450,7 @@ fun WordInspectorSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(MaterialTheme.shapes.medium)
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .background(heroBg)
                     .padding(vertical = 22.dp, horizontal = 16.dp),
                 contentAlignment = Alignment.Center
             ) {
@@ -376,14 +460,15 @@ fun WordInspectorSheet(
                         signLookup = signLookup,
                         fontChoice = fontChoice,
                         quadratSize = 52.dp,
-                        tintColor = MaterialTheme.colorScheme.onSurface
+                        tintColor = heroInk,
+                        useColorHieroglyphs = useColorHieroglyphs
                     )
                 } else {
                     Text(
                         text = entry.glyph,
                         fontFamily = hieroFontFamily,
                         fontSize = 44.sp,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = heroInk
                     )
                 }
             }
@@ -451,11 +536,24 @@ fun WordInspectorSheet(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
-                                        Text(
-                                            text = sign.glyph,
-                                            fontFamily = hieroFontFamily,
-                                            fontSize = 18.sp
-                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(heroBg)
+                                                .padding(horizontal = 4.dp, vertical = 2.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            HieroglyphSymbolView(
+                                                glyph = sign.glyph,
+                                                code = sign.code,
+                                                hieroFontFamily = hieroFontFamily,
+                                                signLookup = signLookup,
+                                                useColorHieroglyphs = useColorHieroglyphs,
+                                                fontSize = 18.sp,
+                                                sizeDp = 22.dp,
+                                                tintColor = heroInk
+                                            )
+                                        }
                                         Text(
                                             text = sign.code,
                                             fontFamily = FontFamily.Monospace
@@ -526,10 +624,14 @@ fun SignDetailDialog(
     hieroFontFamily: FontFamily,
     signLookup: Map<String, GardinerSign> = emptyMap(),
     fontChoice: HieroFontChoice = HieroFontChoice.ABYDOS,
+    useColorHieroglyphs: Boolean = true,
     transliterationModel: TransliterationModel = TransliterationModel.BRITISH,
     onDismiss: () -> Unit,
     onSelectWord: (HieroEntry) -> Unit
 ) {
+    val heroBg = hieroglyphSurfaceColor(useColorHieroglyphs)
+    val heroInk = hieroglyphInkColor(useColorHieroglyphs)
+
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = MaterialTheme.shapes.large,
@@ -569,15 +671,19 @@ fun SignDetailDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(MaterialTheme.shapes.medium)
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .background(heroBg)
                         .padding(vertical = 18.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = sign.glyph,
-                        fontFamily = hieroFontFamily,
+                    HieroglyphSymbolView(
+                        glyph = sign.glyph,
+                        code = sign.code,
+                        hieroFontFamily = hieroFontFamily,
+                        signLookup = signLookup,
+                        useColorHieroglyphs = useColorHieroglyphs,
                         fontSize = 48.sp,
-                        color = MaterialTheme.colorScheme.onSurface
+                        sizeDp = 58.dp,
+                        tintColor = heroInk
                     )
                 }
 
@@ -625,8 +731,12 @@ fun SignDetailDialog(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Box(
-                                    modifier = Modifier.width(68.dp),
-                                    contentAlignment = Alignment.CenterStart
+                                    modifier = Modifier
+                                        .width(72.dp)
+                                        .clip(MaterialTheme.shapes.small)
+                                        .background(heroBg)
+                                        .padding(horizontal = 6.dp, vertical = 4.dp),
+                                    contentAlignment = Alignment.Center
                                 ) {
                                     if (word.mdc.isNotBlank()) {
                                         QuadratWordView(
@@ -634,13 +744,15 @@ fun SignDetailDialog(
                                             signLookup = signLookup,
                                             fontChoice = fontChoice,
                                             quadratSize = 26.dp,
-                                            tintColor = MaterialTheme.colorScheme.onSurface
+                                            tintColor = heroInk,
+                                            useColorHieroglyphs = useColorHieroglyphs
                                         )
                                     } else {
                                         Text(
                                             text = word.glyph,
                                             fontFamily = hieroFontFamily,
-                                            fontSize = 22.sp
+                                            fontSize = 22.sp,
+                                            color = heroInk
                                         )
                                     }
                                 }

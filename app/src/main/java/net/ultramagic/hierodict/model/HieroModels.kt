@@ -257,6 +257,7 @@ data class HieroUiState(
     val inspectedSignWords: List<HieroEntry> = emptyList(),
     val fontChoice: HieroFontChoice = HieroFontChoice.ABYDOS,
     val hieroFontFamily: FontFamily = FontFamily.Default,
+    val useColorHieroglyphs: Boolean = true,
     val transliterationModel: TransliterationModel = TransliterationModel.BRITISH,
     val showPronunciation: Boolean = false,
     val totalSignCount: Int = 0

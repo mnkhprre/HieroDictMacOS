@@ -13,6 +13,8 @@ struct WordInspectorView: View {
     let getSignDetails: (String) -> GardinerSign?
 
     @Environment(\.hieroFontChoice) private var hieroFontChoice
+    @Environment(\.useColorHieroglyphs) private var useColorHieroglyphs
+    @Environment(\.colorScheme) private var colorScheme
     @AppStorage("transliterationModel") private var transliterationModelRaw: String = TransliterationModel.british.rawValue
     @AppStorage("showPronunciation") private var showPronunciation: Bool = false
     @State private var copiedBadgeText: String? = nil
@@ -50,6 +52,9 @@ struct WordInspectorView: View {
                     .help("Close Inspector")
                 }
 
+                let tileBg = AppTheme.resolvedGlyphTileBackground(useColor: useColorHieroglyphs, colorScheme: colorScheme)
+                let tileInk = AppTheme.resolvedGlyphInkColor(useColor: useColorHieroglyphs, colorScheme: colorScheme)
+
                 Group {
                     if useQuadrat {
                         ScrollView(.horizontal, showsIndicators: false) {
@@ -63,15 +68,24 @@ struct WordInspectorView: View {
                             .frame(minWidth: 220)
                         }
                     } else {
-                        Text(entry.glyph.isEmpty ? "—" : entry.glyph)
-                            .font(.hiero(size: glyphScale.detailFontSize, choice: hieroFontChoice))
-                            .foregroundStyle(.primary)
-                            .multilineTextAlignment(.center)
-                            .textSelection(.enabled)
+                        HieroGlyphTileView(
+                            glyph: entry.glyph,
+                            size: glyphScale.detailFontSize,
+                            signLookup: signLookup,
+                            monochromeColor: tileInk
+                        )
+                        .multilineTextAlignment(.center)
                     }
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
+                .padding(.vertical, 12)
+                .padding(.horizontal, 8)
+                .background {
+                    if useColorHieroglyphs && colorScheme == .dark {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(tileBg)
+                    }
+                }
 
                 VStack(spacing: 4) {
                     Text(entry.formattedTranslit(for: transliterationModel))
@@ -129,6 +143,9 @@ struct WordInspectorView: View {
                             .foregroundStyle(.secondary)
 
                         FlowLayout(spacing: 8) {
+                            let chipBg = AppTheme.resolvedGlyphTileBackground(useColor: useColorHieroglyphs, colorScheme: colorScheme)
+                            let chipInk = AppTheme.resolvedGlyphInkColor(useColor: useColorHieroglyphs, colorScheme: colorScheme)
+                            let codeInk = useColorHieroglyphs ? chipInk : AppTheme.slateAccent
                             ForEach(Array(entry.gardinerCodes.enumerated()), id: \.offset) { _, code in
                                 let info = getSignDetails(code)
                                 Button {
@@ -136,18 +153,22 @@ struct WordInspectorView: View {
                                 } label: {
                                     HStack(spacing: 6) {
                                         if let info, !info.glyph.isEmpty {
-                                            Text(info.glyph)
-                                                .font(.hiero(size: 20, choice: hieroFontChoice))
-                                                .foregroundStyle(.primary)
+                                            HieroGlyphTileView(
+                                                glyph: info.glyph,
+                                                code: code,
+                                                size: 20,
+                                                signLookup: signLookup,
+                                                monochromeColor: chipInk
+                                            )
                                         }
                                         VStack(alignment: .leading, spacing: 1) {
                                             Text(code)
                                                 .font(.system(size: 12, weight: .bold))
-                                                .foregroundStyle(AppTheme.slateAccent)
+                                                .foregroundStyle(codeInk)
                                             if let info, !info.name.isEmpty {
                                                 Text(String(info.name.prefix(20)))
                                                     .font(.system(size: 10))
-                                                    .foregroundStyle(.secondary)
+                                                    .foregroundStyle(useColorHieroglyphs ? chipInk.opacity(0.75) : .secondary)
                                             }
                                         }
                                     }
@@ -155,7 +176,7 @@ struct WordInspectorView: View {
                                     .padding(.vertical, 6)
                                     .background(
                                         RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                            .fill(AppTheme.glyphTileBackground)
+                                            .fill(chipBg)
                                     )
                                 }
                                 .buttonStyle(.plain)
@@ -177,6 +198,9 @@ struct WordInspectorView: View {
                             .foregroundStyle(.secondary)
 
                         FlowLayout(spacing: 8) {
+                            let sqBg = AppTheme.resolvedGlyphTileBackground(useColor: useColorHieroglyphs, colorScheme: colorScheme)
+                            let sqInk = AppTheme.resolvedGlyphInkColor(useColor: useColorHieroglyphs, colorScheme: colorScheme)
+                            let sqAccent = useColorHieroglyphs ? sqInk : AppTheme.slateAccent
                             ForEach(Array(squares.enumerated()), id: \.offset) { idx, sqMdc in
                                 Button {
                                     copyToPasteboard(sqMdc, feedback: "Copied Q\(idx + 1) MdC")
@@ -184,7 +208,7 @@ struct WordInspectorView: View {
                                     VStack(spacing: 4) {
                                         Text("Q\(idx + 1)")
                                             .font(.system(size: 9.5, weight: .bold))
-                                            .foregroundStyle(.secondary)
+                                            .foregroundStyle(useColorHieroglyphs ? sqInk.opacity(0.75) : .secondary)
                                         QuadratWordView(
                                             mdc: sqMdc,
                                             fallbackGlyph: nil,
@@ -194,12 +218,12 @@ struct WordInspectorView: View {
                                         )
                                         Text(sqMdc)
                                             .font(.system(size: 10, design: .monospaced))
-                                            .foregroundStyle(AppTheme.slateAccent)
+                                            .foregroundStyle(sqAccent)
                                     }
                                     .padding(8)
                                     .background(
                                         RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                            .fill(AppTheme.glyphTileBackground)
+                                            .fill(sqBg)
                                     )
                                 }
                                 .buttonStyle(.plain)

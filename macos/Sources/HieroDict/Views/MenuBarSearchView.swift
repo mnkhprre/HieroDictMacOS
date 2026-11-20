@@ -6,6 +6,7 @@ struct MenuBarSearchView: View {
     @Environment(\.openWindow) private var openWindow
     @Environment(\.dismiss) private var dismiss
     @Environment(\.hieroFontChoice) private var hieroFontChoice
+    @Environment(\.useColorHieroglyphs) private var useColorHieroglyphs
     @Environment(\.colorScheme) private var colorScheme
 
     @FocusState private var isQueryFocused: Bool
@@ -159,19 +160,25 @@ struct MenuBarSearchView: View {
             )
 
             if showQuickGlyphs {
+                let quickBg = AppTheme.resolvedGlyphTileBackground(useColor: useColorHieroglyphs, colorScheme: colorScheme)
+                let quickInk = AppTheme.resolvedGlyphInkColor(useColor: useColorHieroglyphs, colorScheme: colorScheme)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 5) {
                         ForEach(quickHieroglyphs, id: \.self) { glyph in
                             Button {
                                 store.appendMenuBarGlyph(glyph)
                             } label: {
-                                Text(glyph)
-                                    .font(.hiero(size: 18, choice: hieroFontChoice))
-                                    .frame(width: 28, height: 28)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                            .fill(AppTheme.glyphTileBackground)
-                                    )
+                                HieroGlyphTileView(
+                                    glyph: glyph,
+                                    size: 18,
+                                    signLookup: store.signCache,
+                                    monochromeColor: quickInk
+                                )
+                                .frame(width: 28, height: 28)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .fill(quickBg)
+                                )
                             }
                             .buttonStyle(.plain)
                         }
@@ -181,6 +188,7 @@ struct MenuBarSearchView: View {
 
             let resolvedMdcGlyphs = store.resolveMdcGlyphsIfApplicable(for: store.menuBarSearchQuery)
             if !trimmedQuery.isEmpty, !resolvedMdcGlyphs.isEmpty {
+                let plateBg = AppTheme.resolvedGlyphTileBackground(useColor: useColorHieroglyphs, colorScheme: colorScheme)
                 HStack(spacing: 10) {
                     QuadratWordView(
                         mdc: trimmedQuery,
@@ -191,6 +199,12 @@ struct MenuBarSearchView: View {
                     )
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
+                    .background {
+                        if useColorHieroglyphs && colorScheme == .dark {
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(plateBg)
+                        }
+                    }
 
                     Text("MDC QUADRAT")
                         .font(.system(size: 10, weight: .semibold))
@@ -258,22 +272,29 @@ struct MenuBarSearchView: View {
                                 .padding(.horizontal, 14)
 
                             ScrollView(.horizontal, showsIndicators: false) {
+                                let chipBg = AppTheme.resolvedGlyphTileBackground(useColor: useColorHieroglyphs, colorScheme: colorScheme)
+                                let chipInk = AppTheme.resolvedGlyphInkColor(useColor: useColorHieroglyphs, colorScheme: colorScheme)
+                                let codeInk = useColorHieroglyphs ? chipInk : AppTheme.slateAccent
                                 HStack(spacing: 6) {
                                     ForEach(store.menuBarSigns) { sign in
                                         Button {
                                             store.menuBarSelectedSign = sign
                                         } label: {
                                             HStack(spacing: 6) {
-                                                Text(sign.glyph)
-                                                    .font(.hiero(size: 20, choice: hieroFontChoice))
-                                                    .foregroundStyle(.primary)
+                                                HieroGlyphTileView(
+                                                    glyph: sign.glyph,
+                                                    code: sign.code,
+                                                    size: 20,
+                                                    signLookup: store.signCache,
+                                                    monochromeColor: chipInk
+                                                )
                                                 VStack(alignment: .leading, spacing: 0) {
                                                     Text(sign.code)
                                                         .font(.system(size: 11, weight: .bold))
-                                                        .foregroundStyle(AppTheme.slateAccent)
+                                                        .foregroundStyle(codeInk)
                                                     Text(sign.name)
                                                         .font(.system(size: 9.5))
-                                                        .foregroundStyle(.secondary)
+                                                        .foregroundStyle(useColorHieroglyphs ? chipInk.opacity(0.75) : .secondary)
                                                         .lineLimit(1)
                                                 }
                                             }
@@ -282,7 +303,7 @@ struct MenuBarSearchView: View {
                                             .frame(maxWidth: 165, alignment: .leading)
                                             .background(
                                                 RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                                    .fill(AppTheme.glyphTileBackground)
+                                                    .fill(chipBg)
                                             )
                                         }
                                         .buttonStyle(.plain)
@@ -407,6 +428,8 @@ struct MenuBarSearchView: View {
                     .controlSize(.small)
                 }
 
+                let detailPlateBg = AppTheme.resolvedGlyphTileBackground(useColor: useColorHieroglyphs, colorScheme: colorScheme)
+                let detailInk = AppTheme.resolvedGlyphInkColor(useColor: useColorHieroglyphs, colorScheme: colorScheme)
                 Group {
                     if store.useQuadratLayout {
                         QuadratWordView(
@@ -417,12 +440,22 @@ struct MenuBarSearchView: View {
                             showGrid: store.showQuadratGuides
                         )
                     } else {
-                        Text(entry.glyph.isEmpty ? "—" : entry.glyph)
-                            .font(.hiero(size: 42, choice: hieroFontChoice))
+                        HieroGlyphTileView(
+                            glyph: entry.glyph,
+                            size: 42,
+                            signLookup: store.signCache,
+                            monochromeColor: detailInk
+                        )
                     }
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
+                .background {
+                    if useColorHieroglyphs && colorScheme == .dark {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(detailPlateBg)
+                    }
+                }
 
                 VStack(spacing: 3) {
                     Text(entry.formattedTranslit(for: transliterationModel))
@@ -520,9 +553,21 @@ struct MenuBarSearchView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                Text(sign.glyph)
-                    .font(.hiero(size: 52, choice: hieroFontChoice))
-                    .padding(.vertical, 8)
+                let signTileBg = AppTheme.resolvedGlyphTileBackground(useColor: useColorHieroglyphs, colorScheme: colorScheme)
+                let signTileInk = AppTheme.resolvedGlyphInkColor(useColor: useColorHieroglyphs, colorScheme: colorScheme)
+                HieroGlyphTileView(
+                    glyph: sign.glyph,
+                    code: sign.code,
+                    size: 52,
+                    signLookup: store.signCache,
+                    monochromeColor: signTileInk
+                )
+                .padding(.horizontal, 18)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(signTileBg)
+                )
 
                 Text(sign.name)
                     .font(.system(size: 17, weight: .bold))

@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<LinearLayout android:orientation="vertical" android:layout_width="match_parent" android:layout_height="match_parent"
-  xmlns:android="http://schemas.android.com/apk/res/android">
-    <es.doneill.android.hieroglyph.gardinerlist.view.GardinerTypesListView android:id="@id/gardinerListView" android:background="?background_normal" android:paddingLeft="5.0sp" android:paddingRight="5.0sp" android:layout_width="match_parent" android:layout_height="match_parent" android:cacheColorHint="?background_normal" android:layout_weight="1.0" android:fadeScrollbars="false" />
-</LinearLayout>

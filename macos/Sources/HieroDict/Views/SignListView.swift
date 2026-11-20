@@ -3,11 +3,14 @@ import SwiftUI
 struct SignListView: View {
     @ObservedObject var store: HieroDictStore
     @Environment(\.hieroFontChoice) private var hieroFontChoice
+    @Environment(\.useColorHieroglyphs) private var useColorHieroglyphs
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.enableWindowBlur) private var enableWindowBlur
 
     @State private var filterText: String = ""
     @State private var shapeFilter: SignShapeFilter = .all
     @State private var expandedCategories: Set<String> = ["A"]
+    @State private var selectedCategoryJump: String = "A"
     @State private var selectedSignDetail: GardinerSign? = nil
 
     private var filteredCategories: [GardinerCategory] {
@@ -45,99 +48,124 @@ struct SignListView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            VStack(spacing: 10) {
-                HStack(spacing: 10) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundStyle(AppTheme.slateAccent)
-                        TextField(
-                            shapeFilter == .ligatures
-                                ? "Filter 214 ligatures (e.g. I10, G43, X1)…"
-                                : "Filter signs by code or name (e.g. A1, bird, water)…",
-                            text: $filterText
+        let tileBg = AppTheme.resolvedGlyphTileBackground(useColor: useColorHieroglyphs, colorScheme: colorScheme)
+        let tileInk = AppTheme.resolvedGlyphInkColor(useColor: useColorHieroglyphs, colorScheme: colorScheme)
+
+        ScrollViewReader { scrollProxy in
+            VStack(spacing: 0) {
+                VStack(spacing: 10) {
+                    HStack(spacing: 10) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "magnifyingglass")
+                                .foregroundStyle(AppTheme.slateAccent)
+                            TextField(
+                                shapeFilter == .ligatures
+                                    ? "Filter 214 ligatures (e.g. I10, G43, X1)…"
+                                    : "Filter signs by code or name (e.g. A1, bird, water)…",
+                                text: $filterText
+                            )
+                            .textFieldStyle(.plain)
+                            .font(.system(size: 13.5))
+                            if !filterText.isEmpty {
+                                Button {
+                                    filterText = ""
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundStyle(.secondary)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(AppTheme.cardBackground)
                         )
-                        .textFieldStyle(.plain)
-                        .font(.system(size: 13.5))
-                        if !filterText.isEmpty {
-                            Button {
-                                filterText = ""
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundStyle(.secondary)
+
+                        if shapeFilter != .ligatures {
+                            if !store.categories.isEmpty {
+                                Picker("Category", selection: $selectedCategoryJump) {
+                                    ForEach(store.categories) { cat in
+                                        Text("\(cat.code) · \(cat.title) (\(cat.count))")
+                                            .tag(cat.code)
+                                    }
+                                }
+                                .labelsHidden()
+                                .frame(maxWidth: 210)
+                                .onChange(of: selectedCategoryJump) {
+                                    shapeFilter = .all
+                                    filterText = ""
+                                    expandedCategories.insert(selectedCategoryJump)
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        scrollProxy.scrollTo(selectedCategoryJump, anchor: .top)
+                                    }
+                                }
                             }
-                            .buttonStyle(.plain)
+
+                            Button {
+                                expandedCategories = Set(store.categories.map { $0.code })
+                            } label: {
+                                Label("Expand All", systemImage: "arrow.up.left.and.arrow.down.right")
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+
+                            Button {
+                                expandedCategories.removeAll()
+                            } label: {
+                                Label("Collapse All", systemImage: "arrow.down.right.and.arrow.up.left")
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
                         }
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(AppTheme.cardBackground)
-                    )
 
-                    if shapeFilter != .ligatures {
-                        Button {
-                            expandedCategories = Set(store.categories.map { $0.code })
-                        } label: {
-                            Label("Expand All", systemImage: "arrow.up.left.and.arrow.down.right")
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(SignShapeFilter.allCases) { item in
+                                let isSelected = shapeFilter == item
+                                Button {
+                                    shapeFilter = item
+                                    if item != .all && item != .ligatures {
+                                        expandedCategories = Set(store.categories.map { $0.code })
+                                    }
+                                } label: {
+                                    HStack(spacing: 5) {
+                                        Image(systemName: item.systemImage)
+                                            .font(.system(size: 11))
+                                        Text(item == .ligatures ? "Ligatures (\(LigatureCatalog.shared.allRules.count))" : item.rawValue)
+                                            .font(.system(size: 12, weight: isSelected ? .semibold : .medium))
+                                    }
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
+                                    .foregroundStyle(isSelected ? Color.white : Color.primary)
+                                    .background(
+                                        Capsule(style: .continuous)
+                                            .fill(isSelected ? AppTheme.prominentButtonTint : AppTheme.cardBackground)
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            }
                         }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-
-                        Button {
-                            expandedCategories.removeAll()
-                        } label: {
-                            Label("Collapse All", systemImage: "arrow.down.right.and.arrow.up.left")
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
                     }
                 }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
 
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        ForEach(SignShapeFilter.allCases) { item in
-                            let isSelected = shapeFilter == item
-                            Button {
-                                shapeFilter = item
-                                if item != .all && item != .ligatures {
-                                    expandedCategories = Set(store.categories.map { $0.code })
-                                }
-                            } label: {
-                                HStack(spacing: 5) {
-                                    Image(systemName: item.systemImage)
-                                        .font(.system(size: 11))
-                                    Text(item == .ligatures ? "Ligatures (\(LigatureCatalog.shared.allRules.count))" : item.rawValue)
-                                        .font(.system(size: 12, weight: isSelected ? .semibold : .medium))
-                                }
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 5)
-                                .foregroundStyle(isSelected ? Color.white : Color.primary)
-                                .background(
-                                    Capsule(style: .continuous)
-                                        .fill(isSelected ? AppTheme.prominentButtonTint : AppTheme.cardBackground)
-                                )
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
+                Divider()
+
+                if shapeFilter == .ligatures {
+                    ligaturesGridView(tileBg: tileBg, tileInk: tileInk)
+                } else {
+                    categoriesListView(tileBg: tileBg, tileInk: tileInk)
                 }
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
-
-            Divider()
-
-            if shapeFilter == .ligatures {
-                ligaturesGridView
-            } else {
-                categoriesListView
             }
         }
         .sheet(item: $selectedSignDetail) { sign in
             SignDetailSheetView(
                 sign: sign,
+                signLookup: store.signCache,
                 onDismiss: { selectedSignDetail = nil },
                 onFindWords: {
                     let code = sign.code
@@ -149,8 +177,9 @@ struct SignListView: View {
         }
     }
 
-    private var ligaturesGridView: some View {
-        ScrollView {
+    private func ligaturesGridView(tileBg: Color, tileInk: Color) -> some View {
+        let codeInk = useColorHieroglyphs ? tileInk : AppTheme.slateAccent
+        return ScrollView {
             LazyVGrid(
                 columns: [GridItem(.adaptive(minimum: 118), spacing: 10)],
                 spacing: 10
@@ -172,7 +201,7 @@ struct SignListView: View {
 
                             Text(rule.displayKey)
                                 .font(.system(size: 11.5, weight: .semibold, design: .monospaced))
-                                .foregroundStyle(AppTheme.slateAccent)
+                                .foregroundStyle(codeInk)
                                 .lineLimit(1)
                         }
                         .frame(maxWidth: .infinity)
@@ -180,7 +209,7 @@ struct SignListView: View {
                         .padding(.vertical, 10)
                         .background(
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(AppTheme.glyphTileBackground)
+                                .fill(tileBg)
                         )
                     }
                     .buttonStyle(.plain)
@@ -191,8 +220,9 @@ struct SignListView: View {
         }
     }
 
-    private var categoriesListView: some View {
-        ScrollView {
+    private func categoriesListView(tileBg: Color, tileInk: Color) -> some View {
+        let codeInk = useColorHieroglyphs ? tileInk : AppTheme.slateAccent
+        return ScrollView {
             LazyVStack(spacing: 0) {
                 ForEach(Array(filteredCategories.enumerated()), id: \.element.id) { index, category in
                     let isExpanded = expandedCategories.contains(category.code) ||
@@ -237,6 +267,7 @@ struct SignListView: View {
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                        .id(category.code)
 
                         if isExpanded {
                             LazyVGrid(
@@ -248,18 +279,22 @@ struct SignListView: View {
                                         selectedSignDetail = sign
                                     } label: {
                                         VStack(spacing: 3) {
-                                            Text(sign.glyph)
-                                                .font(.hiero(size: 28, choice: hieroFontChoice))
-                                                .foregroundStyle(.primary)
+                                            HieroGlyphTileView(
+                                                glyph: sign.glyph,
+                                                code: sign.code,
+                                                size: 28,
+                                                signLookup: store.signCache,
+                                                monochromeColor: tileInk
+                                            )
                                             Text(sign.code)
                                                 .font(.system(size: 11, weight: .bold))
-                                                .foregroundStyle(AppTheme.slateAccent)
+                                                .foregroundStyle(codeInk)
                                         }
                                         .frame(maxWidth: .infinity)
                                         .padding(.vertical, 8)
                                         .background(
                                             RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                                .fill(AppTheme.glyphTileBackground)
+                                                .fill(tileBg)
                                         )
                                     }
                                     .buttonStyle(.plain)
@@ -300,7 +335,17 @@ struct SignListView: View {
         case .all, .person, .animal, .bird, .ligatures:
             return true
         case .tall, .wide, .square:
-            let size = QuadratGlyphMetricsCache.shared.designSizeEm(for: sign.glyph)
+            let size: CGSize
+            if useColorHieroglyphs,
+               let colorEm = ColorHieroglyphStore.shared.designSizeEm(
+                   forCodeOrToken: sign.code,
+                   glyph: sign.glyph,
+                   signLookup: store.signCache
+               ) {
+                size = colorEm
+            } else {
+                size = QuadratGlyphMetricsCache.shared.designSizeEm(for: sign.glyph)
+            }
             let ratio = size.width / max(size.height, 0.01)
             switch shapeFilter {
             case .tall:
