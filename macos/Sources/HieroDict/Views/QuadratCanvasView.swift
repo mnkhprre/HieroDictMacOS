@@ -11,6 +11,7 @@ struct QuadratWordView: View {
     var direction: ReadingDirection = .ltr
     var frame: EnclosureFrame = .none
     var showGrid: Bool = false
+    var canonicalSerekh: Bool = true
     var selectedSquareIndex: Int? = nil
     var onSelectSquare: ((Int) -> Void)? = nil
 
@@ -35,6 +36,25 @@ struct QuadratWordView: View {
         }
     }
 
+    private func canonicalSerekhParts(
+        for items: [(originalIndex: Int, node: QuadratNode)]
+    ) -> (crowns: [(originalIndex: Int, node: QuadratNode)], serekhIndex: Int, serekhChildren: [QuadratNode], trailing: [(originalIndex: Int, node: QuadratNode)])? {
+        guard canonicalSerekh else { return nil }
+        let logical = (direction == .rtl) ? Array(items.reversed()) : items
+        guard let sIdx = logical.firstIndex(where: {
+            if case .enclosure(_, .serekh, _) = $0.node { return true }
+            return false
+        }), sIdx > 0, sIdx <= 3 else {
+            return nil
+        }
+        guard case .enclosure(_, .serekh, let serekhChildren) = logical[sIdx].node else {
+            return nil
+        }
+        let crowns = Array(logical[..<sIdx])
+        let trailing = Array(logical[(sIdx + 1)...])
+        return (crowns: crowns, serekhIndex: logical[sIdx].originalIndex, serekhChildren: serekhChildren, trailing: trailing)
+    }
+
     var body: some View {
         let _ = hieroFontChoice
         let allEmpty = indexedLines.allSatisfy { $0.items.isEmpty }
@@ -51,9 +71,18 @@ struct QuadratWordView: View {
                 HStack(alignment: .top, spacing: max(6, quadratSize * 0.22)) {
                     let orderedLines = Array(indexedLines.reversed())
                     ForEach(orderedLines, id: \.lineId) { line in
-                        VStack(spacing: max(3, quadratSize * 0.10)) {
-                            ForEach(line.items, id: \.originalIndex) { item in
-                                quadratCell(item.node, originalIndex: item.originalIndex)
+                        if let serekhParts = canonicalSerekhParts(for: line.items) {
+                            VStack(spacing: max(3, quadratSize * 0.10)) {
+                                canonicalSerekhColumn(serekhParts)
+                                ForEach(serekhParts.trailing, id: \.originalIndex) { item in
+                                    quadratCell(item.node, originalIndex: item.originalIndex)
+                                }
+                            }
+                        } else {
+                            VStack(spacing: max(3, quadratSize * 0.10)) {
+                                ForEach(line.items, id: \.originalIndex) { item in
+                                    quadratCell(item.node, originalIndex: item.originalIndex)
+                                }
                             }
                         }
                     }
@@ -61,9 +90,25 @@ struct QuadratWordView: View {
             } else {
                 VStack(alignment: direction == .rtl ? .trailing : .leading, spacing: max(6, quadratSize * 0.22)) {
                     ForEach(indexedLines, id: \.lineId) { line in
-                        HStack(spacing: max(3, quadratSize * 0.10)) {
-                            ForEach(line.items, id: \.originalIndex) { item in
-                                quadratCell(item.node, originalIndex: item.originalIndex)
+                        if let serekhParts = canonicalSerekhParts(for: line.items) {
+                            HStack(alignment: .center, spacing: max(4, quadratSize * 0.14)) {
+                                if direction == .rtl {
+                                    ForEach(Array(serekhParts.trailing.reversed()), id: \.originalIndex) { item in
+                                        quadratCell(item.node, originalIndex: item.originalIndex)
+                                    }
+                                    canonicalSerekhColumn(serekhParts)
+                                } else {
+                                    canonicalSerekhColumn(serekhParts)
+                                    ForEach(serekhParts.trailing, id: \.originalIndex) { item in
+                                        quadratCell(item.node, originalIndex: item.originalIndex)
+                                    }
+                                }
+                            }
+                        } else {
+                            HStack(spacing: max(3, quadratSize * 0.10)) {
+                                ForEach(line.items, id: \.originalIndex) { item in
+                                    quadratCell(item.node, originalIndex: item.originalIndex)
+                                }
                             }
                         }
                     }
@@ -79,8 +124,8 @@ struct QuadratWordView: View {
         case .cartouche:
             CartoucheContainer(direction: direction, strokeWidth: max(1.6, quadratSize * 0.055)) {
                 content
-                    .padding(.horizontal, max(12, quadratSize * 0.48))
-                    .padding(.vertical, max(6, quadratSize * 0.22))
+                    .padding(.horizontal, max(10, quadratSize * 0.36))
+                    .padding(.vertical, max(4, quadratSize * 0.16))
             }
         case .serekh:
             SerekhContainer(strokeWidth: max(1.6, quadratSize * 0.055)) {
@@ -92,31 +137,130 @@ struct QuadratWordView: View {
     }
 
     @ViewBuilder
+    private func canonicalSerekhColumn(
+        _ parts: (crowns: [(originalIndex: Int, node: QuadratNode)], serekhIndex: Int, serekhChildren: [QuadratNode], trailing: [(originalIndex: Int, node: QuadratNode)])
+    ) -> some View {
+        let monochromeInk = AppTheme.resolvedGlyphInkColor(useColor: useColorHieroglyphs, colorScheme: colorScheme)
+        let crownSize = max(16, quadratSize * 0.72)
+        let chamberUnit = max(16, quadratSize * 0.80)
+        let orderedCrowns = (direction == .rtl) ? Array(parts.crowns.reversed()) : parts.crowns
+        let strokeW = max(1.4, quadratSize * 0.048)
+
+        VStack(spacing: -strokeW * 0.25) {
+            HStack(spacing: max(2, crownSize * 0.08)) {
+                ForEach(orderedCrowns, id: \.originalIndex) { item in
+                    let em = CadratLayoutSolver.measureEm(item.node, signLookup: signLookup, useColor: useColorHieroglyphs)
+                    let cw = max(em.width * crownSize, crownSize * 0.28)
+                    let ch = max(em.height * crownSize, crownSize * 0.28)
+                    QuadratNodeRenderer(
+                        node: item.node,
+                        placedSize: CGSize(width: cw, height: ch),
+                        unitSize: crownSize,
+                        globalFlip: direction == .rtl,
+                        showSubGrid: showGrid,
+                        signLookup: signLookup,
+                        monochromeInk: monochromeInk
+                    )
+                    .frame(width: cw, height: ch)
+                    .modifier(InteractiveCellModifier(onSelect: onSelectSquare.map { cb in { cb(item.originalIndex) } }))
+                }
+            }
+            .padding(.bottom, max(1, strokeW * 0.5))
+
+            let chamberContent = VStack(spacing: max(2, chamberUnit * 0.08)) {
+                if parts.serekhChildren.isEmpty {
+                    Color.clear
+                        .frame(width: chamberUnit * 0.8, height: chamberUnit * 0.7)
+                } else {
+                    ForEach(Array(parts.serekhChildren.enumerated()), id: \.offset) { _, child in
+                        let em = CadratLayoutSolver.measureEm(child, signLookup: signLookup, useColor: useColorHieroglyphs)
+                        let cw = max(em.width * chamberUnit, chamberUnit * 0.28)
+                        let ch = max(em.height * chamberUnit, chamberUnit * 0.24)
+                        QuadratNodeRenderer(
+                            node: child,
+                            placedSize: CGSize(width: cw, height: ch),
+                            unitSize: chamberUnit,
+                            globalFlip: direction == .rtl,
+                            showSubGrid: showGrid,
+                            signLookup: signLookup,
+                            monochromeInk: monochromeInk
+                        )
+                        .frame(width: max(cw, chamberUnit * 0.92), height: ch)
+                    }
+                }
+            }
+            .padding(.horizontal, max(7, chamberUnit * 0.24))
+            .padding(.vertical, max(5, chamberUnit * 0.16))
+
+            let serekhBox = SerekhContainer(strokeWidth: strokeW) {
+                chamberContent
+            }
+            .background {
+                if selectedSquareIndex == parts.serekhIndex {
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(AppTheme.slateAccent.opacity(0.10))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .stroke(AppTheme.slateAccent, lineWidth: 2)
+                        )
+                }
+            }
+
+            interactiveWrapper(serekhBox, originalIndex: parts.serekhIndex)
+        }
+    }
+
+    @ViewBuilder
     private func quadratCell(_ node: QuadratNode, originalIndex: Int) -> some View {
         let isSelected = selectedSquareIndex == originalIndex
         let monochromeInk = AppTheme.resolvedGlyphInkColor(useColor: useColorHieroglyphs, colorScheme: colorScheme)
         if case .enclosure(_, let encFrame, let encChildren) = node {
-            let orderedChildren = direction == .rtl ? Array(encChildren.reversed()) : encChildren
+            let innerUnit = quadratSize * 0.86
+            let strokeW = max(1.4, quadratSize * 0.048)
+
             let innerContent = Group {
-                if orderedChildren.isEmpty {
+                if encChildren.isEmpty {
                     Color.clear
-                        .frame(width: max(12, quadratSize * 0.45), height: max(12, quadratSize * 0.72))
-                } else {
-                    HStack(spacing: max(2, quadratSize * 0.08)) {
-                        ForEach(Array(orderedChildren.enumerated()), id: \.offset) { _, child in
+                        .frame(width: max(12, innerUnit * 0.5), height: max(12, innerUnit * 0.72))
+                } else if direction == .vertical || encFrame == .serekh {
+                    VStack(spacing: max(2, innerUnit * 0.08)) {
+                        ForEach(Array(encChildren.enumerated()), id: \.offset) { _, child in
                             let em = CadratLayoutSolver.measureEm(child, signLookup: signLookup, useColor: useColorHieroglyphs)
-                            let cw = max(em.width, 0.24) * quadratSize
-                            let ch = min(em.height, 1.0) * quadratSize
+                            let cw = max(em.width * innerUnit, innerUnit * 0.24)
+                            let ch = max(em.height * innerUnit, innerUnit * 0.22)
                             QuadratNodeRenderer(
                                 node: child,
                                 placedSize: CGSize(width: cw, height: ch),
-                                unitSize: quadratSize,
+                                unitSize: innerUnit,
                                 globalFlip: direction == .rtl,
                                 showSubGrid: showGrid,
                                 signLookup: signLookup,
                                 monochromeInk: monochromeInk
                             )
-                            .frame(width: cw, height: quadratSize)
+                            .frame(width: max(cw, innerUnit * 0.88), height: ch)
+                        }
+                    }
+                } else {
+                    let orderedChildren = direction == .rtl ? Array(encChildren.reversed()) : encChildren
+                    let rowEmH = orderedChildren
+                        .map { CadratLayoutSolver.measureEm($0, signLookup: signLookup, useColor: useColorHieroglyphs).height }
+                        .max() ?? 0.82
+                    let targetRowH = max(innerUnit * 0.68, min(innerUnit, rowEmH * innerUnit))
+                    HStack(alignment: .center, spacing: max(2, innerUnit * 0.08)) {
+                        ForEach(Array(orderedChildren.enumerated()), id: \.offset) { _, child in
+                            let em = CadratLayoutSolver.measureEm(child, signLookup: signLookup, useColor: useColorHieroglyphs)
+                            let cw = max(em.width, 0.22) * innerUnit
+                            let ch = min(em.height, 1.0) * innerUnit
+                            QuadratNodeRenderer(
+                                node: child,
+                                placedSize: CGSize(width: cw, height: ch),
+                                unitSize: innerUnit,
+                                globalFlip: direction == .rtl,
+                                showSubGrid: showGrid,
+                                signLookup: signLookup,
+                                monochromeInk: monochromeInk
+                            )
+                            .frame(width: cw, height: targetRowH)
                         }
                     }
                 }
@@ -124,16 +268,18 @@ struct QuadratWordView: View {
 
             let wrapped = Group {
                 if encFrame == .serekh {
-                    SerekhContainer(strokeWidth: max(1.4, quadratSize * 0.048)) {
+                    SerekhContainer(strokeWidth: strokeW) {
                         innerContent
-                            .padding(.horizontal, max(8, quadratSize * 0.28))
-                            .padding(.vertical, max(4, quadratSize * 0.16))
+                            .padding(.horizontal, max(7, innerUnit * 0.24))
+                            .padding(.vertical, max(4, innerUnit * 0.16))
                     }
                 } else {
-                    CartoucheContainer(direction: direction == .vertical ? .ltr : direction, strokeWidth: max(1.4, quadratSize * 0.048)) {
+                    let vPad = direction == .vertical ? max(7, innerUnit * 0.26) : max(3, innerUnit * 0.11)
+                    let hPad = direction == .vertical ? max(5, innerUnit * 0.20) : max(8, innerUnit * 0.30)
+                    CartoucheContainer(direction: direction, strokeWidth: strokeW) {
                         innerContent
-                            .padding(.horizontal, max(10, quadratSize * 0.42))
-                            .padding(.vertical, max(4, quadratSize * 0.16))
+                            .padding(.horizontal, hPad)
+                            .padding(.vertical, vPad)
                     }
                 }
             }
@@ -309,9 +455,20 @@ private enum CadratLayoutSolver {
                 }
                 return CGSize(width: max(0.08, w), height: max(0.08, h))
             }
+            let normalizedTokens = tokens.map { $0.split(separator: "\\").first.map(String.init)?.uppercased() ?? "" }.filter { !$0.isEmpty }
+            if normalizedTokens.count >= 2 && Set(normalizedTokens).count == 1 {
+                let gap: CGFloat = 0.04
+                let totalW = sizes.map(\.width).reduce(0, +) + gap * CGFloat(max(0, children.count - 1))
+                let maxH = sizes.map(\.height).max() ?? 0.6
+                let fit = totalW > maxCadratWidthEm ? (maxCadratWidthEm / totalW) : 1.0
+                return CGSize(width: max(0.08, totalW * fit), height: max(0.08, maxH * fit))
+            }
+            let baseW = sizes.first?.width ?? 0.6
+            let baseH = sizes.first?.height ?? 0.6
+            let extraW = sizes.dropFirst().map { $0.width * 0.45 }.max() ?? 0
             return CGSize(
-                width: max(0.08, sizes.map(\.width).max() ?? 0.6),
-                height: max(0.08, sizes.map(\.height).max() ?? 0.6)
+                width: min(maxCadratWidthEm, max(0.08, baseW + extraW)),
+                height: max(0.08, max(baseH, sizes.dropFirst().map { $0.height * 0.6 }.max() ?? 0))
             )
 
         case .tuck(_, let container, _, _):
@@ -425,31 +582,77 @@ private struct QuadratNodeRenderer: View {
                 .frame(width: canvasW, height: canvasH, alignment: .topLeading)
                 .frame(width: placedSize.width, height: placedSize.height)
             } else {
+                let normalizedTokens = tokens.map { $0.split(separator: "\\").first.map(String.init)?.uppercased() ?? "" }.filter { !$0.isEmpty }
                 let natural = CadratLayoutSolver.measureEm(node, signLookup: signLookup, useColor: useColorHieroglyphs)
                 let localScale = min(
                     placedSize.width / max(natural.width, 0.01),
                     placedSize.height / max(natural.height, 0.01)
                 )
-                ZStack {
-                    ForEach(Array(children.enumerated()), id: \.offset) { idx, child in
-                        let childEm = childEms[idx]
-                        let factor: CGFloat = idx == 0 ? 1.0 : 0.65
-                        let childSize = CGSize(
-                            width: childEm.width * localScale * factor,
-                            height: childEm.height * localScale * factor
-                        )
-                        QuadratNodeRenderer(
-                            node: child,
-                            placedSize: childSize,
-                            unitSize: unitSize,
-                            globalFlip: globalFlip,
-                            showSubGrid: false,
-                            signLookup: signLookup,
-                            monochromeInk: monochromeInk
-                        )
+                if normalizedTokens.count >= 2 && Set(normalizedTokens).count == 1 {
+                    let ordered = globalFlip ? Array(children.reversed()) : children
+                    let orderedEms = globalFlip ? Array(childEms.reversed()) : childEms
+                    HStack(spacing: max(1, 0.04 * localScale)) {
+                        ForEach(Array(ordered.enumerated()), id: \.offset) { idx, child in
+                            let childEm = orderedEms[idx]
+                            let childSize = CGSize(
+                                width: max(2, childEm.width * localScale),
+                                height: max(2, childEm.height * localScale)
+                            )
+                            QuadratNodeRenderer(
+                                node: child,
+                                placedSize: childSize,
+                                unitSize: unitSize,
+                                globalFlip: globalFlip,
+                                showSubGrid: false,
+                                signLookup: signLookup,
+                                monochromeInk: monochromeInk
+                            )
+                        }
                     }
+                    .frame(width: placedSize.width, height: placedSize.height)
+                } else {
+                    ZStack(alignment: globalFlip ? .bottomLeading : .bottomTrailing) {
+                        if let anchor = children.first, let anchorEm = childEms.first {
+                            let anchorSize = CGSize(
+                                width: max(2, anchorEm.width * localScale),
+                                height: max(2, anchorEm.height * localScale)
+                            )
+                            QuadratNodeRenderer(
+                                node: anchor,
+                                placedSize: anchorSize,
+                                unitSize: unitSize,
+                                globalFlip: globalFlip,
+                                showSubGrid: false,
+                                signLookup: signLookup,
+                                monochromeInk: monochromeInk
+                            )
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: globalFlip ? .trailing : .leading)
+                        }
+                        ForEach(Array(children.dropFirst().enumerated()), id: \.offset) { offsetIdx, child in
+                            let idx = offsetIdx + 1
+                            let childEm = childEms[idx]
+                            let factor: CGFloat = 0.56
+                            let childSize = CGSize(
+                                width: max(2, childEm.width * localScale * factor),
+                                height: max(2, childEm.height * localScale * factor)
+                            )
+                            QuadratNodeRenderer(
+                                node: child,
+                                placedSize: childSize,
+                                unitSize: unitSize,
+                                globalFlip: globalFlip,
+                                showSubGrid: false,
+                                signLookup: signLookup,
+                                monochromeInk: monochromeInk
+                            )
+                            .offset(
+                                x: globalFlip ? CGFloat(offsetIdx) * 3 : -CGFloat(offsetIdx) * 3,
+                                y: -CGFloat(offsetIdx) * 3
+                            )
+                        }
+                    }
+                    .frame(width: placedSize.width, height: placedSize.height)
                 }
-                .frame(width: placedSize.width, height: placedSize.height)
             }
 
         case .tuck(_, let container, let tucked, let corner):
@@ -669,25 +872,26 @@ private struct CartoucheContainer<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {
-        let knotLength = max(16, strokeWidth * 11.5)
+        let barThickness = max(2.2, strokeWidth * 1.45)
+        let overlap = max(0.5, strokeWidth * 0.35)
         if direction == .vertical {
-            VStack(spacing: max(1.5, strokeWidth * 0.7)) {
+            VStack(spacing: -overlap) {
                 content
                     .background(
                         Capsule()
                             .stroke(AppTheme.slateAccent, lineWidth: strokeWidth)
                     )
                     .padding(strokeWidth * 0.5)
-                Capsule()
+                RoundedRectangle(cornerRadius: barThickness * 0.45, style: .continuous)
                     .fill(AppTheme.slateAccent)
-                    .frame(width: knotLength, height: strokeWidth * 1.55)
+                    .frame(width: max(22, strokeWidth * 14), height: barThickness)
             }
         } else {
-            HStack(spacing: max(1.5, strokeWidth * 0.7)) {
+            HStack(spacing: -overlap) {
                 if direction == .rtl {
-                    Capsule()
+                    RoundedRectangle(cornerRadius: barThickness * 0.45, style: .continuous)
                         .fill(AppTheme.slateAccent)
-                        .frame(width: strokeWidth * 1.55, height: knotLength)
+                        .frame(width: barThickness, height: max(20, strokeWidth * 13))
                 }
                 content
                     .background(
@@ -696,9 +900,9 @@ private struct CartoucheContainer<Content: View>: View {
                     )
                     .padding(strokeWidth * 0.5)
                 if direction != .rtl {
-                    Capsule()
+                    RoundedRectangle(cornerRadius: barThickness * 0.45, style: .continuous)
                         .fill(AppTheme.slateAccent)
-                        .frame(width: strokeWidth * 1.55, height: knotLength)
+                        .frame(width: barThickness, height: max(20, strokeWidth * 13))
                 }
             }
         }
@@ -710,25 +914,36 @@ private struct SerekhContainer<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {
-        let facadeHeight = max(8, strokeWidth * 4.5)
-        let stripeWidth = max(2.5, strokeWidth * 1.5)
+        let facadeHeight = max(10, strokeWidth * 5.2)
+        let stripeWidth = max(2.2, strokeWidth * 1.35)
         VStack(spacing: -strokeWidth * 0.5) {
             content
-                .frame(minWidth: max(48, strokeWidth * 32))
+                .frame(minWidth: max(38, strokeWidth * 22))
                 .overlay(
                     Rectangle()
                         .stroke(AppTheme.slateAccent, lineWidth: strokeWidth)
                 )
 
-            HStack(spacing: max(2, strokeWidth * 1.1)) {
-                ForEach(0..<7, id: \.self) { idx in
-                    Rectangle()
-                        .fill(idx.isMultiple(of: 2) ? AppTheme.slateAccent : AppTheme.slateAccent.opacity(0.25))
-                        .frame(width: stripeWidth, height: facadeHeight)
+            HStack(spacing: max(1.8, strokeWidth * 0.95)) {
+                ForEach(0..<9, id: \.self) { idx in
+                    VStack(spacing: 0) {
+                        if idx.isMultiple(of: 2) {
+                            Rectangle()
+                                .fill(AppTheme.slateAccent)
+                                .frame(width: stripeWidth, height: facadeHeight)
+                        } else {
+                            Rectangle()
+                                .fill(AppTheme.slateAccent.opacity(0.28))
+                                .frame(width: stripeWidth, height: facadeHeight * 0.35)
+                            Rectangle()
+                                .fill(AppTheme.slateAccent.opacity(0.65))
+                                .frame(width: stripeWidth, height: facadeHeight * 0.65)
+                        }
+                    }
                 }
             }
-            .padding(.horizontal, max(6, strokeWidth * 2.8))
-            .padding(.vertical, max(2.5, strokeWidth * 1.1))
+            .padding(.horizontal, max(5, strokeWidth * 2.2))
+            .padding(.vertical, max(2, strokeWidth * 0.9))
             .frame(maxWidth: .infinity)
             .background(AppTheme.slateAccent.opacity(0.08))
             .overlay(

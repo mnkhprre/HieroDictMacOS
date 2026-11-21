@@ -56,7 +56,7 @@ final class SQLiteDatabaseStore {
         return sqlite3_column_int(stmt, 0) == 3
     }
 
-    private static let bundledDbVersion = 4
+    private static let bundledDbVersion = 5
 
     private static func readDatabaseVersion(at url: URL) -> Int {
         var handle: OpaquePointer?

@@ -239,6 +239,23 @@ struct PharaohDynasty: Identifiable, Hashable {
     }
 }
 
+enum RoyalEnclosureKind: String, CaseIterable, Identifiable, Hashable {
+    case cartouche = "Shenu Cartouche"
+    case serekh = "Serekh Palace"
+    case open = "Open Protocol"
+
+    var id: String { rawValue }
+}
+
+enum CartoucheDisplayLayout: String, CaseIterable, Identifiable, Hashable {
+    case epigraphic = "Epigraphic"
+    case vertical = "Vertical"
+    case rtl = "RTL"
+    case linear = "Linear"
+
+    var id: String { rawValue }
+}
+
 struct PharaohCartouche: Identifiable, Hashable {
     let id: Int
     let pharaohId: String
@@ -248,6 +265,28 @@ struct PharaohCartouche: Identifiable, Hashable {
     let mdcNormalized: String
     let isVariant: Bool
     let signCodes: [String]
+
+    var enclosureKind: RoyalEnclosureKind {
+        if mdcNormalized.contains("<S-") || mdcNormalized.contains("<h-") {
+            return .serekh
+        }
+        if mdcNormalized.contains("<-") {
+            return .cartouche
+        }
+        return .open
+    }
+
+    var hasRotationOrMirrorModifiers: Bool {
+        mdcNormalized.contains("\\R") || mdcNormalized.contains("\\H")
+    }
+
+    var hasScalingModifiers: Bool {
+        mdcNormalized.range(of: "\\\\[0-9]", options: .regularExpression) != nil
+    }
+
+    var hasDamageOrLacuna: Bool {
+        mdcNormalized.contains("#") || mdcNormalized.contains("//") || mdcNormalized.contains("h/")
+    }
 }
 
 struct Pharaoh: Identifiable, Hashable {

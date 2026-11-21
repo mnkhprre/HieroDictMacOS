@@ -139,9 +139,35 @@ final class LigatureCatalog {
         guard cleaned.allSatisfy({ !$0.isEmpty }) else { return nil }
         let key = cleaned.joined(separator: "&")
         lock.lock()
-        let match = rulesByKey[key]
+        let exact = rulesByKey[key]
+        if let exact {
+            lock.unlock()
+            return exact
+        }
+        let strippedKey = cleaned.map { stripVariantLetters($0) }.joined(separator: "&")
+        let fallback = (strippedKey != key) ? rulesByKey[strippedKey] : nil
         lock.unlock()
-        return match
+        return fallback
+    }
+
+    private func stripVariantLetters(_ code: String) -> String {
+        guard let range = code.range(of: "^([A-Z]{1,2}\\d+)[A-Z]+$", options: .regularExpression) else {
+            return code
+        }
+        let matched = String(code[range])
+        var prefix = ""
+        var seenDigit = false
+        for ch in matched {
+            if ch.isNumber {
+                seenDigit = true
+                prefix.append(ch)
+            } else if !seenDigit {
+                prefix.append(ch)
+            } else {
+                break
+            }
+        }
+        return prefix.isEmpty ? code : prefix
     }
 
     private func normalizeToken(_ raw: String) -> String {
