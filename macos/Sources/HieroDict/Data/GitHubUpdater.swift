@@ -627,9 +627,9 @@ private final class AssetDownloader: NSObject, URLSessionDownloadDelegate {
     }
 
     func download(from url: URL, to destination: URL) async throws {
-        lock.lock()
-        self.destinationURL = destination
-        lock.unlock()
+        lock.withLock {
+            self.destinationURL = destination
+        }
 
         let config = URLSessionConfiguration.ephemeral
         config.timeoutIntervalForRequest = 30
@@ -637,10 +637,10 @@ private final class AssetDownloader: NSObject, URLSessionDownloadDelegate {
         let createdSession = URLSession(configuration: config, delegate: self, delegateQueue: nil)
 
         try await withCheckedThrowingContinuation { cont in
-            lock.lock()
-            self.session = createdSession
-            self.continuation = cont
-            lock.unlock()
+            lock.withLock {
+                self.session = createdSession
+                self.continuation = cont
+            }
             let task = createdSession.downloadTask(with: url)
             task.resume()
         }

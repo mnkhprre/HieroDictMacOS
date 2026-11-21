@@ -73,14 +73,18 @@ final class SQLiteDatabaseStore {
         return Int(sqlite3_column_int(stmt, 0))
     }
 
-    private static func readUserDataSnapshot(at url: URL) -> (
-        favorites: [(id: Int64, mdc: String, translitRaw: String)],
-        stacks: [(title: String, mdc: String, direction: String, frameMode: String, createdAt: Double)]
-    ) {
+    private struct UserDataSnapshot {
+        let favorites: [(id: Int64, mdc: String, translitRaw: String)]
+        let stacks: [(title: String, mdc: String, direction: String, frameMode: String, createdAt: Double)]
+
+        static let empty = UserDataSnapshot(favorites: [], stacks: [])
+    }
+
+    private static func readUserDataSnapshot(at url: URL) -> UserDataSnapshot {
         var handle: OpaquePointer?
         guard sqlite3_open_v2(url.path, &handle, SQLITE_OPEN_READONLY, nil) == SQLITE_OK, let handle else {
             if let handle { sqlite3_close_v2(handle) }
-            return ([], [])
+            return .empty
         }
         defer { sqlite3_close_v2(handle) }
 
@@ -110,14 +114,12 @@ final class SQLiteDatabaseStore {
         }
         sqlite3_finalize(stackStmt)
 
-        return (favorites, stacks)
+        return UserDataSnapshot(favorites: favorites, stacks: stacks)
     }
 
-    private static func restoreUserDataSnapshot(
-        at url: URL,
-        favorites: [(id: Int64, mdc: String, translitRaw: String)],
-        stacks: [(title: String, mdc: String, direction: String, frameMode: String, createdAt: Double)]
-    ) {
+    private static func restoreUserDataSnapshot(at url: URL, snapshot: UserDataSnapshot) {
+        let favorites = snapshot.favorites
+        let stacks = snapshot.stacks
         guard !favorites.isEmpty || !stacks.isEmpty else { return }
         var handle: OpaquePointer?
         guard sqlite3_open_v2(url.path, &handle, SQLITE_OPEN_READWRITE, nil) == SQLITE_OK, let handle else {
@@ -210,7 +212,7 @@ final class SQLiteDatabaseStore {
                     userInfo: [NSLocalizedDescriptionKey: "Bundled hierodict.db resource was not found."]
                 )
             }
-            let snapshot = validExisting ? readUserDataSnapshot(at: targetURL) : ([], [])
+            let snapshot = validExisting ? readUserDataSnapshot(at: targetURL) : .empty
             if fm.fileExists(atPath: targetURL.path) {
                 try? fm.removeItem(at: targetURL)
             }
@@ -219,7 +221,7 @@ final class SQLiteDatabaseStore {
             try? fm.removeItem(at: walURL)
             try? fm.removeItem(at: shmURL)
             try fm.copyItem(at: bundledURL, to: targetURL)
-            restoreUserDataSnapshot(at: targetURL, favorites: snapshot.favorites, stacks: snapshot.stacks)
+            restoreUserDataSnapshot(at: targetURL, snapshot: snapshot)
         }
         return targetURL
     }
