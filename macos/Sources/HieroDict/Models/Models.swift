@@ -154,6 +154,8 @@ enum SidebarSection: String, CaseIterable, Identifiable {
     case search = "Search"
     case dictionary = "Dictionary"
     case signList = "Sign List"
+    case pharaohs = "Pharaohs"
+    case flashCards = "Flash Cards"
     case about = "About"
 
     var id: String { rawValue }
@@ -163,9 +165,119 @@ enum SidebarSection: String, CaseIterable, Identifiable {
         case .search: return "magnifyingglass"
         case .dictionary: return "book.closed"
         case .signList: return "square.grid.2x2"
+        case .pharaohs: return "crown"
+        case .flashCards: return "rectangle.on.rectangle.angled"
         case .about: return "info.circle"
         }
     }
+}
+
+enum PharaohTitularyType: String, CaseIterable, Identifiable, Hashable {
+    case horus = "HORUS"
+    case nebti = "NEBTI"
+    case goldenHorus = "GOLDEN_HORUS"
+    case prenomen = "PRENOMEN"
+    case nomen = "NOMEN"
+
+    var id: String { rawValue }
+
+    var displayTitle: String {
+        switch self {
+        case .horus: return "Horus Name"
+        case .nebti: return "Nebty (Two Ladies)"
+        case .goldenHorus: return "Golden Horus"
+        case .prenomen: return "Prenomen (Throne)"
+        case .nomen: return "Nomen (Birth)"
+        }
+    }
+
+    var shortLabel: String {
+        switch self {
+        case .horus: return "Horus"
+        case .nebti: return "Nebty"
+        case .goldenHorus: return "Golden Horus"
+        case .prenomen: return "Prenomen"
+        case .nomen: return "Nomen"
+        }
+    }
+
+    var sortOrder: Int {
+        switch self {
+        case .horus: return 0
+        case .nebti: return 1
+        case .goldenHorus: return 2
+        case .prenomen: return 3
+        case .nomen: return 4
+        }
+    }
+}
+
+struct PharaohKingdom: Identifiable, Hashable {
+    let id: Int
+    let name: String
+    let dateStart: Int
+    let dateEnd: Int
+    let sortOrder: Int
+
+    var dateRangeLabel: String {
+        guard dateStart > 0 else { return "" }
+        return "\(dateStart)–\(dateEnd) BC"
+    }
+}
+
+struct PharaohDynasty: Identifiable, Hashable {
+    let id: String
+    let kingdomId: Int
+    let name: String
+    let dateStart: Int
+    let dateEnd: Int
+    let sortOrder: Int
+
+    var dateRangeLabel: String {
+        guard dateStart > 0 else { return "" }
+        return "\(dateStart)–\(dateEnd) BC"
+    }
+}
+
+struct PharaohCartouche: Identifiable, Hashable {
+    let id: Int
+    let pharaohId: String
+    let nameType: PharaohTitularyType
+    let transliteration: String
+    let mdcRaw: String
+    let mdcNormalized: String
+    let isVariant: Bool
+    let signCodes: [String]
+}
+
+struct Pharaoh: Identifiable, Hashable {
+    let id: String
+    let kingdomId: Int
+    let dynastyId: String
+    let name: String
+    let altNames: String
+    let horusTranslit: String
+    let nebtiTranslit: String
+    let goldenHorusTranslit: String
+    let prenomenTranslit: String
+    let nomenTranslit: String
+    let sortOrder: Int
+    let cartouches: [PharaohCartouche]
+
+    var primaryCartouche: PharaohCartouche? {
+        cartouches.first { !$0.isVariant && $0.nameType == .prenomen }
+            ?? cartouches.first { !$0.isVariant && $0.nameType == .nomen }
+            ?? cartouches.first { !$0.isVariant }
+            ?? cartouches.first
+    }
+}
+
+struct CartoucheSignFrequency: Identifiable, Hashable {
+    let code: String
+    let count: Int
+    let sign: GardinerSign?
+
+    var id: String { code }
 }
 
 enum DictionaryFilter: String, CaseIterable, Identifiable {
@@ -332,3 +444,136 @@ struct EgyptianPeriodItem: Identifiable {
     ]
 }
 
+enum LiteralCategory: String, CaseIterable, Identifiable, Hashable {
+    case uniliteral = "uniliteral"
+    case biliteral = "biliteral"
+    case triliteral = "triliteral"
+    case multiliteral = "multiliteral"
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .uniliteral: return "Uniliterals"
+        case .biliteral: return "Biliterals"
+        case .triliteral: return "Triliterals"
+        case .multiliteral: return "Multiliterals"
+        }
+    }
+
+    var shortTitle: String {
+        switch self {
+        case .uniliteral: return "1-Lit"
+        case .biliteral: return "2-Lit"
+        case .triliteral: return "3-Lit"
+        case .multiliteral: return "Multi"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .uniliteral: return "Single-consonant alphabet signs"
+        case .biliteral: return "Two-consonant phonetic signs"
+        case .triliteral: return "Three-consonant phonetic signs"
+        case .multiliteral: return "Complex multi-consonant signs"
+        }
+    }
+}
+
+enum FlashLevel: String, CaseIterable, Identifiable, Hashable {
+    case all = "All"
+    case beginner = "Beginner"
+    case intermediate = "Intermediate"
+    case advanced = "Advanced"
+
+    var id: String { rawValue }
+}
+
+enum FlashQuizDirection: String, CaseIterable, Identifiable, Hashable {
+    case hieroToTranslit = "Hieroglyph → Translit"
+    case translitToHiero = "Translit → Hieroglyph"
+
+    var id: String { rawValue }
+}
+
+enum FlashStudyMode: String, CaseIterable, Identifiable, Hashable {
+    case quiz = "Flash Cards"
+    case slideShow = "Slide Show"
+    case studyList = "Study List"
+    case statistics = "Statistics"
+
+    var id: String { rawValue }
+
+    var systemImage: String {
+        switch self {
+        case .quiz: return "square.stack.3d.up"
+        case .slideShow: return "play.rectangle"
+        case .studyList: return "list.bullet.rectangle"
+        case .statistics: return "chart.bar"
+        }
+    }
+}
+
+struct FlashLiteral: Identifiable, Hashable {
+    let id: Int
+    let category: LiteralCategory
+    let gardinerCode: String
+    let glyph: String
+    let translitRaw: String
+    let translit: String
+    let description: String
+    let inBeginner: Bool
+    let inIntermediate: Bool
+    let inAdvanced: Bool
+    let sortOrder: Int
+    var correctCount: Int
+    var wrongCount: Int
+    var lastPracticedAt: Double
+
+    var totalAttempts: Int {
+        correctCount + wrongCount
+    }
+
+    var accuracy: Double? {
+        guard totalAttempts > 0 else { return nil }
+        return Double(correctCount) / Double(totalAttempts)
+    }
+
+    func matchesLevel(_ level: FlashLevel) -> Bool {
+        switch level {
+        case .all: return true
+        case .beginner: return inBeginner
+        case .intermediate: return inIntermediate
+        case .advanced: return inAdvanced
+        }
+    }
+
+    func formattedTranslit(for model: TransliterationModel) -> String {
+        let base = translit.isEmpty ? translitRaw : translit
+        switch model {
+        case .british:
+            return base
+        case .european:
+            return base
+                .replacingOccurrences(of: "ỉ", with: "j")
+                .replacingOccurrences(of: "ḳ", with: "q")
+        case .computer:
+            if !translitRaw.isEmpty {
+                return translitRaw
+            }
+            let asciiMap: [Character: Character] = [
+                "ꜣ": "A", "ỉ": "i", "ꜥ": "a", "ḥ": "H", "ḫ": "x",
+                "ẖ": "X", "š": "S", "ḳ": "q", "ṯ": "T", "ḏ": "D"
+            ]
+            return String(base.map { asciiMap[$0] ?? $0 })
+        }
+    }
+
+    var levelBadges: [String] {
+        var badges: [String] = []
+        if inBeginner { badges.append("Beginner") }
+        if inIntermediate { badges.append("Intermediate") }
+        if inAdvanced { badges.append("Advanced") }
+        return badges
+    }
+}

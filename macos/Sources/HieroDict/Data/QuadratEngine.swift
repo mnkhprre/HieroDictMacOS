@@ -1271,6 +1271,13 @@ enum QuadratEngine {
                     resolved = signTrimmed.glyph
                 } else if let baseVariant, let variantSign = signLookup[baseVariant.uppercased()] {
                     resolved = variantSign.glyph
+                } else if let extCode = Self.extendedVariantFallback[base.uppercased()],
+                          let extSign = signLookup[extCode] {
+                    resolved = extSign.glyph
+                } else if let baseVariant,
+                          let extCode = Self.extendedVariantFallback[baseVariant.uppercased()],
+                          let extSign = signLookup[extCode] {
+                    resolved = extSign.glyph
                 } else {
                     resolved = base
                 }
@@ -1287,6 +1294,17 @@ enum QuadratEngine {
                 shading: shading
             )
         }
+
+        private static let extendedVariantFallback: [String: String] = [
+            "A80": "A40", "A304": "A42", "A311": "A42",
+            "C53A": "C4", "C59": "C4", "C7A": "C7", "C92A": "C9", "C95": "C9",
+            "C98B": "C10", "C177": "C2", "C178": "C10", "C183A": "C12",
+            "C18C": "C12", "C18F": "C12", "D251": "D4", "E35": "E23",
+            "E146": "E21", "E154": "E17", "F78": "F31", "G106": "G14",
+            "G135": "G26", "G141": "G5", "G191": "G43", "K24": "K1",
+            "M127": "M23", "M162": "M17", "N62": "N37", "O71": "O49",
+            "O200": "O1"
+        ]
 
         private static func stripGardinerVariantSuffix(_ token: String) -> String? {
             let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)

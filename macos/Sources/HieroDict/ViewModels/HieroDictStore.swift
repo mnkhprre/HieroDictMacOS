@@ -44,6 +44,13 @@ final class HieroDictStore: ObservableObject {
 
     @Published private(set) var signCache: [String: GardinerSign] = [:]
 
+    @Published var pharaohKingdoms: [PharaohKingdom] = []
+    @Published var pharaohDynasties: [PharaohDynasty] = []
+    @Published var pharaohs: [Pharaoh] = []
+    @Published var cartoucheSignFrequencies: [CartoucheSignFrequency] = []
+    @Published var selectedPharaoh: Pharaoh? = nil
+    @Published var flashLiterals: [FlashLiteral] = []
+
     private var database: SQLiteDatabaseStore?
     private var entryById: [Int: HieroEntry] = [:]
 
@@ -101,6 +108,22 @@ final class HieroDictStore: ObservableObject {
                 }
             }
             self.signCache = cache
+            let kingdoms = store.fetchPharaohKingdoms()
+            let dynasties = store.fetchPharaohDynasties()
+            let loadedPharaohs = store.fetchAllPharaohsWithCartouches()
+            let signCounts = store.fetchCartoucheSignCounts()
+            self.pharaohKingdoms = kingdoms
+            self.pharaohDynasties = dynasties
+            self.pharaohs = loadedPharaohs
+            self.cartoucheSignFrequencies = signCounts.map { item in
+                let upper = item.code.uppercased()
+                let resolvedSign = cache[upper] ?? cache[Self.stripSignVariantSuffix(upper)]
+                return CartoucheSignFrequency(code: item.code, count: item.count, sign: resolvedSign)
+            }
+            if self.selectedPharaoh == nil {
+                self.selectedPharaoh = loadedPharaohs.first { $0.id == "18-13" } ?? loadedPharaohs.first
+            }
+            self.flashLiterals = store.fetchFlashLiterals()
             ColorHieroglyphStore.shared.loadIfNeeded(signLookup: cache)
             self.isLoaded = true
         } catch {
@@ -206,6 +229,54 @@ final class HieroDictStore: ObservableObject {
             return cached
         }
         return database?.fetchSignDetails(code: code)
+    }
+
+    func kingdomName(for id: Int) -> String {
+        pharaohKingdoms.first { $0.id == id }?.name ?? ""
+    }
+
+    func dynastyInfo(for id: String) -> PharaohDynasty? {
+        pharaohDynasties.first { $0.id == id }
+    }
+
+    private static func stripSignVariantSuffix(_ code: String) -> String {
+        var prefix = ""
+        var seenDigit = false
+        for ch in code {
+            if ch.isNumber {
+                seenDigit = true
+                prefix.append(ch)
+            } else if !seenDigit {
+                prefix.append(ch)
+            } else {
+                break
+            }
+        }
+        return prefix.isEmpty ? code : prefix
+    }
+
+    func recordFlashAttempt(literalId: Int, isCorrect: Bool) {
+        let now = Date().timeIntervalSince1970
+        database?.recordFlashAttempt(literalId: literalId, isCorrect: isCorrect, timestamp: now)
+        if let idx = flashLiterals.firstIndex(where: { $0.id == literalId }) {
+            if isCorrect {
+                flashLiterals[idx].correctCount += 1
+            } else {
+                flashLiterals[idx].wrongCount += 1
+            }
+            flashLiterals[idx].lastPracticedAt = now
+        }
+    }
+
+    func resetFlashStats(category: LiteralCategory?) {
+        database?.resetFlashStats(category: category)
+        for idx in flashLiterals.indices {
+            if category == nil || flashLiterals[idx].category == category {
+                flashLiterals[idx].correctCount = 0
+                flashLiterals[idx].wrongCount = 0
+                flashLiterals[idx].lastPracticedAt = 0
+            }
+        }
     }
 
 

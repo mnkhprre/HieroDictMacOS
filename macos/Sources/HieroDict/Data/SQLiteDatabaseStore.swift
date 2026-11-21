@@ -19,6 +19,7 @@ final class SQLiteDatabaseStore {
         sqlite3_busy_timeout(handle, 3000)
         sqlite3_exec(handle, "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA temp_store=MEMORY; PRAGMA cache_size=-4000;", nil, nil, nil)
         ensureCustomStacksTable()
+        ensureFlashStatsTable()
     }
 
     deinit {
@@ -55,7 +56,7 @@ final class SQLiteDatabaseStore {
         return sqlite3_column_int(stmt, 0) == 3
     }
 
-    private static let bundledDbVersion = 2
+    private static let bundledDbVersion = 4
 
     private static func readDatabaseVersion(at url: URL) -> Int {
         var handle: OpaquePointer?
@@ -76,8 +77,9 @@ final class SQLiteDatabaseStore {
     private struct UserDataSnapshot {
         let favorites: [(id: Int64, mdc: String, translitRaw: String)]
         let stacks: [(title: String, mdc: String, direction: String, frameMode: String, createdAt: Double)]
+        let flashStats: [(literalId: Int64, correctCount: Int32, wrongCount: Int32, lastPracticedAt: Double)]
 
-        static let empty = UserDataSnapshot(favorites: [], stacks: [])
+        static let empty = UserDataSnapshot(favorites: [], stacks: [], flashStats: [])
     }
 
     private static func readUserDataSnapshot(at url: URL) -> UserDataSnapshot {
@@ -114,13 +116,27 @@ final class SQLiteDatabaseStore {
         }
         sqlite3_finalize(stackStmt)
 
-        return UserDataSnapshot(favorites: favorites, stacks: stacks)
+        var flashStats: [(literalId: Int64, correctCount: Int32, wrongCount: Int32, lastPracticedAt: Double)] = []
+        var flashStmt: OpaquePointer?
+        if sqlite3_prepare_v2(handle, "SELECT literalId, correctCount, wrongCount, lastPracticedAt FROM flash_stats", -1, &flashStmt, nil) == SQLITE_OK {
+            while sqlite3_step(flashStmt) == SQLITE_ROW {
+                let lid = sqlite3_column_int64(flashStmt, 0)
+                let c = sqlite3_column_int(flashStmt, 1)
+                let w = sqlite3_column_int(flashStmt, 2)
+                let ts = sqlite3_column_double(flashStmt, 3)
+                flashStats.append((lid, c, w, ts))
+            }
+        }
+        sqlite3_finalize(flashStmt)
+
+        return UserDataSnapshot(favorites: favorites, stacks: stacks, flashStats: flashStats)
     }
 
     private static func restoreUserDataSnapshot(at url: URL, snapshot: UserDataSnapshot) {
         let favorites = snapshot.favorites
         let stacks = snapshot.stacks
-        guard !favorites.isEmpty || !stacks.isEmpty else { return }
+        let flashStats = snapshot.flashStats
+        guard !favorites.isEmpty || !stacks.isEmpty || !flashStats.isEmpty else { return }
         var handle: OpaquePointer?
         guard sqlite3_open_v2(url.path, &handle, SQLITE_OPEN_READWRITE, nil) == SQLITE_OK, let handle else {
             if let handle { sqlite3_close_v2(handle) }
@@ -181,6 +197,30 @@ final class SQLiteDatabaseStore {
                 }
             }
             sqlite3_finalize(insertStmt)
+        }
+
+        if !flashStats.isEmpty {
+            let createFlashSQL = """
+            CREATE TABLE IF NOT EXISTS flash_stats (
+                literalId INTEGER PRIMARY KEY,
+                correctCount INTEGER NOT NULL DEFAULT 0,
+                wrongCount INTEGER NOT NULL DEFAULT 0,
+                lastPracticedAt REAL NOT NULL DEFAULT 0
+            )
+            """
+            sqlite3_exec(handle, createFlashSQL, nil, nil, nil)
+            var flashInsertStmt: OpaquePointer?
+            if sqlite3_prepare_v2(handle, "INSERT OR REPLACE INTO flash_stats (literalId, correctCount, wrongCount, lastPracticedAt) VALUES (?, ?, ?, ?)", -1, &flashInsertStmt, nil) == SQLITE_OK {
+                for item in flashStats {
+                    sqlite3_reset(flashInsertStmt)
+                    sqlite3_bind_int64(flashInsertStmt, 1, item.literalId)
+                    sqlite3_bind_int(flashInsertStmt, 2, item.correctCount)
+                    sqlite3_bind_int(flashInsertStmt, 3, item.wrongCount)
+                    sqlite3_bind_double(flashInsertStmt, 4, item.lastPracticedAt)
+                    sqlite3_step(flashInsertStmt)
+                }
+            }
+            sqlite3_finalize(flashInsertStmt)
         }
 
         sqlite3_exec(handle, "COMMIT", nil, nil, nil)
@@ -587,6 +627,220 @@ final class SQLiteDatabaseStore {
         }
     }
 
+    func fetchPharaohKingdoms() -> [PharaohKingdom] {
+        queue.sync {
+            guard let db else { return [] }
+            let sql = "SELECT id, name, dateStart, dateEnd, sortOrder FROM pharaoh_kingdoms ORDER BY sortOrder ASC"
+            var stmt: OpaquePointer?
+            defer { sqlite3_finalize(stmt) }
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+            var results: [PharaohKingdom] = []
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                results.append(
+                    PharaohKingdom(
+                        id: Int(sqlite3_column_int(stmt, 0)),
+                        name: columnString(stmt, 1),
+                        dateStart: Int(sqlite3_column_int(stmt, 2)),
+                        dateEnd: Int(sqlite3_column_int(stmt, 3)),
+                        sortOrder: Int(sqlite3_column_int(stmt, 4))
+                    )
+                )
+            }
+            return results
+        }
+    }
+
+    func fetchPharaohDynasties() -> [PharaohDynasty] {
+        queue.sync {
+            guard let db else { return [] }
+            let sql = "SELECT id, kingdomId, name, dateStart, dateEnd, sortOrder FROM pharaoh_dynasties ORDER BY sortOrder ASC"
+            var stmt: OpaquePointer?
+            defer { sqlite3_finalize(stmt) }
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+            var results: [PharaohDynasty] = []
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                results.append(
+                    PharaohDynasty(
+                        id: columnString(stmt, 0),
+                        kingdomId: Int(sqlite3_column_int(stmt, 1)),
+                        name: columnString(stmt, 2),
+                        dateStart: Int(sqlite3_column_int(stmt, 3)),
+                        dateEnd: Int(sqlite3_column_int(stmt, 4)),
+                        sortOrder: Int(sqlite3_column_int(stmt, 5))
+                    )
+                )
+            }
+            return results
+        }
+    }
+
+    func fetchAllPharaohsWithCartouches() -> [Pharaoh] {
+        queue.sync {
+            guard let db else { return [] }
+            var cartouchesByPharaoh: [String: [PharaohCartouche]] = [:]
+            let cSQL = "SELECT id, pharaohId, nameType, transliteration, mdcRaw, mdcNormalized, isVariant, signCodesCsv FROM pharaoh_cartouches ORDER BY id ASC"
+            var cStmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, cSQL, -1, &cStmt, nil) == SQLITE_OK {
+                while sqlite3_step(cStmt) == SQLITE_ROW {
+                    let cid = Int(sqlite3_column_int64(cStmt, 0))
+                    let pid = columnString(cStmt, 1)
+                    let typeRaw = columnString(cStmt, 2)
+                    let type = PharaohTitularyType(rawValue: typeRaw) ?? .prenomen
+                    let translit = columnString(cStmt, 3)
+                    let mdcRaw = columnString(cStmt, 4)
+                    let mdcNorm = columnString(cStmt, 5)
+                    let isVar = sqlite3_column_int(cStmt, 6) != 0
+                    let csv = columnString(cStmt, 7)
+                    let codes = csv
+                        .split(separator: ",")
+                        .map { String($0).trimmingCharacters(in: .whitespaces) }
+                        .filter { !$0.isEmpty }
+                    let cartouche = PharaohCartouche(
+                        id: cid,
+                        pharaohId: pid,
+                        nameType: type,
+                        transliteration: translit,
+                        mdcRaw: mdcRaw,
+                        mdcNormalized: mdcNorm,
+                        isVariant: isVar,
+                        signCodes: codes
+                    )
+                    cartouchesByPharaoh[pid, default: []].append(cartouche)
+                }
+            }
+            sqlite3_finalize(cStmt)
+
+            let pSQL = "SELECT id, kingdomId, dynastyId, name, altNames, horusTranslit, nebtiTranslit, goldenHorusTranslit, prenomenTranslit, nomenTranslit, sortOrder FROM pharaohs ORDER BY sortOrder ASC"
+            var pStmt: OpaquePointer?
+            defer { sqlite3_finalize(pStmt) }
+            guard sqlite3_prepare_v2(db, pSQL, -1, &pStmt, nil) == SQLITE_OK else { return [] }
+            var results: [Pharaoh] = []
+            while sqlite3_step(pStmt) == SQLITE_ROW {
+                let pid = columnString(pStmt, 0)
+                results.append(
+                    Pharaoh(
+                        id: pid,
+                        kingdomId: Int(sqlite3_column_int(pStmt, 1)),
+                        dynastyId: columnString(pStmt, 2),
+                        name: columnString(pStmt, 3),
+                        altNames: columnString(pStmt, 4),
+                        horusTranslit: columnString(pStmt, 5),
+                        nebtiTranslit: columnString(pStmt, 6),
+                        goldenHorusTranslit: columnString(pStmt, 7),
+                        prenomenTranslit: columnString(pStmt, 8),
+                        nomenTranslit: columnString(pStmt, 9),
+                        sortOrder: Int(sqlite3_column_int(pStmt, 10)),
+                        cartouches: cartouchesByPharaoh[pid] ?? []
+                    )
+                )
+            }
+            return results
+        }
+    }
+
+    func fetchCartoucheSignCounts() -> [(code: String, count: Int)] {
+        queue.sync {
+            guard let db else { return [] }
+            let sql = "SELECT signCode, COUNT(*) AS cnt FROM cartouche_sign_ref GROUP BY signCode ORDER BY cnt DESC, signCode ASC"
+            var stmt: OpaquePointer?
+            defer { sqlite3_finalize(stmt) }
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+            var results: [(code: String, count: Int)] = []
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                let code = columnString(stmt, 0)
+                let cnt = Int(sqlite3_column_int(stmt, 1))
+                results.append((code: code, count: cnt))
+            }
+            return results
+        }
+    }
+
+    func fetchFlashLiterals() -> [FlashLiteral] {
+        queue.sync {
+            guard let db else { return [] }
+            let sql = """
+            SELECT l.id, l.category, l.gardinerCode, l.glyph, l.translitRaw, l.translit, l.description,
+                   l.inBeginner, l.inIntermediate, l.inAdvanced, l.sortOrder,
+                   COALESCE(s.correctCount, 0), COALESCE(s.wrongCount, 0), COALESCE(s.lastPracticedAt, 0)
+            FROM flash_literals l
+            LEFT JOIN flash_stats s ON l.id = s.literalId
+            ORDER BY l.sortOrder ASC, l.id ASC
+            """
+            var stmt: OpaquePointer?
+            defer { sqlite3_finalize(stmt) }
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+            var results: [FlashLiteral] = []
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                let id = Int(sqlite3_column_int(stmt, 0))
+                let catRaw = columnString(stmt, 1)
+                let category = LiteralCategory(rawValue: catRaw) ?? .uniliteral
+                results.append(
+                    FlashLiteral(
+                        id: id,
+                        category: category,
+                        gardinerCode: columnString(stmt, 2),
+                        glyph: columnString(stmt, 3),
+                        translitRaw: columnString(stmt, 4),
+                        translit: columnString(stmt, 5),
+                        description: columnString(stmt, 6),
+                        inBeginner: sqlite3_column_int(stmt, 7) != 0,
+                        inIntermediate: sqlite3_column_int(stmt, 8) != 0,
+                        inAdvanced: sqlite3_column_int(stmt, 9) != 0,
+                        sortOrder: Int(sqlite3_column_int(stmt, 10)),
+                        correctCount: Int(sqlite3_column_int(stmt, 11)),
+                        wrongCount: Int(sqlite3_column_int(stmt, 12)),
+                        lastPracticedAt: sqlite3_column_double(stmt, 13)
+                    )
+                )
+            }
+            return results
+        }
+    }
+
+    func recordFlashAttempt(literalId: Int, isCorrect: Bool, timestamp: Double) {
+        queue.sync {
+            guard let db else { return }
+            let sql = """
+            INSERT INTO flash_stats (literalId, correctCount, wrongCount, lastPracticedAt)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(literalId) DO UPDATE SET
+                correctCount = correctCount + ?,
+                wrongCount = wrongCount + ?,
+                lastPracticedAt = ?
+            """
+            var stmt: OpaquePointer?
+            defer { sqlite3_finalize(stmt) }
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
+            let cInc: Int32 = isCorrect ? 1 : 0
+            let wInc: Int32 = isCorrect ? 0 : 1
+            sqlite3_bind_int64(stmt, 1, sqlite3_int64(literalId))
+            sqlite3_bind_int(stmt, 2, cInc)
+            sqlite3_bind_int(stmt, 3, wInc)
+            sqlite3_bind_double(stmt, 4, timestamp)
+            sqlite3_bind_int(stmt, 5, cInc)
+            sqlite3_bind_int(stmt, 6, wInc)
+            sqlite3_bind_double(stmt, 7, timestamp)
+            sqlite3_step(stmt)
+        }
+    }
+
+    func resetFlashStats(category: LiteralCategory?) {
+        queue.sync {
+            guard let db else { return }
+            if let category {
+                let sql = "DELETE FROM flash_stats WHERE literalId IN (SELECT id FROM flash_literals WHERE category = ?)"
+                var stmt: OpaquePointer?
+                defer { sqlite3_finalize(stmt) }
+                if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+                    sqlite3_bind_text(stmt, 1, category.rawValue, -1, transientDestructor)
+                    sqlite3_step(stmt)
+                }
+            } else {
+                sqlite3_exec(db, "DELETE FROM flash_stats", nil, nil, nil)
+            }
+        }
+    }
+
     private func ensureCustomStacksTable() {
         guard let db else { return }
         let sql = """
@@ -597,6 +851,19 @@ final class SQLiteDatabaseStore {
             direction TEXT NOT NULL,
             frameMode TEXT NOT NULL,
             createdAt REAL NOT NULL
+        )
+        """
+        sqlite3_exec(db, sql, nil, nil, nil)
+    }
+
+    private func ensureFlashStatsTable() {
+        guard let db else { return }
+        let sql = """
+        CREATE TABLE IF NOT EXISTS flash_stats (
+            literalId INTEGER PRIMARY KEY,
+            correctCount INTEGER NOT NULL DEFAULT 0,
+            wrongCount INTEGER NOT NULL DEFAULT 0,
+            lastPracticedAt REAL NOT NULL DEFAULT 0
         )
         """
         sqlite3_exec(db, sql, nil, nil, nil)

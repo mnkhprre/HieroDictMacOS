@@ -57,10 +57,20 @@ struct HieroDictApp: App {
                 }
                 .keyboardShortcut("3", modifiers: .command)
 
+                Button("Pharaohs") {
+                    store.selectedSection = .pharaohs
+                }
+                .keyboardShortcut("4", modifiers: .command)
+
+                Button("Flash Cards") {
+                    store.selectedSection = .flashCards
+                }
+                .keyboardShortcut("5", modifiers: .command)
+
                 Button("About HieroDict") {
                     store.selectedSection = .about
                 }
-                .keyboardShortcut("4", modifiers: .command)
+                .keyboardShortcut("6", modifiers: .command)
             }
 
             CommandGroup(after: .textEditing) {

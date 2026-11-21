@@ -62,6 +62,10 @@ struct MainSplitView: View {
                         )
                     case .signList:
                         SignListView(store: store)
+                    case .pharaohs:
+                        PharaohsView(store: store, glyphScale: glyphScale)
+                    case .flashCards:
+                        FlashCardsView(store: store, glyphScale: glyphScale)
                     case .about:
                         AboutView(signLookup: store.signCache)
                     }
