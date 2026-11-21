@@ -147,6 +147,33 @@ struct AboutView: View {
                             .font(.system(size: 13.5))
                         }
                     }
+
+                    let referenceLinks: [(title: String, url: String)] = [
+                        (
+                            "Hieroglyph Flash Cards",
+                            "https://apkpure.com/hieroglyph-flash-cards/es.doneill.android.hieroglyph.flashcards/download"
+                        ),
+                        (
+                            "Find a Pharaoh",
+                            "https://apkpure.com/find-a-pharaoh/es.doneill.android.hieroglyph.pharaohs"
+                        ),
+                        (
+                            "English Hieroglyph Dictionary",
+                            "https://apkpure.com/english-hieroglyph-dictionary/es.doneill.android.hieroglyph.dictionary"
+                        )
+                    ]
+
+                    ForEach(referenceLinks, id: \.url) { item in
+                        if let destination = URL(string: item.url) {
+                            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                                Text("• \(item.title):")
+                                    .font(.system(size: 13.5))
+                                    .foregroundStyle(.primary)
+                                Link(item.url, destination: destination)
+                                    .font(.system(size: 13.5))
+                            }
+                        }
+                    }
                 }
             }
             .padding(28)
