@@ -462,7 +462,7 @@ final class ColorHieroglyphStore {
                     let boundOut = rawOut.bindMemory(to: Bytef.self)
                     guard let baseOut = boundOut.baseAddress else { return Z_MEM_ERROR }
                     stream.next_out = baseOut.advanced(by: totalOut)
-                    stream.avail_out = uInt(output.count - totalOut)
+                    stream.avail_out = uInt(rawOut.count - totalOut)
                     return inflate(&stream, Z_NO_FLUSH)
                 }
                 totalOut = Int(stream.total_out)
