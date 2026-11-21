@@ -310,20 +310,33 @@ struct SearchView: View {
                 .lineSpacing(2)
                 .frame(maxWidth: 520)
 
+            let chipPlateBg = AppTheme.resolvedGlyphTileBackground(useColor: useColorHieroglyphs, colorScheme: colorScheme)
+            let chipInk = AppTheme.resolvedGlyphInkColor(useColor: useColorHieroglyphs, colorScheme: colorScheme)
             HStack(spacing: 8) {
                 ForEach(quickExamples, id: \.query) { item in
                     Button {
                         store.updateSearchQuery(item.query)
                     } label: {
-                        Text(item.label)
-                            .font(item.isGlyph ? .hiero(size: 20, choice: hieroFontChoice) : .system(size: 13, weight: .semibold))
-                            .foregroundStyle(AppTheme.slateAccent)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(
-                                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                    .fill(AppTheme.cardBackground)
-                            )
+                        Group {
+                            if item.isGlyph {
+                                HieroGlyphTileView(
+                                    glyph: item.label,
+                                    size: 18,
+                                    signLookup: store.signCache,
+                                    monochromeColor: chipInk
+                                )
+                            } else {
+                                Text(item.label)
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(AppTheme.slateAccent)
+                            }
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .fill(item.isGlyph && useColorHieroglyphs && colorScheme == .dark ? chipPlateBg : AppTheme.cardBackground)
+                        )
                     }
                     .buttonStyle(.plain)
                 }

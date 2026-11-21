@@ -76,7 +76,7 @@ struct DictionaryView: View {
                 List(selection: Binding(
                     get: { store.selectedWord?.id },
                     set: { newId in
-                        store.selectWord(list.first { $0.id == newId })
+                        store.selectWord(newId.flatMap { store.entry(for: $0) })
                     }
                 )) {
                     ForEach(list) { entry in

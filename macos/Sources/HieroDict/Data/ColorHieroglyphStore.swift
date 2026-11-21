@@ -160,19 +160,24 @@ final class ColorHieroglyphStore {
                     return gid
                 }
             }
+            if let base = Self.stripGardinerVariantSuffix(clean), let gid = mapSnapshot[base] {
+                return gid
+            }
         }
 
         if !glyph.isEmpty {
             updateReverseLookupIfNeeded(signLookup: signLookup)
             lock.lock()
             let directCode = glyphToCode[glyph]
-            let firstScalarCode: String? = glyph.unicodeScalars.first.flatMap { glyphToCode[String($0)] }
+            let singleScalarCode: String? = (glyph.unicodeScalars.count == 1)
+                ? glyph.unicodeScalars.first.flatMap { glyphToCode[String($0)] }
+                : nil
             lock.unlock()
 
             if let code = directCode, let gid = mapSnapshot[code] {
                 return gid
             }
-            if let code = firstScalarCode, let gid = mapSnapshot[code] {
+            if let code = singleScalarCode, let gid = mapSnapshot[code] {
                 return gid
             }
         }
@@ -402,6 +407,9 @@ final class ColorHieroglyphStore {
         }
 
         let rgbaData = Data(rgba)
+        let bitmapInfo = CGBitmapInfo(
+            rawValue: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue
+        )
         guard let provider = CGDataProvider(data: rgbaData as CFData),
               let cgImage = CGImage(
                 width: cw,
@@ -410,7 +418,7 @@ final class ColorHieroglyphStore {
                 bitsPerPixel: 32,
                 bytesPerRow: cw * 4,
                 space: CGColorSpaceCreateDeviceRGB(),
-                bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
+                bitmapInfo: bitmapInfo,
                 provider: provider,
                 decode: nil,
                 shouldInterpolate: true,
@@ -439,8 +447,9 @@ final class ColorHieroglyphStore {
         var output = Data(count: initialCapacity)
 
         let success = blob.withUnsafeBytes { rawIn -> Bool in
-            guard let baseIn = rawIn.baseAddress else { return false }
-            let startPtr = baseIn.assumingMemoryBound(to: Bytef.self).advanced(by: offset)
+            let boundIn = rawIn.bindMemory(to: Bytef.self)
+            guard let baseIn = boundIn.baseAddress else { return false }
+            let startPtr = baseIn.advanced(by: offset)
             stream.next_in = UnsafeMutablePointer(mutating: startPtr)
             stream.avail_in = uInt(blob.count - offset)
 
@@ -450,8 +459,9 @@ final class ColorHieroglyphStore {
                     output.count += max(1024, expectedSize / 2)
                 }
                 let status: Int32 = output.withUnsafeMutableBytes { rawOut in
-                    guard let baseOut = rawOut.baseAddress else { return Z_MEM_ERROR }
-                    stream.next_out = baseOut.assumingMemoryBound(to: Bytef.self).advanced(by: totalOut)
+                    let boundOut = rawOut.bindMemory(to: Bytef.self)
+                    guard let baseOut = boundOut.baseAddress else { return Z_MEM_ERROR }
+                    stream.next_out = baseOut.advanced(by: totalOut)
                     stream.avail_out = uInt(output.count - totalOut)
                     return inflate(&stream, Z_NO_FLUSH)
                 }
@@ -479,6 +489,25 @@ final class ColorHieroglyphStore {
             s = String(s[..<hash])
         }
         return s.uppercased()
+    }
+
+    private static func stripGardinerVariantSuffix(_ token: String) -> String? {
+        guard token.range(of: "^[A-Z]{1,2}\\d+[A-Z]+$", options: .regularExpression) != nil else {
+            return nil
+        }
+        var prefix = ""
+        var seenDigit = false
+        for ch in token {
+            if ch.isNumber {
+                seenDigit = true
+                prefix.append(ch)
+            } else if !seenDigit {
+                prefix.append(ch)
+            } else {
+                break
+            }
+        }
+        return prefix.isEmpty ? nil : prefix
     }
 
     private static func readUInt16BE(_ data: Data, at offset: Int) -> Int {

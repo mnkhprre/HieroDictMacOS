@@ -24,12 +24,12 @@ struct SettingsView: View {
                     }
                 }
 
-                Picker("Font Family", selection: $store.hieroFontChoice) {
+                Picker("Fallback / Monochrome Font", selection: $store.hieroFontChoice) {
                     ForEach(HieroFontChoice.allCases) { choice in
                         Text(choice.rawValue).tag(choice)
                     }
                 }
-                .pickerStyle(.radioGroup)
+                .pickerStyle(.menu)
             }
 
             Section("Transliteration & Pronunciation") {
@@ -38,7 +38,7 @@ struct SettingsView: View {
                         Text(model.rawValue).tag(model.rawValue)
                     }
                 }
-                .pickerStyle(.radioGroup)
+                .pickerStyle(.menu)
 
                 Toggle(isOn: $showPronunciation) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -56,7 +56,7 @@ struct SettingsView: View {
                         Text(scale.rawValue).tag(scale.rawValue)
                     }
                 }
-                .pickerStyle(.radioGroup)
+                .pickerStyle(.menu)
             }
 
             Section("Appearance") {
@@ -65,7 +65,7 @@ struct SettingsView: View {
                         Text(pref.rawValue).tag(pref.rawValue)
                     }
                 }
-                .pickerStyle(.radioGroup)
+                .pickerStyle(.menu)
 
                 Toggle(isOn: $enableWindowBlur) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -128,7 +128,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 470, height: 560)
+        .frame(width: 470, height: 520)
         .onDisappear {
             clearedTask?.cancel()
         }

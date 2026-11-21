@@ -244,6 +244,7 @@ data class HieroUiState(
     val searchEntries: List<HieroEntry> = emptyList(),
     val searchSigns: List<GardinerSign> = emptyList(),
     val allEntries: List<HieroEntry> = emptyList(),
+    val filteredDictionaryEntries: List<HieroEntry> = emptyList(),
     val showBookmarksOnly: Boolean = false,
     val dictionaryFilter: String = "",
     val categories: List<GardinerCategory> = emptyList(),

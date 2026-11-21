@@ -94,11 +94,14 @@ struct SignListView: View {
                                 .labelsHidden()
                                 .frame(maxWidth: 210)
                                 .onChange(of: selectedCategoryJump) {
+                                    let targetCode = selectedCategoryJump
                                     shapeFilter = .all
                                     filterText = ""
-                                    expandedCategories.insert(selectedCategoryJump)
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        scrollProxy.scrollTo(selectedCategoryJump, anchor: .top)
+                                    expandedCategories.insert(targetCode)
+                                    DispatchQueue.main.async {
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            scrollProxy.scrollTo(targetCode, anchor: .top)
+                                        }
                                     }
                                 }
                             }

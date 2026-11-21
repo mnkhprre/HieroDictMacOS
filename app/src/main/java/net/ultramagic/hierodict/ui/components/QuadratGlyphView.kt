@@ -242,11 +242,18 @@ object AndroidQuadratParser {
                     mod == "H" || mod == "M" || mod.isEmpty() -> flipped = true
                 }
             }
+            val baseVariant = stripGardinerVariantSuffix(effectiveBase)
             val resolved = signLookup[effectiveBase.uppercase()]?.glyph
                 ?: mdcMnemonicMap[effectiveBase]
                 ?: mdcMnemonicMap[cleanBase]
+                ?: baseVariant?.let { signLookup[it.uppercase()]?.glyph }
                 ?: effectiveBase
             return AndroidQuadratNode.Atom(effectiveBase, resolved, isRed, rotation, flipped)
+        }
+
+        private fun stripGardinerVariantSuffix(token: String): String? {
+            val match = Regex("^([A-Za-z]{1,2}\\d+)[A-Za-z]+$").matchEntire(token) ?: return null
+            return match.groupValues[1]
         }
     }
 }

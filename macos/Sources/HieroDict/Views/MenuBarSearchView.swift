@@ -86,6 +86,14 @@ struct MenuBarSearchView: View {
 
                 Spacer()
 
+                Toggle(isOn: $store.useColorHieroglyphs) {
+                    Image(systemName: store.useColorHieroglyphs ? "paintpalette.fill" : "paintpalette")
+                        .font(.system(size: 12))
+                }
+                .toggleStyle(.button)
+                .controlSize(.small)
+                .help("Toggle Colored Hieroglyphs")
+
                 Toggle(isOn: $store.useQuadratLayout) {
                     Image(systemName: store.useQuadratLayout ? "square.grid.2x2.fill" : "text.alignleft")
                         .font(.system(size: 12))
@@ -232,20 +240,33 @@ struct MenuBarSearchView: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
 
+                let chipPlateBg = AppTheme.resolvedGlyphTileBackground(useColor: useColorHieroglyphs, colorScheme: colorScheme)
+                let chipInk = AppTheme.resolvedGlyphInkColor(useColor: useColorHieroglyphs, colorScheme: colorScheme)
                 HStack(spacing: 6) {
                     ForEach(quickExamples, id: \.query) { item in
                         Button {
                             store.updateMenuBarQuery(item.query)
                         } label: {
-                            Text(item.label)
-                                .font(item.isGlyph ? .hiero(size: 16, choice: hieroFontChoice) : .system(size: 12, weight: .medium))
-                                .foregroundStyle(AppTheme.slateAccent)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 5)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                        .fill(AppTheme.cardBackground)
-                                )
+                            Group {
+                                if item.isGlyph {
+                                    HieroGlyphTileView(
+                                        glyph: item.label,
+                                        size: 16,
+                                        signLookup: store.signCache,
+                                        monochromeColor: chipInk
+                                    )
+                                } else {
+                                    Text(item.label)
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundStyle(AppTheme.slateAccent)
+                                }
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .fill(item.isGlyph && useColorHieroglyphs && colorScheme == .dark ? chipPlateBg : AppTheme.cardBackground)
+                            )
                         }
                         .buttonStyle(.plain)
                     }

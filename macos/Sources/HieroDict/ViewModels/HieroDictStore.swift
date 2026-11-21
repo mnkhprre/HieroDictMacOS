@@ -7,10 +7,15 @@ final class HieroDictStore: ObservableObject {
     @Published var selectedSection: SidebarSection = .search
     @Published var searchQuery: String = ""
     @Published var activeSignFilter: String? = nil
-    @Published var dictionaryFilter: DictionaryFilter = .all
+    @Published var dictionaryFilter: DictionaryFilter = .all {
+        didSet {
+            recomputeFilteredDictionaryEntries()
+        }
+    }
     @Published var selectedWord: HieroEntry? = nil
     @Published var allEntries: [HieroEntry] = []
     @Published var dictionaryEntries: [HieroEntry] = []
+    @Published private(set) var filteredDictionaryEntries: [HieroEntry] = []
     @Published var searchResults: [HieroEntry] = []
     @Published var searchSigns: [GardinerSign] = []
     @Published var categories: [GardinerCategory] = []
@@ -40,25 +45,30 @@ final class HieroDictStore: ObservableObject {
     @Published private(set) var signCache: [String: GardinerSign] = [:]
 
     private var database: SQLiteDatabaseStore?
+    private var entryById: [Int: HieroEntry] = [:]
 
     var totalSignCount: Int {
         categories.reduce(0) { $0 + $1.signs.count }
     }
 
-    var filteredDictionaryEntries: [HieroEntry] {
+    func entry(for id: Int) -> HieroEntry? {
+        entryById[id]
+    }
+
+    private func recomputeFilteredDictionaryEntries() {
         switch dictionaryFilter {
         case .all:
-            return dictionaryEntries
+            filteredDictionaryEntries = dictionaryEntries
         case .favorites:
-            return dictionaryEntries.filter { $0.isFavorite }
+            filteredDictionaryEntries = dictionaryEntries.filter { $0.isFavorite }
         case .nouns:
-            return dictionaryEntries.filter { $0.pos.contains("n.") || $0.pos.contains("noun") }
+            filteredDictionaryEntries = dictionaryEntries.filter { $0.pos.contains("n.") || $0.pos.contains("noun") }
         case .verbs:
-            return dictionaryEntries.filter { $0.pos.contains("vb.") || $0.pos.contains("inf.") }
+            filteredDictionaryEntries = dictionaryEntries.filter { $0.pos.contains("vb.") || $0.pos.contains("inf.") }
         case .adjectives:
-            return dictionaryEntries.filter { $0.pos.contains("adj.") }
+            filteredDictionaryEntries = dictionaryEntries.filter { $0.pos.contains("adj.") }
         case .biliteral:
-            return dictionaryEntries.filter { $0.pos.contains("2-lit") || $0.translitRaw.count <= 2 }
+            filteredDictionaryEntries = dictionaryEntries.filter { $0.pos.contains("2-lit") || $0.translitRaw.count <= 2 }
         }
     }
 
@@ -81,6 +91,8 @@ final class HieroDictStore: ObservableObject {
             let loadedCategories = store.fetchAllCategoriesWithSigns()
             self.allEntries = loadedEntries
             self.dictionaryEntries = loadedEntries
+            self.entryById = Dictionary(uniqueKeysWithValues: loadedEntries.map { ($0.id, $0) })
+            self.recomputeFilteredDictionaryEntries()
             self.categories = loadedCategories
             var cache: [String: GardinerSign] = [:]
             for cat in loadedCategories {
@@ -128,6 +140,7 @@ final class HieroDictStore: ObservableObject {
         if let idx = allEntries.firstIndex(where: { $0.id == id }) {
             allEntries[idx].isFavorite.toggle()
             targetState = allEntries[idx].isFavorite
+            entryById[id] = allEntries[idx]
         }
         let newState = targetState
         if let idx = dictionaryEntries.firstIndex(where: { $0.id == id }) {
@@ -147,12 +160,14 @@ final class HieroDictStore: ObservableObject {
             currentMenu.isFavorite = newState ?? !currentMenu.isFavorite
             menuBarSelectedWord = currentMenu
         }
+        recomputeFilteredDictionaryEntries()
     }
 
     func clearAllFavorites() {
         database?.clearAllFavorites()
         for i in allEntries.indices {
             allEntries[i].isFavorite = false
+            entryById[allEntries[i].id] = allEntries[i]
         }
         for i in dictionaryEntries.indices {
             dictionaryEntries[i].isFavorite = false
@@ -171,6 +186,7 @@ final class HieroDictStore: ObservableObject {
             currentMenu.isFavorite = false
             menuBarSelectedWord = currentMenu
         }
+        recomputeFilteredDictionaryEntries()
     }
 
     func filterBySign(_ signCode: String) {
@@ -264,7 +280,8 @@ final class HieroDictStore: ObservableObject {
             searchSigns = database.searchSigns(query: trimmed, limit: 24)
             searchResults = database.searchEntries(
                 query: trimmed,
-                resolvedGlyphs: resolved
+                resolvedGlyphs: resolved,
+                limit: 200
             )
         }
     }
@@ -276,11 +293,13 @@ final class HieroDictStore: ObservableObject {
         } else {
             dictionaryEntries = allEntries
         }
+        recomputeFilteredDictionaryEntries()
     }
 
     private func reloadEntriesPreservingSelection() {
         guard let database else { return }
         allEntries = database.fetchAllEntries()
+        entryById = Dictionary(uniqueKeysWithValues: allEntries.map { ($0.id, $0) })
         refreshDictionaryEntries()
         if !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             runSearch()
@@ -289,10 +308,10 @@ final class HieroDictStore: ObservableObject {
             runMenuBarSearch()
         }
         if let current = selectedWord {
-            selectedWord = allEntries.first { $0.id == current.id }
+            selectedWord = entryById[current.id]
         }
         if let currentMenu = menuBarSelectedWord {
-            menuBarSelectedWord = allEntries.first { $0.id == currentMenu.id }
+            menuBarSelectedWord = entryById[currentMenu.id]
         }
     }
 }

@@ -1262,12 +1262,15 @@ enum QuadratEngine {
 
             if resolved.isEmpty {
                 let normalized = (base.hasSuffix("v") || base.hasSuffix("V")) ? String(base.dropLast()) : base
+                let baseVariant = Self.stripGardinerVariantSuffix(base)
                 if let sign = signLookup[base.uppercased()] {
                     resolved = sign.glyph
                 } else if let mapped = QuadratEngine.mnemonicMap[base] {
                     resolved = mapped
                 } else if let signTrimmed = signLookup[normalized.uppercased()] {
                     resolved = signTrimmed.glyph
+                } else if let baseVariant, let variantSign = signLookup[baseVariant.uppercased()] {
+                    resolved = variantSign.glyph
                 } else {
                     resolved = base
                 }
@@ -1283,6 +1286,27 @@ enum QuadratEngine {
                 isRed: isRed,
                 shading: shading
             )
+        }
+
+        private static func stripGardinerVariantSuffix(_ token: String) -> String? {
+            let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard let range = trimmed.range(of: "^([A-Za-z]{1,2}\\d+)[A-Za-z]+$", options: .regularExpression) else {
+                return nil
+            }
+            let matched = String(trimmed[range])
+            var prefix = ""
+            var seenDigit = false
+            for ch in matched {
+                if ch.isNumber {
+                    seenDigit = true
+                    prefix.append(ch)
+                } else if !seenDigit {
+                    prefix.append(ch)
+                } else {
+                    break
+                }
+            }
+            return prefix.isEmpty ? nil : prefix
         }
     }
 }

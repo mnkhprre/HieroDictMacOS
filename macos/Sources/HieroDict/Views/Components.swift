@@ -11,9 +11,27 @@ struct HieroGlyphTileView: View {
     var monochromeColor: Color = .primary
 
     var body: some View {
-        if useColorHieroglyphs,
-           (!glyph.isEmpty || (code?.isEmpty == false)),
-           let nsImage = ColorHieroglyphStore.shared.image(forCodeOrToken: code, glyph: glyph, signLookup: signLookup) {
+        let scalars = Array(glyph.unicodeScalars)
+        if useColorHieroglyphs, scalars.count > 1, code == nil {
+            HStack(spacing: 2) {
+                ForEach(Array(scalars.enumerated()), id: \.offset) { _, scalar in
+                    let ch = String(scalar)
+                    if let nsImage = ColorHieroglyphStore.shared.image(forCodeOrToken: nil, glyph: ch, signLookup: signLookup) {
+                        Image(nsImage: nsImage)
+                            .resizable()
+                            .interpolation(.high)
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: max(8, size * 1.15), height: max(8, size * 1.15))
+                    } else {
+                        Text(ch)
+                            .font(.hiero(size: size, choice: hieroFontChoice))
+                            .foregroundStyle(monochromeColor)
+                    }
+                }
+            }
+        } else if useColorHieroglyphs,
+                  (!glyph.isEmpty || (code?.isEmpty == false)),
+                  let nsImage = ColorHieroglyphStore.shared.image(forCodeOrToken: code, glyph: glyph, signLookup: signLookup) {
             Image(nsImage: nsImage)
                 .resizable()
                 .interpolation(.high)

@@ -44,29 +44,7 @@ fun DictionaryScreen(
     onToggleFavorite: (HieroEntry) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val displayedEntries = remember(
-        uiState.allEntries,
-        uiState.showBookmarksOnly,
-        uiState.dictionaryFilter
-    ) {
-        val base = if (uiState.showBookmarksOnly) {
-            uiState.allEntries.filter { it.isFavorite }
-        } else {
-            uiState.allEntries
-        }
-        val query = uiState.dictionaryFilter.trim()
-        if (query.isEmpty()) {
-            base
-        } else {
-            base.filter { entry ->
-                entry.translation.contains(query, ignoreCase = true) ||
-                    entry.translit.contains(query, ignoreCase = true) ||
-                    entry.translitRaw.contains(query, ignoreCase = true) ||
-                    entry.mdc.contains(query, ignoreCase = true) ||
-                    entry.glyph.contains(query)
-            }
-        }
-    }
+    val displayedEntries = uiState.filteredDictionaryEntries
 
     Column(modifier = modifier.fillMaxSize()) {
         OutlinedTextField(

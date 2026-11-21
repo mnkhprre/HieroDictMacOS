@@ -55,6 +55,135 @@ final class SQLiteDatabaseStore {
         return sqlite3_column_int(stmt, 0) == 3
     }
 
+    private static let bundledDbVersion = 2
+
+    private static func readDatabaseVersion(at url: URL) -> Int {
+        var handle: OpaquePointer?
+        guard sqlite3_open_v2(url.path, &handle, SQLITE_OPEN_READONLY, nil) == SQLITE_OK, let handle else {
+            if let handle { sqlite3_close_v2(handle) }
+            return 0
+        }
+        defer { sqlite3_close_v2(handle) }
+        var stmt: OpaquePointer?
+        defer { sqlite3_finalize(stmt) }
+        guard sqlite3_prepare_v2(handle, "PRAGMA user_version", -1, &stmt, nil) == SQLITE_OK,
+              sqlite3_step(stmt) == SQLITE_ROW else {
+            return 0
+        }
+        return Int(sqlite3_column_int(stmt, 0))
+    }
+
+    private static func readUserDataSnapshot(at url: URL) -> (
+        favorites: [(id: Int64, mdc: String, translitRaw: String)],
+        stacks: [(title: String, mdc: String, direction: String, frameMode: String, createdAt: Double)]
+    ) {
+        var handle: OpaquePointer?
+        guard sqlite3_open_v2(url.path, &handle, SQLITE_OPEN_READONLY, nil) == SQLITE_OK, let handle else {
+            if let handle { sqlite3_close_v2(handle) }
+            return ([], [])
+        }
+        defer { sqlite3_close_v2(handle) }
+
+        var favorites: [(id: Int64, mdc: String, translitRaw: String)] = []
+        var favStmt: OpaquePointer?
+        if sqlite3_prepare_v2(handle, "SELECT id, mdc, translitRaw FROM entries WHERE isFavorite != 0", -1, &favStmt, nil) == SQLITE_OK {
+            while sqlite3_step(favStmt) == SQLITE_ROW {
+                let id = sqlite3_column_int64(favStmt, 0)
+                let mdc = sqlite3_column_text(favStmt, 1).map { String(cString: $0) } ?? ""
+                let tr = sqlite3_column_text(favStmt, 2).map { String(cString: $0) } ?? ""
+                favorites.append((id, mdc, tr))
+            }
+        }
+        sqlite3_finalize(favStmt)
+
+        var stacks: [(title: String, mdc: String, direction: String, frameMode: String, createdAt: Double)] = []
+        var stackStmt: OpaquePointer?
+        if sqlite3_prepare_v2(handle, "SELECT title, mdc, direction, frameMode, createdAt FROM custom_stacks", -1, &stackStmt, nil) == SQLITE_OK {
+            while sqlite3_step(stackStmt) == SQLITE_ROW {
+                let title = sqlite3_column_text(stackStmt, 0).map { String(cString: $0) } ?? ""
+                let mdc = sqlite3_column_text(stackStmt, 1).map { String(cString: $0) } ?? ""
+                let dir = sqlite3_column_text(stackStmt, 2).map { String(cString: $0) } ?? ""
+                let frame = sqlite3_column_text(stackStmt, 3).map { String(cString: $0) } ?? ""
+                let ts = sqlite3_column_double(stackStmt, 4)
+                stacks.append((title, mdc, dir, frame, ts))
+            }
+        }
+        sqlite3_finalize(stackStmt)
+
+        return (favorites, stacks)
+    }
+
+    private static func restoreUserDataSnapshot(
+        at url: URL,
+        favorites: [(id: Int64, mdc: String, translitRaw: String)],
+        stacks: [(title: String, mdc: String, direction: String, frameMode: String, createdAt: Double)]
+    ) {
+        guard !favorites.isEmpty || !stacks.isEmpty else { return }
+        var handle: OpaquePointer?
+        guard sqlite3_open_v2(url.path, &handle, SQLITE_OPEN_READWRITE, nil) == SQLITE_OK, let handle else {
+            if let handle { sqlite3_close_v2(handle) }
+            return
+        }
+        defer { sqlite3_close_v2(handle) }
+
+        let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+        sqlite3_exec(handle, "BEGIN IMMEDIATE TRANSACTION", nil, nil, nil)
+
+        if !favorites.isEmpty {
+            var byMdcStmt: OpaquePointer?
+            var byIdStmt: OpaquePointer?
+            sqlite3_prepare_v2(handle, "UPDATE entries SET isFavorite = 1 WHERE mdc = ? AND translitRaw = ?", -1, &byMdcStmt, nil)
+            sqlite3_prepare_v2(handle, "UPDATE entries SET isFavorite = 1 WHERE id = ?", -1, &byIdStmt, nil)
+            for item in favorites {
+                var matched = false
+                if let byMdcStmt {
+                    sqlite3_reset(byMdcStmt)
+                    sqlite3_bind_text(byMdcStmt, 1, item.mdc, -1, transient)
+                    sqlite3_bind_text(byMdcStmt, 2, item.translitRaw, -1, transient)
+                    if sqlite3_step(byMdcStmt) == SQLITE_DONE && sqlite3_changes(handle) > 0 {
+                        matched = true
+                    }
+                }
+                if !matched, item.id > 0, let byIdStmt {
+                    sqlite3_reset(byIdStmt)
+                    sqlite3_bind_int64(byIdStmt, 1, item.id)
+                    sqlite3_step(byIdStmt)
+                }
+            }
+            sqlite3_finalize(byMdcStmt)
+            sqlite3_finalize(byIdStmt)
+        }
+
+        if !stacks.isEmpty {
+            let createSQL = """
+            CREATE TABLE IF NOT EXISTS custom_stacks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                mdc TEXT NOT NULL,
+                direction TEXT NOT NULL,
+                frameMode TEXT NOT NULL,
+                createdAt REAL NOT NULL
+            )
+            """
+            sqlite3_exec(handle, createSQL, nil, nil, nil)
+            var insertStmt: OpaquePointer?
+            if sqlite3_prepare_v2(handle, "INSERT INTO custom_stacks (title, mdc, direction, frameMode, createdAt) VALUES (?, ?, ?, ?, ?)", -1, &insertStmt, nil) == SQLITE_OK {
+                for item in stacks {
+                    sqlite3_reset(insertStmt)
+                    sqlite3_bind_text(insertStmt, 1, item.title, -1, transient)
+                    sqlite3_bind_text(insertStmt, 2, item.mdc, -1, transient)
+                    sqlite3_bind_text(insertStmt, 3, item.direction, -1, transient)
+                    sqlite3_bind_text(insertStmt, 4, item.frameMode, -1, transient)
+                    sqlite3_bind_double(insertStmt, 5, item.createdAt)
+                    sqlite3_step(insertStmt)
+                }
+            }
+            sqlite3_finalize(insertStmt)
+        }
+
+        sqlite3_exec(handle, "COMMIT", nil, nil, nil)
+    }
+
     private static func resolveWritableDatabaseURL() throws -> URL {
         let fm = FileManager.default
         let appSupport = try fm.url(
@@ -68,14 +197,20 @@ final class SQLiteDatabaseStore {
             try fm.createDirectory(at: dir, withIntermediateDirectories: true)
         }
         let targetURL = dir.appendingPathComponent("hierodict.db")
-        if !isValidDatabase(at: targetURL) {
+        let validExisting = isValidDatabase(at: targetURL)
+        let currentVersion = validExisting ? readDatabaseVersion(at: targetURL) : 0
+        if !validExisting || currentVersion < bundledDbVersion {
             guard let bundledURL = ResourceLocator.url(forResource: "hierodict", withExtension: "db") else {
+                if validExisting {
+                    return targetURL
+                }
                 throw NSError(
                     domain: "HieroDict.SQLite",
                     code: 2,
                     userInfo: [NSLocalizedDescriptionKey: "Bundled hierodict.db resource was not found."]
                 )
             }
+            let snapshot = validExisting ? readUserDataSnapshot(at: targetURL) : ([], [])
             if fm.fileExists(atPath: targetURL.path) {
                 try? fm.removeItem(at: targetURL)
             }
@@ -84,6 +219,7 @@ final class SQLiteDatabaseStore {
             try? fm.removeItem(at: walURL)
             try? fm.removeItem(at: shmURL)
             try fm.copyItem(at: bundledURL, to: targetURL)
+            restoreUserDataSnapshot(at: targetURL, favorites: snapshot.favorites, stacks: snapshot.stacks)
         }
         return targetURL
     }
@@ -102,6 +238,7 @@ final class SQLiteDatabaseStore {
             INNER JOIN word_sign_cross_ref r ON e.id = r.wordId
             WHERE UPPER(r.signCode) = UPPER(?)
             ORDER BY e.id ASC
+            LIMIT 400
             """
             return queryEntries(sql: sql, bindings: [signCode])
         }

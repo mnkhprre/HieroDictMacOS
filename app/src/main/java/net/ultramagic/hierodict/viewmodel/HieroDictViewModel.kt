@@ -33,6 +33,7 @@ class HieroDictViewModel(application: Application) : AndroidViewModel(applicatio
     val uiState: StateFlow<HieroUiState> = _uiState.asStateFlow()
 
     private var searchJob: Job? = null
+    private var dictionaryFilterJob: Job? = null
 
     init {
         val savedFont = HieroFontChoice.fromAssetName(prefs.getString("hiero_font", null))
@@ -69,6 +70,11 @@ class HieroDictViewModel(application: Application) : AndroidViewModel(applicatio
                 it.copy(
                     isLoading = false,
                     allEntries = loaded.entries,
+                    filteredDictionaryEntries = filterDictionaryList(
+                        allEntries = loaded.entries,
+                        showBookmarksOnly = it.showBookmarksOnly,
+                        rawFilter = it.dictionaryFilter
+                    ),
                     categories = loaded.categories,
                     selectedCategoryCode = loaded.defaultCategory,
                     categorySigns = loaded.signs,
@@ -100,10 +106,51 @@ class HieroDictViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun updateDictionaryFilter(filter: String) {
         _uiState.update { it.copy(dictionaryFilter = filter) }
+        recomputeDictionaryFilterAsync()
     }
 
     fun setShowBookmarksOnly(bookmarksOnly: Boolean) {
         _uiState.update { it.copy(showBookmarksOnly = bookmarksOnly) }
+        recomputeDictionaryFilterAsync()
+    }
+
+    private fun recomputeDictionaryFilterAsync() {
+        dictionaryFilterJob?.cancel()
+        val snapshot = _uiState.value
+        val entries = snapshot.allEntries
+        val bookmarksOnly = snapshot.showBookmarksOnly
+        val query = snapshot.dictionaryFilter
+        if (!bookmarksOnly && query.isBlank()) {
+            _uiState.update { it.copy(filteredDictionaryEntries = it.allEntries) }
+            return
+        }
+        dictionaryFilterJob = viewModelScope.launch {
+            val filtered = withContext(Dispatchers.Default) {
+                filterDictionaryList(entries, bookmarksOnly, query)
+            }
+            _uiState.update { it.copy(filteredDictionaryEntries = filtered) }
+        }
+    }
+
+    private fun filterDictionaryList(
+        allEntries: List<HieroEntry>,
+        showBookmarksOnly: Boolean,
+        rawFilter: String
+    ): List<HieroEntry> {
+        val base = if (showBookmarksOnly) {
+            allEntries.filter { it.isFavorite }
+        } else {
+            allEntries
+        }
+        val query = rawFilter.trim()
+        if (query.isEmpty()) return base
+        return base.filter { entry ->
+            entry.translation.contains(query, ignoreCase = true) ||
+                entry.translit.contains(query, ignoreCase = true) ||
+                entry.translitRaw.contains(query, ignoreCase = true) ||
+                entry.mdc.contains(query, ignoreCase = true) ||
+                entry.glyph.contains(query)
+        }
     }
 
     fun selectSignShapeFilter(filter: SignShapeFilter) {
@@ -183,6 +230,11 @@ class HieroDictViewModel(application: Application) : AndroidViewModel(applicatio
                 }
                 state.copy(
                     allEntries = updatedAll,
+                    filteredDictionaryEntries = filterDictionaryList(
+                        updatedAll,
+                        state.showBookmarksOnly,
+                        state.dictionaryFilter
+                    ),
                     searchEntries = updatedSearch,
                     inspectedSignWords = updatedSignWords,
                     inspectedEntry = updatedInspected
@@ -197,8 +249,14 @@ class HieroDictViewModel(application: Application) : AndroidViewModel(applicatio
                 db.clearAllFavorites()
             }
             _uiState.update { state ->
+                val clearedAll = state.allEntries.map { it.copy(isFavorite = false) }
                 state.copy(
-                    allEntries = state.allEntries.map { it.copy(isFavorite = false) },
+                    allEntries = clearedAll,
+                    filteredDictionaryEntries = filterDictionaryList(
+                        clearedAll,
+                        state.showBookmarksOnly,
+                        state.dictionaryFilter
+                    ),
                     searchEntries = state.searchEntries.map { it.copy(isFavorite = false) },
                     inspectedSignWords = state.inspectedSignWords.map { it.copy(isFavorite = false) },
                     inspectedEntry = state.inspectedEntry?.copy(isFavorite = false)

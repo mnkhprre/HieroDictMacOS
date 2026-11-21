@@ -110,6 +110,10 @@ object ColorHieroglyphStore {
             if (clean.endsWith("V") && clean.length >= 3) {
                 codeToGid[clean.dropLast(1)]?.let { return it }
             }
+            val baseMatch = Regex("^([A-Z]{1,2}\\d+)[A-Z]+$").matchEntire(clean)
+            if (baseMatch != null) {
+                codeToGid[baseMatch.groupValues[1]]?.let { return it }
+            }
         }
         if (glyph.isNotBlank()) {
             ensureReverseLookup(signLookup)

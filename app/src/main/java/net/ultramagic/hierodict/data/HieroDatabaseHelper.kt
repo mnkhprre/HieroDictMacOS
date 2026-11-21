@@ -33,7 +33,11 @@ class HieroDatabaseHelper(context: Context) {
     }
 
     private fun ensureBundledDatabaseCopied() {
-        if (isValidDatabase(dbFile)) return
+        val currentValid = isValidDatabase(dbFile)
+        val currentVersion = if (currentValid) readDatabaseVersion(dbFile) else 0
+        if (currentValid && currentVersion >= BUNDLED_DB_VERSION) return
+
+        val savedFavorites = if (currentValid) readFavoriteKeys(dbFile) else emptyList()
         dbFile.parentFile?.mkdirs()
         if (dbFile.exists()) {
             dbFile.delete()
@@ -44,6 +48,74 @@ class HieroDatabaseHelper(context: Context) {
             dbFile.outputStream().use { output ->
                 input.copyTo(output)
             }
+        }
+        if (savedFavorites.isNotEmpty()) {
+            restoreFavoriteKeys(dbFile, savedFavorites)
+        }
+    }
+
+    private fun readDatabaseVersion(file: File): Int {
+        return try {
+            val db = SQLiteDatabase.openDatabase(file.absolutePath, null, SQLiteDatabase.OPEN_READONLY)
+            db.use {
+                it.rawQuery("PRAGMA user_version", null).use { cursor ->
+                    if (cursor.moveToFirst()) cursor.getInt(0) else 0
+                }
+            }
+        } catch (_: Exception) {
+            0
+        }
+    }
+
+    private fun readFavoriteKeys(file: File): List<Triple<Long, String, String>> {
+        val list = mutableListOf<Triple<Long, String, String>>()
+        try {
+            val db = SQLiteDatabase.openDatabase(file.absolutePath, null, SQLiteDatabase.OPEN_READONLY)
+            db.use {
+                it.rawQuery(
+                    "SELECT id, mdc, translitRaw FROM entries WHERE isFavorite != 0",
+                    null
+                ).use { cursor ->
+                    while (cursor.moveToNext()) {
+                        list.add(
+                            Triple(
+                                cursor.getLong(0),
+                                cursor.getString(1),
+                                cursor.getString(2)
+                            )
+                        )
+                    }
+                }
+            }
+        } catch (_: Exception) {
+        }
+        return list
+    }
+
+    private fun restoreFavoriteKeys(file: File, favorites: List<Triple<Long, String, String>>) {
+        try {
+            val db = SQLiteDatabase.openDatabase(file.absolutePath, null, SQLiteDatabase.OPEN_READWRITE)
+            db.use {
+                it.beginTransaction()
+                try {
+                    val values = ContentValues().apply { put("isFavorite", 1) }
+                    for ((id, mdc, translitRaw) in favorites) {
+                        val updatedByMdc = it.update(
+                            "entries",
+                            values,
+                            "mdc = ? AND translitRaw = ?",
+                            arrayOf(mdc, translitRaw)
+                        )
+                        if (updatedByMdc == 0 && id > 0) {
+                            it.update("entries", values, "id = ?", arrayOf(id.toString()))
+                        }
+                    }
+                    it.setTransactionSuccessful()
+                } finally {
+                    it.endTransaction()
+                }
+            }
+        } catch (_: Exception) {
         }
     }
 
@@ -146,6 +218,7 @@ class HieroDatabaseHelper(context: Context) {
                 INNER JOIN word_sign_cross_ref r ON e.id = r.wordId
                 WHERE UPPER(r.signCode) = UPPER(?)
                 ORDER BY e.id ASC
+                LIMIT 300
             """.trimIndent()
             return queryEntries(sql, arrayOf(signCode))
         }
@@ -160,22 +233,27 @@ class HieroDatabaseHelper(context: Context) {
 
         synchronized(lock) {
             val sql = """
-                SELECT DISTINCT e.id, e.mdc, e.glyph, e.translit, e.translitRaw, e.translation, e.meaning, e.pos, e.gardinerCodesCsv, e.isFavorite
+                SELECT e.id, e.mdc, e.glyph, e.translit, e.translitRaw, e.translation, e.meaning, e.pos, e.gardinerCodesCsv, e.isFavorite
                 FROM entries e
-                LEFT JOIN word_sign_cross_ref r ON e.id = r.wordId
                 WHERE e.translation LIKE ? ESCAPE '\' COLLATE NOCASE
                    OR e.meaning LIKE ? ESCAPE '\' COLLATE NOCASE
                    OR e.translit LIKE ? ESCAPE '\' COLLATE NOCASE
                    OR e.translitRaw LIKE ? ESCAPE '\' COLLATE NOCASE
                    OR e.mdc LIKE ? ESCAPE '\'
                    OR UPPER(e.gardinerCodesCsv) LIKE ? ESCAPE '\'
-                   OR UPPER(r.signCode) = UPPER(?)
+                   OR EXISTS (
+                       SELECT 1 FROM word_sign_cross_ref r
+                       WHERE r.wordId = e.id AND UPPER(r.signCode) = UPPER(?)
+                   )
                    OR e.glyph LIKE ? ESCAPE '\'
                 ORDER BY
                     CASE
                         WHEN LOWER(e.translit) = LOWER(?) OR LOWER(e.translitRaw) = LOWER(?) THEN 0
                         WHEN LOWER(e.translation) = LOWER(?) THEN 1
-                        WHEN UPPER(r.signCode) = UPPER(?) THEN 2
+                        WHEN EXISTS (
+                            SELECT 1 FROM word_sign_cross_ref r
+                            WHERE r.wordId = e.id AND UPPER(r.signCode) = UPPER(?)
+                        ) THEN 2
                         WHEN e.glyph = ? THEN 3
                         WHEN LOWER(e.translit) LIKE ? ESCAPE '\' OR LOWER(e.translitRaw) LIKE ? ESCAPE '\' THEN 4
                         WHEN LOWER(e.translation) LIKE ? ESCAPE '\' THEN 5
@@ -335,5 +413,9 @@ class HieroDatabaseHelper(context: Context) {
             .replace("ḳ", "q")
             .replace("ṯ", "T")
             .replace("ḏ", "D")
+    }
+
+    companion object {
+        private const val BUNDLED_DB_VERSION = 2
     }
 }
