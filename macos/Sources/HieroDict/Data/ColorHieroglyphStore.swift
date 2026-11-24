@@ -14,7 +14,8 @@ final class ColorHieroglyphStore {
     private var codeToGid: [String: Int] = [:]
     private var glyphToCode: [String: String] = [:]
     private var indexedSignCount = -1
-    private var aspectRatioCache: [Int: CGFloat] = [:]
+    private static let atlasUnitHeightPx: CGFloat = 236.0
+    private var pixelSizeCache: [Int: CGSize] = [:]
     private let imageCache: NSCache<NSNumber, NSImage> = {
         let cache = NSCache<NSNumber, NSImage>()
         cache.countLimit = 450
@@ -97,29 +98,41 @@ final class ColorHieroglyphStore {
         return decodeGidImage(gid)
     }
 
-    func aspectRatio(
+    func pixelSize(
         forCodeOrToken token: String?,
         glyph: String,
         signLookup: [String: GardinerSign]
-    ) -> CGFloat? {
+    ) -> CGSize? {
         loadIfNeeded(signLookup: signLookup)
         guard let gid = resolveGid(codeOrToken: token, glyph: glyph, signLookup: signLookup) else {
             return nil
         }
         lock.lock()
-        let cached = aspectRatioCache[gid]
+        let cached = pixelSizeCache[gid]
         lock.unlock()
         if let cached {
             return cached
         }
-        guard let img = decodeGidImage(gid), img.size.height > 0 else {
+        guard let img = decodeGidImage(gid), img.size.width > 0, img.size.height > 0 else {
             return nil
         }
-        let ratio = min(max(img.size.width / max(1, img.size.height), 0.12), 8.0)
+        let sz = img.size
         lock.lock()
-        aspectRatioCache[gid] = ratio
+        pixelSizeCache[gid] = sz
         lock.unlock()
-        return ratio
+        return sz
+    }
+
+    func aspectRatio(
+        forCodeOrToken token: String?,
+        glyph: String,
+        signLookup: [String: GardinerSign]
+    ) -> CGFloat? {
+        guard let px = pixelSize(forCodeOrToken: token, glyph: glyph, signLookup: signLookup),
+              px.height > 0 else {
+            return nil
+        }
+        return min(max(px.width / max(1, px.height), 0.12), 8.0)
     }
 
     func designSizeEm(
@@ -127,17 +140,15 @@ final class ColorHieroglyphStore {
         glyph: String,
         signLookup: [String: GardinerSign]
     ) -> CGSize? {
-        guard let ar = aspectRatio(forCodeOrToken: token, glyph: glyph, signLookup: signLookup) else {
+        guard let px = pixelSize(forCodeOrToken: token, glyph: glyph, signLookup: signLookup),
+              px.width > 0,
+              px.height > 0 else {
             return nil
         }
-        var h: CGFloat = 0.92
-        var w: CGFloat = h * ar
-        if w > 1.35 {
-            let s = 1.35 / w
-            w = 1.35
-            h *= s
-        }
-        return CGSize(width: max(0.10, w), height: max(0.10, h))
+        return CGSize(
+            width: max(0.08, px.width / Self.atlasUnitHeightPx),
+            height: max(0.08, px.height / Self.atlasUnitHeightPx)
+        )
     }
 
     private func resolveGid(
@@ -429,9 +440,8 @@ final class ColorHieroglyphStore {
 
         let nsImage = NSImage(cgImage: cgImage, size: NSSize(width: cw, height: ch))
         imageCache.setObject(nsImage, forKey: key)
-        let ratio = min(max(CGFloat(cw) / max(1, CGFloat(ch)), 0.12), 8.0)
         lock.lock()
-        aspectRatioCache[gid] = ratio
+        pixelSizeCache[gid] = CGSize(width: cw, height: ch)
         lock.unlock()
         return nsImage
     }

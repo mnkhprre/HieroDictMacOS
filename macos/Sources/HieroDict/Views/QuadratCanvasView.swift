@@ -249,7 +249,7 @@ struct QuadratWordView: View {
                     HStack(alignment: .center, spacing: max(2, innerUnit * 0.08)) {
                         ForEach(Array(orderedChildren.enumerated()), id: \.offset) { _, child in
                             let em = CadratLayoutSolver.measureEm(child, signLookup: signLookup, useColor: useColorHieroglyphs)
-                            let cw = max(em.width, 0.22) * innerUnit
+                            let cw = max(em.width, 0.12) * innerUnit
                             let ch = min(em.height, 1.0) * innerUnit
                             QuadratNodeRenderer(
                                 node: child,
