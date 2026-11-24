@@ -34,7 +34,7 @@ Powered by a bundled offline SQLite database (`hierodict.db`), HieroDict combine
 | Polychrome Color Sprites | **1,022** painted hieroglyphs (`hieroglyphs.png`) |
 | MdC Ligature Rules | **214** epigraphic ligature layouts (`ligatures.txt`) |
 | Historical Pharaohs | **314** rulers across **8** periods & **32** dynasties |
-| Royal Inscriptions | **2,081** normalized cartouches, serekhs & open protocols |
+| from Royal Inscriptions | **2,081** normalized cartouches, serekhs & open protocols |
 | Phonetic Flash Cards | **460** uniliteral, biliteral, triliteral & multiliteral cards |
 
 ---
@@ -82,7 +82,7 @@ Powered by a bundled offline SQLite database (`hierodict.db`), HieroDict combine
 
 ### 6. Display, Themes & GitHub Auto-Updater
 - **Toolbar & Settings Controls (`⌘,`):** Toggle **Quadrat vs. Linear** stacking, **Square Guides**, **Colored Hieroglyphs**, fallback font (**UniHieroglyphica**, **Noto Sans Egyptian Hieroglyphs**, **Abydos**), glyph size (`Small`, `Medium`, `Large`), **System / Light / Dark** appearance, and optional window blur.
-- **In-App GitHub Updater:** Automatically or manually checks **GitHub Releases** (`mustafabilgin/HieroDict`) and supports downloading and installing Universal macOS `.dmg` / `.zip` updates directly from the app.
+- **In-App GitHub Updater:** Automatically or manually checks **GitHub Releases** (`username/HieroDict`) and supports downloading and installing Universal macOS `.dmg` / `.zip` updates directly from the app.
 
 ---
 
