@@ -1,4 +1,4 @@
-name: Build & Release macOS
+name: Build & Release macOS DMG
 
 on:
   push:
@@ -12,20 +12,25 @@ on:
       - main
       - master
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Optional version tag to publish as a GitHub Release (e.g. v1.1.0)"
+        required: false
+        type: string
 
 permissions:
   contents: write
 
 jobs:
   build-macos:
-    name: Build Universal macOS App & DMG
-    runs-on: macos-14
+    name: Build Universal macOS DMG
+    runs-on: macos-15
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Select Xcode
+      - name: Check Swift & Xcode toolchain
         run: |
           xcodebuild -version
           swift --version
@@ -33,39 +38,40 @@ jobs:
       - name: Resolve release version
         id: version
         run: |
-          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            RAW_TAG="${GITHUB_REF_NAME#v}"
-            echo "app_version=${RAW_TAG}" >> "$GITHUB_OUTPUT"
+          INPUT_TAG="${{ inputs.release_tag }}"
+          if [[ -n "$INPUT_TAG" ]]; then
+            TAG_VAL="v${INPUT_TAG#v}"
+          elif [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            TAG_VAL="${GITHUB_REF_NAME}"
           else
             PLIST_VER="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' macos/Packaging/Info.plist 2>/dev/null || echo '1.1.0')"
-            echo "app_version=${PLIST_VER}" >> "$GITHUB_OUTPUT"
+            TAG_VAL="v${PLIST_VER}"
           fi
+          APP_VER="${TAG_VAL#v}"
+          echo "tag_name=${TAG_VAL}" >> "$GITHUB_OUTPUT"
+          echo "app_version=${APP_VER}" >> "$GITHUB_OUTPUT"
           echo "build_num=${GITHUB_RUN_NUMBER:-1}" >> "$GITHUB_OUTPUT"
 
-      - name: Build Universal .app, .dmg, and .zip
+      - name: Build Universal .app and .dmg
         run: |
           cd macos
           bash build_macos.sh \
             --universal \
             --dmg \
-            --zip \
             --version "${{ steps.version.outputs.app_version }}" \
-            --build "${{ steps.version.outputs.build_num }}" \
-            --repo "${{ github.repository }}"
+            --build "${{ steps.version.outputs.build_num }}"
 
-      - name: Upload macOS build artifacts
+      - name: Upload DMG build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: HieroDict-macOS-Universal
-          path: |
-            macos/dist/HieroDict-macOS-Universal.dmg
-            macos/dist/HieroDict-macOS-Universal.zip
+          name: HieroDict-macOS-Universal-DMG
+          path: macos/dist/HieroDict-macOS-Universal.dmg
 
-      - name: Publish GitHub Release on Tag
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Publish DMG to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.release_tag != ''
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.version.outputs.tag_name }}
+          name: HieroDict ${{ steps.version.outputs.tag_name }}
           generate_release_notes: true
-          files: |
-            macos/dist/HieroDict-macOS-Universal.dmg
-            macos/dist/HieroDict-macOS-Universal.zip
+          files: macos/dist/HieroDict-macOS-Universal.dmg

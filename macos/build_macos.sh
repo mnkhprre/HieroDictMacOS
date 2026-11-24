@@ -23,7 +23,6 @@ CREATE_ZIP=false
 TARGET_MODE="universal"
 APP_VERSION="${APP_VERSION:-}"
 APP_BUILD="${APP_BUILD:-}"
-GITHUB_REPO="${GITHUB_REPO:-}"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -67,21 +66,13 @@ while [[ $# -gt 0 ]]; do
             APP_BUILD="${1#*=}"
             shift
             ;;
-        --repo)
-            GITHUB_REPO="${2:-}"
-            shift 2
-            ;;
-        --repo=*)
-            GITHUB_REPO="${1#*=}"
-            shift
-            ;;
         -h|--help)
-            echo "Usage: $0 [--universal | --x86-64 | --arm64] [--dmg | --no-dmg] [--zip] [--version X.Y.Z] [--build N] [--repo owner/repo]"
+            echo "Usage: $0 [--universal | --x86-64 | --arm64] [--dmg | --no-dmg] [--zip] [--version X.Y.Z] [--build N]"
             exit 0
             ;;
         *)
             echo "Unknown option: $1"
-            echo "Usage: $0 [--universal | --x86-64 | --arm64] [--dmg | --no-dmg] [--zip] [--version X.Y.Z] [--build N] [--repo owner/repo]"
+            echo "Usage: $0 [--universal | --x86-64 | --arm64] [--dmg | --no-dmg] [--zip] [--version X.Y.Z] [--build N]"
             exit 1
             ;;
     esac
@@ -172,9 +163,6 @@ if command -v plutil >/dev/null 2>&1; then
     fi
     if [[ -n "$APP_BUILD" ]]; then
         plutil -replace CFBundleVersion -string "$APP_BUILD" "$CONTENTS_DIR/Info.plist"
-    fi
-    if [[ -n "$GITHUB_REPO" ]]; then
-        plutil -replace HieroDictGitHubRepo -string "$GITHUB_REPO" "$CONTENTS_DIR/Info.plist"
     fi
 fi
 

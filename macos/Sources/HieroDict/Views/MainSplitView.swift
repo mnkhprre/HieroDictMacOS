@@ -2,7 +2,6 @@ import SwiftUI
 
 struct MainSplitView: View {
     @ObservedObject var store: HieroDictStore
-    @EnvironmentObject var updater: GitHubUpdater
     @AppStorage("glyphScale") private var glyphScaleRaw: String = GlyphScale.medium.rawValue
     @AppStorage("transliterationModel") private var transliterationModelRaw: String = TransliterationModel.british.rawValue
     @AppStorage("showPronunciation") private var showPronunciation: Bool = false
@@ -165,27 +164,12 @@ struct MainSplitView: View {
                 .help("Hieroglyph Font, Colors & Size")
             }
 
-            if let release = updater.availableRelease {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        updater.isUpdateSheetPresented = true
-                    } label: {
-                        Label("Update v\(release.version)", systemImage: "arrow.down.circle.fill")
-                    }
-                    .help("New GitHub release v\(release.version) available")
-                }
-            }
-
             ToolbarItem(placement: .primaryAction) {
                 SettingsLink {
                     Label("Settings", systemImage: "gearshape")
                 }
                 .help("Settings (⌘,)")
             }
-        }
-        .sheet(isPresented: $updater.isUpdateSheetPresented) {
-            UpdateSheetView(updater: updater)
-                .background(WindowSurfaceBackground(translucent: enableWindowBlur))
         }
     }
 }

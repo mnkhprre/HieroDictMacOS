@@ -26,5 +26,4 @@ This builds `dist/HieroDict.app` (Universal `arm64` + `x86_64`), applies ad-hoc 
 - `bash build_macos.sh --arm64` — Build Apple Silicon (`arm64`) only.
 - `bash build_macos.sh --x86-64` — Build Intel (`x86_64`) only.
 - `bash build_macos.sh --version X.Y.Z --build N` — Stamp bundle version metadata into `Info.plist`.
-- `bash build_macos.sh --repo owner/repo` — Configure the default repository slug for the built-in GitHub updater.
 - `swift run` (inside `macos/`) — Run directly via Swift Package Manager, or open `macos/Package.swift` in Xcode.
