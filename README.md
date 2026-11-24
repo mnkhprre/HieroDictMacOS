@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="macOS/AppIcon.png" alt="HieroDict App Icon" width="108" height="108" />
+<img src="macos/Packaging/AppIcon.png" alt="HieroDict App Icon" width="108" height="108" />
 
 # HieroDict
 
