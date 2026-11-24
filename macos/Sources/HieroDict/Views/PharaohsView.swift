@@ -2,8 +2,8 @@ import AppKit
 import SwiftUI
 
 private enum PharaohMode: String, CaseIterable, Identifiable {
-    case browse = "Kingdoms & Pharaohs"
-    case finder = "Find by Cartouche"
+    case browse = "Pharaohs"
+    case finder = "Cartouche Finder"
 
     var id: String { rawValue }
 }
@@ -58,7 +58,7 @@ struct PharaohsView: View {
             let matches = store.pharaohs.filter { p in
                 guard p.dynastyId == dyn.id else { return false }
                 guard !query.isEmpty else { return true }
-                if p.name.lowercased().contains(query) || p.altNames.lowercased().contains(query) {
+                if p.name.lowercased().contains(query) || cleanAltNames(p.altNames).lowercased().contains(query) {
                     return true
                 }
                 if dyn.name.lowercased().contains(query) {
@@ -152,13 +152,33 @@ struct PharaohsView: View {
         return prefix.isEmpty ? code : prefix
     }
 
+    private func cleanAltNames(_ raw: String) -> String {
+        guard raw.contains("<") else { return raw }
+        return raw.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     var body: some View {
         HSplitView {
             leftBrowserPane
-                .frame(minWidth: 320, idealWidth: 390, maxWidth: 460)
+                .frame(minWidth: 250, idealWidth: 315, maxWidth: 400)
+                .frame(maxHeight: .infinity)
+                .clipped()
 
             rightDetailPane
-                .frame(minWidth: 380, maxWidth: .infinity, maxHeight: .infinity)
+                .frame(minWidth: 320, maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
+        }
+        .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity)
+        .onChange(of: store.selectedPharaoh?.id) { _, _ in
+            if let pharaoh = store.selectedPharaoh, let activeType = selectedDetailTitulary {
+                let hasAny = pharaoh.cartouches.contains {
+                    (includeVariantsInDetail || !$0.isVariant) && $0.nameType == activeType
+                }
+                if !hasAny {
+                    selectedDetailTitulary = nil
+                }
+            }
         }
         .onDisappear {
             badgeTask?.cancel()
@@ -167,13 +187,15 @@ struct PharaohsView: View {
 
     private var leftBrowserPane: some View {
         VStack(spacing: 0) {
-            VStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 10) {
                 Picker("Mode", selection: $mode) {
                     ForEach(PharaohMode.allCases) { item in
                         Text(item.rawValue).tag(item)
                     }
                 }
+                .labelsHidden()
                 .pickerStyle(.segmented)
+                .frame(maxWidth: .infinity)
 
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
@@ -181,12 +203,13 @@ struct PharaohsView: View {
                         .foregroundStyle(AppTheme.slateAccent)
                     TextField(
                         mode == .browse
-                            ? "Search pharaoh, dynasty, transliteration…"
-                            : "Filter cartouche signs (G5, N5, L1, sun)…",
+                            ? "Search pharaoh, dynasty, translit…"
+                            : "Filter signs (G5, N5, L1, sun)…",
                         text: $searchText
                     )
                     .textFieldStyle(.plain)
                     .font(.system(size: 13))
+                    .frame(minWidth: 0, maxWidth: .infinity)
                     if !searchText.isEmpty {
                         Button {
                             searchText = ""
@@ -212,13 +235,15 @@ struct PharaohsView: View {
                                 kingdomChip(id: kingdom.id, label: kingdom.name)
                             }
                         }
+                        .padding(.vertical, 1)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
                     finderControlsHeader
                 }
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
 
             Divider()
 
@@ -228,6 +253,7 @@ struct PharaohsView: View {
                 cartoucheFinderContent
             }
         }
+        .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func kingdomChip(id: Int?, label: String) -> some View {
@@ -237,6 +263,7 @@ struct PharaohsView: View {
         } label: {
             Text(label)
                 .font(.system(size: 11.5, weight: isSelected ? .semibold : .medium))
+                .lineLimit(1)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4.5)
                 .foregroundStyle(isSelected ? Color.white : Color.primary)
@@ -265,7 +292,7 @@ struct PharaohsView: View {
                 List(selection: Binding(
                     get: { store.selectedPharaoh?.id },
                     set: { newId in
-                        if let found = store.pharaohs.first(where: { $0.id == newId }) {
+                        if let newId, let found = store.pharaohs.first(where: { $0.id == newId }) {
                             store.selectedPharaoh = found
                         }
                     }
@@ -277,15 +304,19 @@ struct PharaohsView: View {
                                     .tag(pharaoh.id)
                             }
                         } header: {
-                            HStack {
+                            HStack(spacing: 6) {
                                 Text(group.dynasty.name)
                                     .font(.system(size: 11.5, weight: .bold))
                                     .foregroundStyle(AppTheme.slateAccent)
-                                Spacer()
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                                Spacer(minLength: 4)
                                 if !group.dynasty.dateRangeLabel.isEmpty {
                                     Text(group.dynasty.dateRangeLabel)
-                                        .font(.system(size: 11, design: .monospaced))
+                                        .font(.system(size: 10.5, design: .monospaced))
                                         .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                        .fixedSize()
                                 }
                             }
                         }
@@ -297,45 +328,76 @@ struct PharaohsView: View {
         }
     }
 
+    private func cartouchePreviewThumb(
+        mdc: String,
+        width: CGFloat,
+        height: CGFloat,
+        quadratSize: CGFloat
+    ) -> some View {
+        let plateBg = AppTheme.resolvedGlyphTileBackground(useColor: useColorHieroglyphs, colorScheme: colorScheme)
+        return ZStack(alignment: .leading) {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(plateBg)
+            QuadratWordView(
+                mdc: mdc,
+                fallbackGlyph: nil,
+                signLookup: store.signCache,
+                quadratSize: quadratSize,
+                showGrid: false,
+                canonicalSerekh: false
+            )
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+        }
+        .frame(width: width, height: height, alignment: .leading)
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .stroke(AppTheme.subtleBorder, lineWidth: 0.75)
+        )
+    }
+
     private func pharaohRow(_ pharaoh: Pharaoh) -> some View {
-        HStack(spacing: 12) {
+        let altDisplay = cleanAltNames(pharaoh.altNames)
+        return HStack(spacing: 10) {
             if let primary = pharaoh.primaryCartouche {
-                QuadratWordView(
+                cartouchePreviewThumb(
                     mdc: primary.mdcNormalized,
-                    fallbackGlyph: nil,
-                    signLookup: store.signCache,
-                    quadratSize: 24,
-                    showGrid: false
+                    width: 90,
+                    height: 34,
+                    quadratSize: 18
                 )
-                .frame(minWidth: 74, maxWidth: 118, alignment: .leading)
             }
 
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 2.5) {
                 Text(pharaoh.name)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 13.5, weight: .semibold))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
+                    .truncationMode(.tail)
 
                 if !pharaoh.prenomenTranslit.isEmpty || !pharaoh.horusTranslit.isEmpty {
                     let subtitle = !pharaoh.prenomenTranslit.isEmpty ? pharaoh.prenomenTranslit : pharaoh.horusTranslit
                     Text(subtitle)
-                        .font(.system(size: 11.5, design: .monospaced))
+                        .font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(AppTheme.slateAccent)
                         .lineLimit(1)
+                        .truncationMode(.tail)
                 }
 
-                if !pharaoh.altNames.isEmpty {
-                    Text(pharaoh.altNames)
-                        .font(.system(size: 11))
+                if !altDisplay.isEmpty {
+                    Text(altDisplay)
+                        .font(.system(size: 10.5))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
+                        .truncationMode(.tail)
                 }
             }
-
-            Spacer()
+            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+            .layoutPriority(1)
 
             Text("\(pharaoh.cartouches.count)")
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .font(.system(size: 10.5, weight: .medium, design: .monospaced))
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
@@ -343,8 +405,11 @@ struct PharaohsView: View {
                     Capsule()
                         .fill(AppTheme.cardBackground)
                 )
+                .fixedSize()
         }
-        .padding(.vertical, 4)
+        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 3)
+        .contentShape(Rectangle())
     }
 
     private var finderControlsHeader: some View {
@@ -353,6 +418,7 @@ struct PharaohsView: View {
                 Text(selectedFinderSigns.isEmpty ? "Tap signs below to match cartouches" : "Selected signs (\(selectedFinderSigns.count)):")
                     .font(.system(size: 11.5, weight: .medium))
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
                 Spacer()
                 if !selectedFinderSigns.isEmpty {
                     Button("Clear") {
@@ -406,22 +472,27 @@ struct PharaohsView: View {
                 }
                 .labelsHidden()
                 .pickerStyle(.segmented)
-                .frame(maxWidth: 160)
+                .frame(maxWidth: 165)
 
-                Picker("Type", selection: $selectedFinderTitulary) {
+                Spacer(minLength: 4)
+
+                Toggle("Variants", isOn: $includeVariantsInSearch)
+                    .toggleStyle(.checkbox)
+                    .font(.system(size: 11.5))
+                    .fixedSize()
+            }
+
+            HStack(spacing: 8) {
+                Picker("Titulary", selection: $selectedFinderTitulary) {
                     Text("All Types").tag(Optional<PharaohTitularyType>.none)
                     ForEach(PharaohTitularyType.allCases) { t in
                         Text(t.shortLabel).tag(Optional(t))
                     }
                 }
                 .labelsHidden()
-                .frame(maxWidth: 120)
+                .frame(maxWidth: 150)
 
-                Spacer()
-
-                Toggle("Variants", isOn: $includeVariantsInSearch)
-                    .toggleStyle(.checkbox)
-                    .font(.system(size: 11.5))
+                Spacer(minLength: 4)
             }
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -433,6 +504,7 @@ struct PharaohsView: View {
                         } label: {
                             Text(shape.rawValue)
                                 .font(.system(size: 11, weight: isSelected ? .semibold : .medium))
+                                .lineLimit(1)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 3.5)
                                 .foregroundStyle(isSelected ? Color.white : Color.primary)
@@ -444,7 +516,9 @@ struct PharaohsView: View {
                         .buttonStyle(.plain)
                     }
                 }
+                .padding(.vertical, 1)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -456,7 +530,7 @@ struct PharaohsView: View {
 
         return VStack(spacing: 0) {
             ScrollView {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 56), spacing: 6)], spacing: 6) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 52), spacing: 6)], spacing: 6) {
                     ForEach(signs) { item in
                         let isChosen = selectedFinderSigns.contains(item.code)
                         Button {
@@ -489,9 +563,9 @@ struct PharaohsView: View {
                         .help("\(item.code) (\(item.count) cartouches)\(item.sign.map { " — \($0.name)" } ?? "")")
                     }
                 }
-                .padding(12)
+                .padding(10)
             }
-            .frame(height: 220)
+            .frame(height: 205)
 
             Divider()
 
@@ -518,31 +592,39 @@ struct PharaohsView: View {
                 List {
                     Section {
                         ForEach(matches, id: \.cartouche.id) { pair in
+                            let isSelected = store.selectedPharaoh?.id == pair.pharaoh.id
                             Button {
                                 store.selectedPharaoh = pair.pharaoh
                             } label: {
-                                HStack(spacing: 12) {
-                                    QuadratWordView(
+                                HStack(spacing: 10) {
+                                    cartouchePreviewThumb(
                                         mdc: pair.cartouche.mdcNormalized,
-                                        fallbackGlyph: nil,
-                                        signLookup: store.signCache,
-                                        quadratSize: 24,
-                                        showGrid: false
+                                        width: 102,
+                                        height: 34,
+                                        quadratSize: 18
                                     )
-                                    .frame(minWidth: 80, maxWidth: 145, alignment: .leading)
 
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(pair.pharaoh.name)
-                                            .font(.system(size: 13.5, weight: .semibold))
+                                            .font(.system(size: 13, weight: .semibold))
                                             .foregroundStyle(.primary)
+                                            .lineLimit(1)
+                                            .truncationMode(.tail)
                                         Text("\(pair.cartouche.nameType.shortLabel) · \(pair.cartouche.transliteration)")
-                                            .font(.system(size: 11.5))
+                                            .font(.system(size: 11))
                                             .foregroundStyle(AppTheme.slateAccent)
                                             .lineLimit(1)
+                                            .truncationMode(.tail)
                                     }
-                                    Spacer()
+                                    .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
                                 }
                                 .padding(.vertical, 3)
+                                .padding(.horizontal, 4)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .fill(isSelected ? AppTheme.slateAccent.opacity(0.12) : Color.clear)
+                                )
+                                .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
                         }
@@ -578,87 +660,46 @@ struct PharaohsView: View {
                 }
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    HStack(alignment: .top) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack(spacing: 8) {
-                                Text(pharaoh.name)
-                                    .font(.system(size: 26, weight: .bold))
-                                    .textSelection(.enabled)
-                                if let copiedBadge {
-                                    Text(copiedBadge)
-                                        .font(.system(size: 11.5, weight: .medium))
-                                        .foregroundStyle(AppTheme.slateAccent)
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 3)
-                                        .background(
-                                            Capsule()
-                                                .fill(AppTheme.slateAccent.opacity(0.12))
-                                        )
-                                }
-                            }
+                VStack(alignment: .leading, spacing: 16) {
+                    ViewThatFits(in: .horizontal) {
+                        HStack(alignment: .top, spacing: 16) {
+                            pharaohTitleBlock(pharaoh: pharaoh, kingdom: kingdom, dynasty: dynasty)
+                                .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
 
-                            if !pharaoh.altNames.isEmpty {
-                                Text(pharaoh.altNames)
-                                    .font(.system(size: 13.5))
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            HStack(spacing: 10) {
-                                if let kingdom {
-                                    Label(kingdom.name, systemImage: "building.columns")
-                                        .font(.system(size: 12.5, weight: .medium))
-                                        .foregroundStyle(AppTheme.slateAccent)
-                                }
-                                if let dynasty {
-                                    Text(dynasty.name)
-                                        .font(.system(size: 12.5, weight: .medium))
-                                        .foregroundStyle(.secondary)
-                                    if !dynasty.dateRangeLabel.isEmpty {
-                                        Text("(\(dynasty.dateRangeLabel))")
-                                            .font(.system(size: 12, design: .monospaced))
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                            }
-                            .padding(.top, 2)
+                            detailControlsBlock(pharaoh: pharaoh, alignment: .trailing)
+                                .fixedSize()
                         }
 
-                        Spacer()
-
-                        VStack(alignment: .trailing, spacing: 8) {
-                            Picker("Layout", selection: $cartoucheLayout) {
-                                ForEach(CartoucheDisplayLayout.allCases) { layout in
-                                    Text(layout.rawValue).tag(layout)
-                                }
-                            }
-                            .labelsHidden()
-                            .pickerStyle(.segmented)
-                            .frame(maxWidth: 270)
-
-                            HStack(spacing: 12) {
-                                Toggle("Raw MdC", isOn: $showRawMdc)
-                                    .toggleStyle(.checkbox)
-                                    .font(.system(size: 12))
-                                Toggle("Show Variants (\(pharaoh.cartouches.count))", isOn: $includeVariantsInDetail)
-                                    .toggleStyle(.checkbox)
-                                    .font(.system(size: 12))
-                            }
+                        VStack(alignment: .leading, spacing: 12) {
+                            pharaohTitleBlock(pharaoh: pharaoh, kingdom: kingdom, dynasty: dynasty)
+                            detailControlsBlock(pharaoh: pharaoh, alignment: .leading)
                         }
                     }
 
                     titularySummaryCard(pharaoh)
 
                     VStack(alignment: .leading, spacing: 10) {
-                        HStack {
-                            Text("ROYAL CARTOUCHES & ENCLOSURE TYPES (\(displayedCartouches.count))")
-                                .font(.system(size: 11.5, weight: .semibold))
-                                .tracking(0.8)
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            Text(layoutDescriptionText)
-                                .font(.system(size: 11))
-                                .foregroundStyle(.secondary)
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: 8) {
+                                Text("ROYAL CARTOUCHES & ENCLOSURE TYPES (\(displayedCartouches.count))")
+                                    .font(.system(size: 11.5, weight: .semibold))
+                                    .tracking(0.8)
+                                    .foregroundStyle(.secondary)
+                                Spacer(minLength: 8)
+                                Text(layoutDescriptionText)
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("ROYAL CARTOUCHES & ENCLOSURE TYPES (\(displayedCartouches.count))")
+                                    .font(.system(size: 11.5, weight: .semibold))
+                                    .tracking(0.8)
+                                    .foregroundStyle(.secondary)
+                                Text(layoutDescriptionText)
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.secondary)
+                            }
                         }
 
                         ScrollView(.horizontal, showsIndicators: false) {
@@ -671,7 +712,9 @@ struct PharaohsView: View {
                                     }
                                 }
                             }
+                            .padding(.vertical, 1)
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
                         if displayedCartouches.isEmpty {
                             Text("No inscriptions for the selected titulary filter.")
@@ -685,8 +728,10 @@ struct PharaohsView: View {
                         }
                     }
                 }
-                .padding(24)
+                .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+                .padding(20)
             }
+            .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity)
         } else {
             VStack(spacing: 10) {
                 Image(systemName: "crown")
@@ -697,6 +742,82 @@ struct PharaohsView: View {
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    private func pharaohTitleBlock(
+        pharaoh: Pharaoh,
+        kingdom: PharaohKingdom?,
+        dynasty: PharaohDynasty?
+    ) -> some View {
+        let altDisplay = cleanAltNames(pharaoh.altNames)
+        return VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                Text(pharaoh.name)
+                    .font(.system(size: 24, weight: .bold))
+                    .textSelection(.enabled)
+                if let copiedBadge {
+                    Text(copiedBadge)
+                        .font(.system(size: 11.5, weight: .medium))
+                        .foregroundStyle(AppTheme.slateAccent)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(
+                            Capsule()
+                                .fill(AppTheme.slateAccent.opacity(0.12))
+                        )
+                }
+            }
+
+            if !altDisplay.isEmpty {
+                Text(altDisplay)
+                    .font(.system(size: 13.5))
+                    .foregroundStyle(.secondary)
+            }
+
+            FlowLayout(spacing: 8) {
+                if let kingdom {
+                    Label(kingdom.name, systemImage: "building.columns")
+                        .font(.system(size: 12.5, weight: .medium))
+                        .foregroundStyle(AppTheme.slateAccent)
+                }
+                if let dynasty {
+                    Text(dynasty.name)
+                        .font(.system(size: 12.5, weight: .medium))
+                        .foregroundStyle(.secondary)
+                    if !dynasty.dateRangeLabel.isEmpty {
+                        Text("(\(dynasty.dateRangeLabel))")
+                            .font(.system(size: 12, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .padding(.top, 2)
+        }
+    }
+
+    private func detailControlsBlock(
+        pharaoh: Pharaoh,
+        alignment: HorizontalAlignment
+    ) -> some View {
+        VStack(alignment: alignment, spacing: 8) {
+            Picker("Layout", selection: $cartoucheLayout) {
+                ForEach(CartoucheDisplayLayout.allCases) { layout in
+                    Text(layout.rawValue).tag(layout)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.segmented)
+            .frame(maxWidth: 265)
+
+            HStack(spacing: 12) {
+                Toggle("Raw MdC", isOn: $showRawMdc)
+                    .toggleStyle(.checkbox)
+                    .font(.system(size: 12))
+                Toggle("Show Variants (\(pharaoh.cartouches.count))", isOn: $includeVariantsInDetail)
+                    .toggleStyle(.checkbox)
+                    .font(.system(size: 12))
+            }
         }
     }
 
@@ -785,63 +906,67 @@ struct PharaohsView: View {
         }()
 
         return VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                Text(cartouche.nameType.displayTitle)
-                    .font(.system(size: 12.5, weight: .bold))
-                    .foregroundStyle(AppTheme.slateAccent)
+            HStack(alignment: .top, spacing: 8) {
+                FlowLayout(spacing: 6) {
+                    Text(cartouche.nameType.displayTitle)
+                        .font(.system(size: 12.5, weight: .bold))
+                        .foregroundStyle(AppTheme.slateAccent)
 
-                Label(encKind.rawValue, systemImage: encIcon)
-                    .font(.system(size: 10.5, weight: .semibold))
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 2)
-                    .foregroundStyle(encKind == .open ? Color.secondary : AppTheme.slateAccent)
-                    .background(
-                        Capsule()
-                            .fill(encKind == .open ? AppTheme.glyphTileBackground : AppTheme.slateAccent.opacity(0.12))
-                    )
-
-                if cartouche.isVariant {
-                    Text("Variant")
-                        .font(.system(size: 10.5, weight: .medium))
+                    Label(encKind.rawValue, systemImage: encIcon)
+                        .font(.system(size: 10.5, weight: .semibold))
                         .padding(.horizontal, 7)
                         .padding(.vertical, 2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(encKind == .open ? Color.secondary : AppTheme.slateAccent)
                         .background(
                             Capsule()
-                                .fill(AppTheme.glyphTileBackground)
+                                .fill(encKind == .open ? AppTheme.glyphTileBackground : AppTheme.slateAccent.opacity(0.12))
                         )
-                }
 
-                if !cartouche.transliteration.isEmpty {
-                    Text(cartouche.transliteration)
-                        .font(.system(size: 13.5, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(.primary)
-                        .textSelection(.enabled)
-                }
+                    if cartouche.isVariant {
+                        Text("Variant")
+                            .font(.system(size: 10.5, weight: .medium))
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 2)
+                            .foregroundStyle(.secondary)
+                            .background(
+                                Capsule()
+                                    .fill(AppTheme.glyphTileBackground)
+                            )
+                    }
 
-                Spacer()
-
-                Button {
-                    let unicode = QuadratEngine.extractResolvedHieroglyphs(mdc: cartouche.mdcNormalized, signLookup: store.signCache)
-                    copy(unicode.isEmpty ? cartouche.mdcNormalized : unicode, message: "Copied glyphs")
-                } label: {
-                    Label("Glyphs", systemImage: "doc.on.doc")
-                        .font(.system(size: 11.5))
+                    if !cartouche.transliteration.isEmpty {
+                        Text(cartouche.transliteration)
+                            .font(.system(size: 13.5, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(.primary)
+                            .textSelection(.enabled)
+                    }
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
+                .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
 
-                Button {
-                    copy(showRawMdc ? cartouche.mdcRaw : cartouche.mdcNormalized, message: "Copied MdC")
-                } label: {
-                    Label("MdC", systemImage: "curlybraces")
-                        .font(.system(size: 11.5))
+                HStack(spacing: 6) {
+                    Button {
+                        let unicode = QuadratEngine.extractResolvedHieroglyphs(mdc: cartouche.mdcNormalized, signLookup: store.signCache)
+                        copy(unicode.isEmpty ? cartouche.mdcNormalized : unicode, message: "Copied glyphs")
+                    } label: {
+                        Label("Glyphs", systemImage: "doc.on.doc")
+                            .font(.system(size: 11.5))
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+
+                    Button {
+                        copy(showRawMdc ? cartouche.mdcRaw : cartouche.mdcNormalized, message: "Copied MdC")
+                    } label: {
+                        Label("MdC", systemImage: "curlybraces")
+                            .font(.system(size: 11.5))
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
+                .fixedSize()
             }
 
-            ScrollView(.horizontal, showsIndicators: false) {
+            ScrollView(.horizontal, showsIndicators: true) {
                 QuadratWordView(
                     mdc: cartouche.mdcNormalized,
                     fallbackGlyph: nil,
@@ -851,32 +976,38 @@ struct PharaohsView: View {
                     showGrid: store.showQuadratGuides,
                     canonicalSerekh: useCanonicalSerekh
                 )
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
-                .frame(maxWidth: .infinity, alignment: effectiveDirection == .rtl ? .trailing : (effectiveDirection == .vertical ? .center : .leading))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
             }
-            .frame(maxWidth: .infinity, alignment: effectiveDirection == .rtl ? .trailing : .leading)
+            .frame(
+                maxWidth: .infinity,
+                alignment: effectiveDirection == .rtl ? .trailing : (effectiveDirection == .vertical ? .center : .leading)
+            )
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(useColorHieroglyphs && colorScheme == .dark ? plateBg : AppTheme.glyphTileBackground)
             )
 
-            HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(showRawMdc ? cartouche.mdcRaw : cartouche.mdcNormalized)
                     .font(.system(size: 11.5, design: .monospaced))
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
+                    .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
 
-                Spacer()
-
-                if cartouche.hasRotationOrMirrorModifiers {
-                    epigraphicFeatureTag("Rotated/Mirrored")
-                }
-                if cartouche.hasScalingModifiers {
-                    epigraphicFeatureTag("Scaled")
-                }
-                if cartouche.hasDamageOrLacuna {
-                    epigraphicFeatureTag("Restored/Damaged")
+                if cartouche.hasRotationOrMirrorModifiers || cartouche.hasScalingModifiers || cartouche.hasDamageOrLacuna {
+                    FlowLayout(spacing: 6) {
+                        if cartouche.hasRotationOrMirrorModifiers {
+                            epigraphicFeatureTag("Rotated/Mirrored")
+                        }
+                        if cartouche.hasScalingModifiers {
+                            epigraphicFeatureTag("Scaled")
+                        }
+                        if cartouche.hasDamageOrLacuna {
+                            epigraphicFeatureTag("Restored/Damaged")
+                        }
+                    }
                 }
             }
 
@@ -918,6 +1049,7 @@ struct PharaohsView: View {
             }
         }
         .padding(14)
+        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(AppTheme.cardBackground)

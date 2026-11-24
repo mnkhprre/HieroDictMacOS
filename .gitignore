@@ -1,38 +1,25 @@
-# Gradle files
-.gradle/
-build/
+# macOS & Swift Package Manager
+.DS_Store
+.swiftpm/
+macos/.build/
+macos/dist/
+*.dmg
+*.app
+*.dSYM/
+*.dSYM
 
-# Local configuration file (sdk path, etc)
-local.properties
-
-# Log/OS Files
+# Logs & OS files
 *.log
+.DS_Store
 
-# Android Studio generated files and folders
-captures/
-.externalNativeBuild/
-.cxx/
-*.apk
-output.json
-
-# IntelliJ
+# Xcode / IntelliJ
+*.xcuserstate
+xcuserdata/
 *.iml
 .idea/
-misc.xml
-deploymentTargetDropDown.xml
-render.experimental.xml
 
-# Keystore files
+# Local secrets / signing
+local.properties
 *.jks
 *.keystore
-
-# Google Services (e.g. APIs or Firebase)
 google-services.json
-
-# Android Profiling
-*.hprof
-.DS_Store
-unknown/META-INF/.DS_Store
-unknown/META-INF/com/.DS_Store
-unknown/META-INF/com/android/.DS_Store
-.DS_Store

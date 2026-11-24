@@ -1,13 +1,15 @@
 # HieroDict for macOS (Universal)
 
-Native SwiftUI macOS desktop application (Universal Binary: `arm64` + `x86_64`) for Middle Egyptian lexicography and Manuel de Codage (MdC) hieroglyphic composition, powered by the bundled SQLite dictionary database (`hierodict.db`) alongside the UniHieroglyphica, Noto Sans Egyptian Hieroglyphs, and Abydos TrueType fonts.
+Native SwiftUI macOS desktop application (Universal Binary: `arm64` + `x86_64`) for Middle Egyptian lexicography, Manuel de Codage (MdC) quadrat composition, royal cartouche exploration, and phonetic flash card drills.
+
+See the [root README](../README.md) for full application features, dataset statistics, keyboard shortcuts, and acknowledgements.
 
 ## Requirements
 
-- macOS 14.0 (Sonoma) or later (Apple Silicon or Intel x86_64)
-- Xcode 15+ or Swift Command Line Tools (`xcode-select --install`)
+- **macOS 14.0 (Sonoma)** or later (Apple Silicon or Intel `x86_64`)
+- **Xcode 15+** or Swift Command Line Tools (`xcode-select --install`)
 
-## Build & Package DMG on macOS
+## Build & Package DMG
 
 ```bash
 cd macos
@@ -15,11 +17,14 @@ bash build_macos.sh
 open dist/HieroDict-macOS-Universal.dmg
 ```
 
-This builds `dist/HieroDict.app` (Universal `arm64` + `x86_64`) and packages `dist/HieroDict-macOS-Universal.dmg` containing `HieroDict.app` alongside the `/Applications` shortcut.
+This builds `dist/HieroDict.app` (Universal `arm64` + `x86_64`), applies ad-hoc code signing, and packages `dist/HieroDict-macOS-Universal.dmg` with an `/Applications` drag-and-drop shortcut.
 
-Optional flags:
+### Build Options
 
-- `bash build_macos.sh --no-dmg`: Builds only `dist/HieroDict.app` without packaging `.dmg`.
-- `bash build_macos.sh --x86-64`: Builds single-architecture Intel (`x86_64`) `.app` and `.dmg`.
-- `bash build_macos.sh --arm64`: Builds single-architecture Apple Silicon (`arm64`) `.app` and `.dmg`.
-- `swift run` (inside `macos/`): Launches directly during development, or open `macos/Package.swift` in Xcode.
+- `bash build_macos.sh --no-dmg` — Build `dist/HieroDict.app` only without creating a `.dmg`.
+- `bash build_macos.sh --zip` — Package a `.zip` archive alongside `.app` / `.dmg`.
+- `bash build_macos.sh --arm64` — Build Apple Silicon (`arm64`) only.
+- `bash build_macos.sh --x86-64` — Build Intel (`x86_64`) only.
+- `bash build_macos.sh --version X.Y.Z --build N` — Stamp bundle version metadata into `Info.plist`.
+- `bash build_macos.sh --repo owner/repo` — Configure the default repository slug for the built-in GitHub updater.
+- `swift run` (inside `macos/`) — Run directly via Swift Package Manager, or open `macos/Package.swift` in Xcode.
