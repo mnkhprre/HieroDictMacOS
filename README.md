@@ -107,15 +107,15 @@ HieroDict includes a dedicated Swift MdC parser and CoreText/AppKit layout solve
 - **True Atlas Proportions:** Polychrome sprites normalize to the native `236px = 1.0em` epigraphic baseline (`ColorHieroglyphStore`) so compact signs such as `X1` (`t`), `Z1`, and `N5` retain authentic proportions alongside tall signs like `M17`, `A1`, and `G5`.
 
 <p align="center">
-  <img src="docs/screenshots/quadrats/jmnt.png" alt="jmnt, MdC imnt-t:N25" height="150" />
-  <img src="docs/screenshots/quadrats/jrt.png" alt="jrt, MdC D4:t*Z1" height="150" />
-  <img src="docs/screenshots/quadrats/jst.png" alt="jst, MdC st-t:pr" height="150" />
+  <img src="docs/screenshots/quadrats/imnt.jpg" alt="ỉmnt, West — MdC imnt-t:N25" width="250" />
+  <img src="docs/screenshots/quadrats/irt.jpg" alt="ỉrt, eye — MdC D4:t*Z1" width="250" />
+  <img src="docs/screenshots/quadrats/ist.jpg" alt="ỉst, place, seat — MdC st-t:pr" width="250" />
   <br />
-  <img src="docs/screenshots/quadrats/jsst.png" alt="jšst, MdC M17-S:V6-s-t:Y1" height="150" />
-  <img src="docs/screenshots/quadrats/jti.png" alt="jti, MdC M17-t:f-A1" height="150" />
-  <img src="docs/screenshots/quadrats/nt-a.png" alt="nt-ꜥ, MdC N35:t-a:Z1-Y1:Z2" height="150" />
+  <img src="docs/screenshots/quadrats/isst.jpg" alt="ỉšst, what? — MdC M17-S:V6-s-t:Y1" width="250" />
+  <img src="docs/screenshots/quadrats/iti.jpg" alt="ỉti, father — MdC M17-t:f-A1" width="250" />
+  <img src="docs/screenshots/quadrats/nt-a.jpg" alt="nt-ꜥ, custom, practice — MdC N35:t-a:Z1-Y1:Z2" width="250" />
 </p>
-<p align="center"><sub>Quadrat layouts rendered from MdC: vertical stacking (<code>:</code>), ligatures (<code>*</code>) and plural strokes, with polychrome sprites at true atlas proportions.</sub></p>
+<p align="center"><sub>Word inspector quadrats rendered from MdC: vertical stacking (<code>:</code>), ligatures (<code>*</code>) and plural strokes, with polychrome sprites at true atlas proportions.</sub></p>
 
 ---
 
