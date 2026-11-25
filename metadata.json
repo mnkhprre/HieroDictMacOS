@@ -1,8 +1,0 @@
-{
-  "name": "HieroDict",
-  "description": "Middle Egyptian Hieroglyphic Dictionary & Gardiner Sign Explorer",
-  "requestFramePermissions": [],
-  "majorCapabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
-}

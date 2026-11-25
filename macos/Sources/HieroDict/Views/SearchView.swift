@@ -154,6 +154,10 @@ struct SearchView: View {
             Group {
                 if trimmedQuery.isEmpty {
                     searchHelpPanel
+                } else if store.searchResults.isEmpty && store.searchSigns.isEmpty && store.isSearching {
+                    ProgressView()
+                        .controlSize(.small)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if store.searchResults.isEmpty && store.searchSigns.isEmpty {
                     VStack(spacing: 10) {
                         Image(systemName: "text.magnifyingglass")

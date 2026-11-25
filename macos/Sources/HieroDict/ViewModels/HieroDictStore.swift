@@ -18,6 +18,10 @@ final class HieroDictStore: ObservableObject {
     @Published private(set) var filteredDictionaryEntries: [HieroEntry] = []
     @Published var searchResults: [HieroEntry] = []
     @Published var searchSigns: [GardinerSign] = []
+    /// True while a typed query is waiting on the database; views use it to avoid flashing
+    /// "no results" before the background search has answered.
+    @Published private(set) var isSearching: Bool = false
+    @Published private(set) var isMenuBarSearching: Bool = false
     @Published var categories: [GardinerCategory] = []
     @Published var isLoaded: Bool = false
     @Published var errorMessage: String? = nil
@@ -53,6 +57,11 @@ final class HieroDictStore: ObservableObject {
 
     private var database: SQLiteDatabaseStore?
     private var entryById: [Int: HieroEntry] = [:]
+    private var searchTask: Task<Void, Never>?
+    private var menuBarSearchTask: Task<Void, Never>?
+
+    /// Delay before a typed query hits the database, so fast typing runs one search, not one per key.
+    private static let searchDebounce: Duration = .milliseconds(120)
 
     var totalSignCount: Int {
         categories.reduce(0) { $0 + $1.signs.count }
@@ -75,7 +84,7 @@ final class HieroDictStore: ObservableObject {
         case .adjectives:
             filteredDictionaryEntries = dictionaryEntries.filter { $0.pos.contains("adj.") }
         case .biliteral:
-            filteredDictionaryEntries = dictionaryEntries.filter { $0.pos.contains("2-lit") || $0.translitRaw.count <= 2 }
+            filteredDictionaryEntries = dictionaryEntries.filter { $0.pos.contains("2-lit") || $0.translitRaw.count == 2 }
         }
     }
 
@@ -89,46 +98,89 @@ final class HieroDictStore: ObservableObject {
         loadInitialData()
     }
 
+    private struct InitialData {
+        let database: SQLiteDatabaseStore
+        let entries: [HieroEntry]
+        let categories: [GardinerCategory]
+        let signCache: [String: GardinerSign]
+        let kingdoms: [PharaohKingdom]
+        let dynasties: [PharaohDynasty]
+        let pharaohs: [Pharaoh]
+        let cartoucheSignFrequencies: [CartoucheSignFrequency]
+        let flashLiterals: [FlashLiteral]
+    }
+
+    /// Opens (and on first launch / upgrade, copies) the database and reads everything the UI
+    /// needs. Runs off the main thread so the window appears immediately.
+    nonisolated private static func readInitialData() throws -> InitialData {
+        let store = try SQLiteDatabaseStore()
+        let entries = store.fetchAllEntries()
+        let categories = store.fetchAllCategoriesWithSigns()
+        var cache: [String: GardinerSign] = [:]
+        for cat in categories {
+            for sign in cat.signs {
+                cache[sign.code.uppercased()] = sign
+            }
+        }
+        let frequencies = store.fetchCartoucheSignCounts().map { item in
+            let upper = item.code.uppercased()
+            let resolvedSign = cache[upper] ?? cache[stripSignVariantSuffix(upper)]
+            return CartoucheSignFrequency(code: item.code, count: item.count, sign: resolvedSign)
+        }
+        ColorHieroglyphStore.shared.loadIfNeeded(signLookup: cache)
+        return InitialData(
+            database: store,
+            entries: entries,
+            categories: categories,
+            signCache: cache,
+            kingdoms: store.fetchPharaohKingdoms(),
+            dynasties: store.fetchPharaohDynasties(),
+            pharaohs: store.fetchAllPharaohsWithCartouches(),
+            cartoucheSignFrequencies: frequencies,
+            flashLiterals: store.fetchFlashLiterals()
+        )
+    }
+
     func loadInitialData() {
         FontRegistrar.setFontChoice(hieroFontChoice)
-        do {
-            let store = try SQLiteDatabaseStore()
-            self.database = store
-            let loadedEntries = store.fetchAllEntries()
-            let loadedCategories = store.fetchAllCategoriesWithSigns()
-            self.allEntries = loadedEntries
-            self.dictionaryEntries = loadedEntries
-            self.entryById = Dictionary(uniqueKeysWithValues: loadedEntries.map { ($0.id, $0) })
-            self.recomputeFilteredDictionaryEntries()
-            self.categories = loadedCategories
-            var cache: [String: GardinerSign] = [:]
-            for cat in loadedCategories {
-                for sign in cat.signs {
-                    cache[sign.code.uppercased()] = sign
-                }
+        Task { [weak self] in
+            let result = await Task.detached(priority: .userInitiated) {
+                Result { try Self.readInitialData() }
+            }.value
+            guard let self else { return }
+            switch result {
+            case .success(let data):
+                self.apply(data)
+            case .failure(let error):
+                self.errorMessage = error.localizedDescription
             }
-            self.signCache = cache
-            let kingdoms = store.fetchPharaohKingdoms()
-            let dynasties = store.fetchPharaohDynasties()
-            let loadedPharaohs = store.fetchAllPharaohsWithCartouches()
-            let signCounts = store.fetchCartoucheSignCounts()
-            self.pharaohKingdoms = kingdoms
-            self.pharaohDynasties = dynasties
-            self.pharaohs = loadedPharaohs
-            self.cartoucheSignFrequencies = signCounts.map { item in
-                let upper = item.code.uppercased()
-                let resolvedSign = cache[upper] ?? cache[Self.stripSignVariantSuffix(upper)]
-                return CartoucheSignFrequency(code: item.code, count: item.count, sign: resolvedSign)
-            }
-            if self.selectedPharaoh == nil {
-                self.selectedPharaoh = loadedPharaohs.first { $0.id == "18-13" } ?? loadedPharaohs.first
-            }
-            self.flashLiterals = store.fetchFlashLiterals()
-            ColorHieroglyphStore.shared.loadIfNeeded(signLookup: cache)
-            self.isLoaded = true
-        } catch {
-            self.errorMessage = error.localizedDescription
         }
+    }
+
+    private func apply(_ data: InitialData) {
+        database = data.database
+        allEntries = data.entries
+        dictionaryEntries = data.entries
+        entryById = Dictionary(uniqueKeysWithValues: data.entries.map { ($0.id, $0) })
+        categories = data.categories
+        signCache = data.signCache
+        pharaohKingdoms = data.kingdoms
+        pharaohDynasties = data.dynasties
+        pharaohs = data.pharaohs
+        cartoucheSignFrequencies = data.cartoucheSignFrequencies
+        if selectedPharaoh == nil {
+            selectedPharaoh = data.pharaohs.first { $0.id == "18-13" } ?? data.pharaohs.first
+        }
+        flashLiterals = data.flashLiterals
+        if activeSignFilter != nil {
+            refreshDictionaryEntries()
+        } else {
+            recomputeFilteredDictionaryEntries()
+        }
+        isLoaded = true
+        // Anything typed while the database was still opening runs now.
+        runSearch()
+        runMenuBarSearch()
     }
 
     func updateSearchQuery(_ query: String) {
@@ -148,6 +200,8 @@ final class HieroDictStore: ObservableObject {
     }
 
     func clearQuery() {
+        searchTask?.cancel()
+        isSearching = false
         searchQuery = ""
         searchResults = []
         searchSigns = []
@@ -239,7 +293,7 @@ final class HieroDictStore: ObservableObject {
         pharaohDynasties.first { $0.id == id }
     }
 
-    private static func stripSignVariantSuffix(_ code: String) -> String {
+    nonisolated private static func stripSignVariantSuffix(_ code: String) -> String {
         var prefix = ""
         var seenDigit = false
         for ch in code {
@@ -303,6 +357,8 @@ final class HieroDictStore: ObservableObject {
     }
 
     func clearMenuBarQuery() {
+        menuBarSearchTask?.cancel()
+        isMenuBarSearching = false
         menuBarSearchQuery = ""
         menuBarResults = []
         menuBarSigns = []
@@ -323,38 +379,65 @@ final class HieroDictStore: ObservableObject {
         return QuadratEngine.extractResolvedHieroglyphs(mdc: trimmed, signLookup: signCache)
     }
 
-    private func runMenuBarSearch() {
-        guard let database else { return }
-        let trimmed = menuBarSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+    private typealias SearchOutput = (signs: [GardinerSign], entries: [HieroEntry])
+
+    /// Debounces, then runs the sign + word queries on a background thread. A newer query
+    /// cancels the older one, so stale results never overwrite fresh ones.
+    private func scheduleSearch(
+        query: String,
+        signLimit: Int,
+        entryLimit: Int,
+        previous: Task<Void, Never>?,
+        apply: @escaping @MainActor (HieroDictStore, SearchOutput) -> Void
+    ) -> Task<Void, Never>? {
+        previous?.cancel()
+        guard let database else { return nil }
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
-            menuBarResults = []
-            menuBarSigns = []
-        } else {
-            let resolved = resolveMdcGlyphsIfApplicable(for: trimmed)
-            menuBarSigns = database.searchSigns(query: trimmed, limit: 16)
-            menuBarResults = database.searchEntries(
-                query: trimmed,
-                resolvedGlyphs: resolved,
-                limit: 150
-            )
+            apply(self, ([], []))
+            return nil
+        }
+        let resolved = resolveMdcGlyphsIfApplicable(for: trimmed)
+        return Task { [weak self] in
+            try? await Task.sleep(for: Self.searchDebounce)
+            guard !Task.isCancelled else { return }
+            let output: SearchOutput = await Task.detached(priority: .userInitiated) {
+                (
+                    database.searchSigns(query: trimmed, limit: signLimit),
+                    database.searchEntries(query: trimmed, resolvedGlyphs: resolved, limit: entryLimit)
+                )
+            }.value
+            guard !Task.isCancelled, let self else { return }
+            apply(self, output)
         }
     }
 
-    private func runSearch() {
-        guard let database else { return }
-        let trimmed = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty {
-            searchResults = []
-            searchSigns = []
-        } else {
-            let resolved = resolveMdcGlyphsIfApplicable(for: trimmed)
-            searchSigns = database.searchSigns(query: trimmed, limit: 24)
-            searchResults = database.searchEntries(
-                query: trimmed,
-                resolvedGlyphs: resolved,
-                limit: 200
-            )
+    private func runMenuBarSearch() {
+        menuBarSearchTask = scheduleSearch(
+            query: menuBarSearchQuery,
+            signLimit: 16,
+            entryLimit: 150,
+            previous: menuBarSearchTask
+        ) { store, output in
+            store.menuBarSigns = output.signs
+            store.menuBarResults = output.entries
+            store.isMenuBarSearching = false
         }
+        isMenuBarSearching = menuBarSearchTask != nil
+    }
+
+    private func runSearch() {
+        searchTask = scheduleSearch(
+            query: searchQuery,
+            signLimit: 24,
+            entryLimit: 200,
+            previous: searchTask
+        ) { store, output in
+            store.searchSigns = output.signs
+            store.searchResults = output.entries
+            store.isSearching = false
+        }
+        isSearching = searchTask != nil
     }
 
     private func refreshDictionaryEntries() {
@@ -365,24 +448,5 @@ final class HieroDictStore: ObservableObject {
             dictionaryEntries = allEntries
         }
         recomputeFilteredDictionaryEntries()
-    }
-
-    private func reloadEntriesPreservingSelection() {
-        guard let database else { return }
-        allEntries = database.fetchAllEntries()
-        entryById = Dictionary(uniqueKeysWithValues: allEntries.map { ($0.id, $0) })
-        refreshDictionaryEntries()
-        if !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            runSearch()
-        }
-        if !menuBarSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            runMenuBarSearch()
-        }
-        if let current = selectedWord {
-            selectedWord = entryById[current.id]
-        }
-        if let currentMenu = menuBarSelectedWord {
-            menuBarSelectedWord = entryById[currentMenu.id]
-        }
     }
 }

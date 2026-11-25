@@ -274,6 +274,10 @@ struct MenuBarSearchView: View {
             }
             .padding(20)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if store.menuBarResults.isEmpty && store.menuBarSigns.isEmpty && store.isMenuBarSearching {
+            ProgressView()
+                .controlSize(.small)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if store.menuBarResults.isEmpty && store.menuBarSigns.isEmpty {
             VStack(spacing: 8) {
                 Text("No words or signs found matching \"\(trimmedQuery)\"")

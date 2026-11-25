@@ -47,6 +47,9 @@ struct MainSplitView: View {
                     }
                     .padding(32)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if !store.isLoaded {
+                    ProgressView("Loading dictionary…")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     switch store.selectedSection {
                     case .search:

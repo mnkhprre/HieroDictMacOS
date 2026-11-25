@@ -80,9 +80,8 @@ Powered by a bundled offline SQLite database (`hierodict.db`), HieroDict combine
   - **Study List:** Searchable phonetic reference table with instant sign details.
   - **Statistics:** Persistent SQLite-backed accuracy tracking (`flash_stats`) per category and individual sign, with per-deck or full reset options.
 
-### 6. Display, Themes & GitHub Auto-Updater
+### 6. Display & Themes
 - **Toolbar & Settings Controls (`⌘,`):** Toggle **Quadrat vs. Linear** stacking, **Square Guides**, **Colored Hieroglyphs**, fallback font (**UniHieroglyphica**, **Noto Sans Egyptian Hieroglyphs**, **Abydos**), glyph size (`Small`, `Medium`, `Large`), **System / Light / Dark** appearance, and optional window blur.
-- **In-App GitHub Updater:** Automatically or manually checks **GitHub Releases** (`username/HieroDict`) and supports downloading and installing Universal macOS `.dmg` / `.zip` updates directly from the app.
 
 ---
 
@@ -140,7 +139,6 @@ open dist/HieroDict-macOS-Universal.dmg
 | `--zip` | Also output `dist/HieroDict-macOS-*.zip` archive |
 | `--version X.Y.Z` | Override `CFBundleShortVersionString` in `Info.plist` |
 | `--build N` | Override `CFBundleVersion` in `Info.plist` |
-| `--repo owner/repo` | Override `HieroDictGitHubRepo` for the built-in updater |
 
 For rapid iteration during development, run directly with SwiftPM or open `macos/Package.swift` in Xcode:
 
@@ -155,7 +153,6 @@ cd macos && swift run
 ```text
 HieroDict/
 ├── database/
-│   ├── hierodict.db               # Master SQLite database (v5)
 │   └── hierodict.sql              # Core dictionary SQL dump
 ├── macos/
 │   ├── Package.swift              # Swift Package Manager manifest (macOS 14+)
@@ -166,11 +163,11 @@ HieroDict/
 │       ├── Models/                # Domain models, transliteration & enums
 │       ├── ViewModels/            # HieroDictStore state coordinator
 │       ├── Data/                  # SQLite store, QuadratEngine, ColorHieroglyphStore,
-│       │                          # LigatureCatalog, FontRegistrar, GitHubUpdater
+│       │                          # LigatureCatalog, FontRegistrar
 │       ├── Views/                 # Search, Dictionary, SignList, Pharaohs,
 │       │                          # FlashCards, QuadratCanvas, Inspector, Settings, About
 │       └── Resources/             # Bundled fonts (.ttf), hieroglyphs.png atlas,
-│                                  # ligatures.txt, hierodict.db, AppIcon.icns
+│                                  # ligatures.txt, hierodict.db (master SQLite database, v5), AppIcon.icns
 ├── LICENSE
 └── README.md
 ```

@@ -1,7 +1,8 @@
 import Foundation
 import SQLite3
 
-final class SQLiteDatabaseStore {
+/// Thread-safe: every access to `db` goes through the serial `queue`.
+final class SQLiteDatabaseStore: @unchecked Sendable {
     private let queue = DispatchQueue(label: "net.ultramagic.hierodict.sqlite", qos: .userInitiated)
     private var db: OpaquePointer?
     private let transientDestructor = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
@@ -31,6 +32,10 @@ final class SQLiteDatabaseStore {
         }
     }
 
+    // The helpers below open the database READWRITE even though they only read: the file is in
+    // WAL mode, and a read-only connection cannot query a WAL database whose -shm file is absent
+    // (e.g. after a clean shutdown). That used to make a valid database look corrupt, so an
+    // upgrade replaced it with a fresh copy and silently dropped the user's data.
     private static func isValidDatabase(at url: URL) -> Bool {
         let fm = FileManager.default
         guard fm.fileExists(atPath: url.path),
@@ -40,7 +45,7 @@ final class SQLiteDatabaseStore {
             return false
         }
         var handle: OpaquePointer?
-        guard sqlite3_open_v2(url.path, &handle, SQLITE_OPEN_READONLY, nil) == SQLITE_OK, let handle else {
+        guard sqlite3_open_v2(url.path, &handle, SQLITE_OPEN_READWRITE, nil) == SQLITE_OK, let handle else {
             if let handle { sqlite3_close_v2(handle) }
             return false
         }
@@ -60,7 +65,7 @@ final class SQLiteDatabaseStore {
 
     private static func readDatabaseVersion(at url: URL) -> Int {
         var handle: OpaquePointer?
-        guard sqlite3_open_v2(url.path, &handle, SQLITE_OPEN_READONLY, nil) == SQLITE_OK, let handle else {
+        guard sqlite3_open_v2(url.path, &handle, SQLITE_OPEN_READWRITE, nil) == SQLITE_OK, let handle else {
             if let handle { sqlite3_close_v2(handle) }
             return 0
         }
@@ -84,7 +89,7 @@ final class SQLiteDatabaseStore {
 
     private static func readUserDataSnapshot(at url: URL) -> UserDataSnapshot {
         var handle: OpaquePointer?
-        guard sqlite3_open_v2(url.path, &handle, SQLITE_OPEN_READONLY, nil) == SQLITE_OK, let handle else {
+        guard sqlite3_open_v2(url.path, &handle, SQLITE_OPEN_READWRITE, nil) == SQLITE_OK, let handle else {
             if let handle { sqlite3_close_v2(handle) }
             return .empty
         }
@@ -132,48 +137,57 @@ final class SQLiteDatabaseStore {
         return UserDataSnapshot(favorites: favorites, stacks: stacks, flashStats: flashStats)
     }
 
-    private static func restoreUserDataSnapshot(at url: URL, snapshot: UserDataSnapshot) {
+    /// Writes the user's favorites, saved stacks and flash statistics into the database at `url`.
+    /// Runs in a single transaction and returns `false` (rolling back) if any statement fails,
+    /// so the caller can keep the previous database instead of losing user data.
+    private static func restoreUserDataSnapshot(at url: URL, snapshot: UserDataSnapshot) -> Bool {
         let favorites = snapshot.favorites
         let stacks = snapshot.stacks
         let flashStats = snapshot.flashStats
-        guard !favorites.isEmpty || !stacks.isEmpty || !flashStats.isEmpty else { return }
+        guard !favorites.isEmpty || !stacks.isEmpty || !flashStats.isEmpty else { return true }
         var handle: OpaquePointer?
         guard sqlite3_open_v2(url.path, &handle, SQLITE_OPEN_READWRITE, nil) == SQLITE_OK, let handle else {
             if let handle { sqlite3_close_v2(handle) }
-            return
+            return false
         }
         defer { sqlite3_close_v2(handle) }
 
         let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
-        sqlite3_exec(handle, "BEGIN IMMEDIATE TRANSACTION", nil, nil, nil)
 
-        if !favorites.isEmpty {
-            var byMdcStmt: OpaquePointer?
-            var byIdStmt: OpaquePointer?
-            sqlite3_prepare_v2(handle, "UPDATE entries SET isFavorite = 1 WHERE mdc = ? AND translitRaw = ?", -1, &byMdcStmt, nil)
-            sqlite3_prepare_v2(handle, "UPDATE entries SET isFavorite = 1 WHERE id = ?", -1, &byIdStmt, nil)
-            for item in favorites {
-                var matched = false
-                if let byMdcStmt {
-                    sqlite3_reset(byMdcStmt)
-                    sqlite3_bind_text(byMdcStmt, 1, item.mdc, -1, transient)
-                    sqlite3_bind_text(byMdcStmt, 2, item.translitRaw, -1, transient)
-                    if sqlite3_step(byMdcStmt) == SQLITE_DONE && sqlite3_changes(handle) > 0 {
-                        matched = true
-                    }
-                }
-                if !matched, item.id > 0, let byIdStmt {
-                    sqlite3_reset(byIdStmt)
-                    sqlite3_bind_int64(byIdStmt, 1, item.id)
-                    sqlite3_step(byIdStmt)
-                }
-            }
-            sqlite3_finalize(byMdcStmt)
-            sqlite3_finalize(byIdStmt)
+        func exec(_ sql: String) -> Bool {
+            sqlite3_exec(handle, sql, nil, nil, nil) == SQLITE_OK
         }
 
-        if !stacks.isEmpty {
-            let createSQL = """
+        func run(_ sql: String, rows: Int, bind: (OpaquePointer, Int) -> Void) -> Bool {
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(handle, sql, -1, &stmt, nil) == SQLITE_OK, let stmt else { return false }
+            defer { sqlite3_finalize(stmt) }
+            for row in 0..<rows {
+                sqlite3_reset(stmt)
+                sqlite3_clear_bindings(stmt)
+                bind(stmt, row)
+                guard sqlite3_step(stmt) == SQLITE_DONE else { return false }
+            }
+            return true
+        }
+
+        guard exec("BEGIN IMMEDIATE TRANSACTION") else { return false }
+
+        // Prefer the original row id when it still holds the same word; otherwise fall back to
+        // the first row with the same MdC + transliteration (never marks duplicates en masse).
+        let favoriteSQL = """
+        UPDATE entries SET isFavorite = 1 WHERE id = COALESCE(
+            (SELECT id FROM entries WHERE id = ?1 AND mdc = ?2 AND translitRaw = ?3),
+            (SELECT id FROM entries WHERE mdc = ?2 AND translitRaw = ?3 ORDER BY id LIMIT 1)
+        )
+        """
+        let ok =
+            run(favoriteSQL, rows: favorites.count) { stmt, i in
+                sqlite3_bind_int64(stmt, 1, favorites[i].id)
+                sqlite3_bind_text(stmt, 2, favorites[i].mdc, -1, transient)
+                sqlite3_bind_text(stmt, 3, favorites[i].translitRaw, -1, transient)
+            }
+            && exec("""
             CREATE TABLE IF NOT EXISTS custom_stacks (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 title TEXT NOT NULL,
@@ -182,48 +196,46 @@ final class SQLiteDatabaseStore {
                 frameMode TEXT NOT NULL,
                 createdAt REAL NOT NULL
             )
-            """
-            sqlite3_exec(handle, createSQL, nil, nil, nil)
-            var insertStmt: OpaquePointer?
-            if sqlite3_prepare_v2(handle, "INSERT INTO custom_stacks (title, mdc, direction, frameMode, createdAt) VALUES (?, ?, ?, ?, ?)", -1, &insertStmt, nil) == SQLITE_OK {
-                for item in stacks {
-                    sqlite3_reset(insertStmt)
-                    sqlite3_bind_text(insertStmt, 1, item.title, -1, transient)
-                    sqlite3_bind_text(insertStmt, 2, item.mdc, -1, transient)
-                    sqlite3_bind_text(insertStmt, 3, item.direction, -1, transient)
-                    sqlite3_bind_text(insertStmt, 4, item.frameMode, -1, transient)
-                    sqlite3_bind_double(insertStmt, 5, item.createdAt)
-                    sqlite3_step(insertStmt)
-                }
+            """)
+            && run("INSERT INTO custom_stacks (title, mdc, direction, frameMode, createdAt) VALUES (?, ?, ?, ?, ?)", rows: stacks.count) { stmt, i in
+                sqlite3_bind_text(stmt, 1, stacks[i].title, -1, transient)
+                sqlite3_bind_text(stmt, 2, stacks[i].mdc, -1, transient)
+                sqlite3_bind_text(stmt, 3, stacks[i].direction, -1, transient)
+                sqlite3_bind_text(stmt, 4, stacks[i].frameMode, -1, transient)
+                sqlite3_bind_double(stmt, 5, stacks[i].createdAt)
             }
-            sqlite3_finalize(insertStmt)
-        }
-
-        if !flashStats.isEmpty {
-            let createFlashSQL = """
+            && exec("""
             CREATE TABLE IF NOT EXISTS flash_stats (
                 literalId INTEGER PRIMARY KEY,
                 correctCount INTEGER NOT NULL DEFAULT 0,
                 wrongCount INTEGER NOT NULL DEFAULT 0,
                 lastPracticedAt REAL NOT NULL DEFAULT 0
             )
-            """
-            sqlite3_exec(handle, createFlashSQL, nil, nil, nil)
-            var flashInsertStmt: OpaquePointer?
-            if sqlite3_prepare_v2(handle, "INSERT OR REPLACE INTO flash_stats (literalId, correctCount, wrongCount, lastPracticedAt) VALUES (?, ?, ?, ?)", -1, &flashInsertStmt, nil) == SQLITE_OK {
-                for item in flashStats {
-                    sqlite3_reset(flashInsertStmt)
-                    sqlite3_bind_int64(flashInsertStmt, 1, item.literalId)
-                    sqlite3_bind_int(flashInsertStmt, 2, item.correctCount)
-                    sqlite3_bind_int(flashInsertStmt, 3, item.wrongCount)
-                    sqlite3_bind_double(flashInsertStmt, 4, item.lastPracticedAt)
-                    sqlite3_step(flashInsertStmt)
-                }
+            """)
+            && run("INSERT OR REPLACE INTO flash_stats (literalId, correctCount, wrongCount, lastPracticedAt) VALUES (?, ?, ?, ?)", rows: flashStats.count) { stmt, i in
+                sqlite3_bind_int64(stmt, 1, flashStats[i].literalId)
+                sqlite3_bind_int(stmt, 2, flashStats[i].correctCount)
+                sqlite3_bind_int(stmt, 3, flashStats[i].wrongCount)
+                sqlite3_bind_double(stmt, 4, flashStats[i].lastPracticedAt)
             }
-            sqlite3_finalize(flashInsertStmt)
-        }
 
-        sqlite3_exec(handle, "COMMIT", nil, nil, nil)
+        guard ok, exec("COMMIT") else {
+            _ = exec("ROLLBACK")
+            return false
+        }
+        return true
+    }
+
+    /// Folds any pending WAL frames into the main database file so the -wal/-shm files can be
+    /// removed without losing data (and so a stale WAL can never be replayed onto a new file).
+    private static func checkpointAndCloseWAL(at url: URL) -> Bool {
+        var handle: OpaquePointer?
+        guard sqlite3_open_v2(url.path, &handle, SQLITE_OPEN_READWRITE, nil) == SQLITE_OK, let handle else {
+            if let handle { sqlite3_close_v2(handle) }
+            return false
+        }
+        defer { sqlite3_close_v2(handle) }
+        return sqlite3_wal_checkpoint_v2(handle, nil, SQLITE_CHECKPOINT_TRUNCATE, nil, nil) == SQLITE_OK
     }
 
     private static func resolveWritableDatabaseURL() throws -> URL {
@@ -252,16 +264,39 @@ final class SQLiteDatabaseStore {
                     userInfo: [NSLocalizedDescriptionKey: "Bundled hierodict.db resource was not found."]
                 )
             }
-            let snapshot = validExisting ? readUserDataSnapshot(at: targetURL) : .empty
-            if fm.fileExists(atPath: targetURL.path) {
-                try? fm.removeItem(at: targetURL)
-            }
             let walURL = dir.appendingPathComponent("hierodict.db-wal")
             let shmURL = dir.appendingPathComponent("hierodict.db-shm")
-            try? fm.removeItem(at: walURL)
-            try? fm.removeItem(at: shmURL)
-            try fm.copyItem(at: bundledURL, to: targetURL)
-            restoreUserDataSnapshot(at: targetURL, snapshot: snapshot)
+
+            guard validExisting else {
+                // Nothing worth preserving: install the bundled copy directly.
+                try? fm.removeItem(at: targetURL)
+                try? fm.removeItem(at: walURL)
+                try? fm.removeItem(at: shmURL)
+                try fm.copyItem(at: bundledURL, to: targetURL)
+                return targetURL
+            }
+
+            // Upgrade: build the new database next to the old one, carry the user's data over,
+            // and only swap it in once everything succeeded. On any failure the old database
+            // (and the user's favorites, stacks and flash statistics) stays untouched.
+            let stagingURL = dir.appendingPathComponent("hierodict.db.upgrade")
+            try? fm.removeItem(at: stagingURL)
+            do {
+                guard checkpointAndCloseWAL(at: targetURL) else {
+                    throw NSError(domain: "HieroDict.SQLite", code: 3, userInfo: [NSLocalizedDescriptionKey: "Could not checkpoint the existing database."])
+                }
+                let snapshot = readUserDataSnapshot(at: targetURL)
+                try fm.copyItem(at: bundledURL, to: stagingURL)
+                guard restoreUserDataSnapshot(at: stagingURL, snapshot: snapshot) else {
+                    throw NSError(domain: "HieroDict.SQLite", code: 4, userInfo: [NSLocalizedDescriptionKey: "Could not migrate user data into the new database."])
+                }
+                try? fm.removeItem(at: walURL)
+                try? fm.removeItem(at: shmURL)
+                _ = try fm.replaceItemAt(targetURL, withItemAt: stagingURL)
+            } catch {
+                try? fm.removeItem(at: stagingURL)
+                NSLog("HieroDict: database upgrade skipped, keeping existing database: \(error.localizedDescription)")
+            }
         }
         return targetURL
     }
