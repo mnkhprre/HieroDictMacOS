@@ -6,12 +6,16 @@
 
 **Middle Egyptian Hieroglyphic Dictionary, Epigraphic Quadrat Composer, Royal Cartouche Explorer & Phonetic Flash Cards for macOS**
 
-[![Platform](https://img.shields.io/badge/platform-macOS%2014.0%2B%20%28Universal%29-0D47A1?style=flat-square&logo=apple)](https://github.com/mustafabilgin/HieroDict)
+[![Platform](https://img.shields.io/badge/platform-macOS%2014.0%2B%20%28Universal%29-0D47A1?style=flat-square&logo=apple)](https://github.com/mnkhprre/HieroDictMacOS)
 [![Architecture](https://img.shields.io/badge/arch-arm64%20%7C%20x86__64-1B4965?style=flat-square)](macos/Package.swift)
 [![Swift](https://img.shields.io/badge/Swift-5.9%20%2F%20SwiftUI-F05138?style=flat-square&logo=swift&logoColor=white)](macos/Package.swift)
 [![License](https://img.shields.io/badge/license-MIT%20%2F%20CC%20BY--SA%202.0-2E7D32?style=flat-square)](LICENSE)
 
-[Features](#features) • [Typography & MdC Engine](#manuel-de-codage-quadrat-engine) • [Build & Package](#build--package-from-source) • [Project Structure](#project-structure) • [Sources & License](#sources--acknowledgements)
+[Screenshots](#screenshots) • [Features](#features) • [Typography & MdC Engine](#manuel-de-codage-mdc-quadrat-engine) • [Build & Package](#build--package-from-source) • [Project Structure](#project-structure) • [Sources & License](#sources--acknowledgements)
+
+<br />
+
+<img src="docs/screenshots/search.jpg" alt="HieroDict searching for ꜥnḫ, with the word inspector showing the quadrat layout, Gardiner signs and imaginary squares" width="900" />
 
 </div>
 
@@ -22,6 +26,16 @@
 **HieroDict** is a native SwiftUI desktop application for macOS (Apple Silicon `arm64` & Intel `x86_64`) designed for studying Ancient Egyptian hieroglyphs, Middle Egyptian vocabulary, royal titulary cartouches, and phonetic sign drills.
 
 Powered by a bundled offline SQLite database (`hierodict.db`), HieroDict combines **43,532 dictionary entries**, **1,071 Gardiner signs**, **314 historical pharaohs** with **2,081 royal cartouches & serekhs**, and **460 phonetic flash cards**, rendered with both **polychrome painted hieroglyph sprites** and **vector TrueType Egyptian fonts**.
+
+---
+
+## Screenshots
+
+| Dictionary & Word Inspector | Gardiner's Sign List |
+| :---: | :---: |
+| <img src="docs/screenshots/dictionary.jpg" alt="Dictionary with the word inspector open on ꜣwi ỉb, happy" width="440" /> | <img src="docs/screenshots/sign-list.jpg" alt="Gardiner sign list, category A: Man and his occupations" width="440" /> |
+| **Pharaohs & Royal Cartouches** | **Hieroglyph Flash Cards** |
+| <img src="docs/screenshots/pharaohs.jpg" alt="Tutankhamun's titulary with the Horus name inside a serekh" width="440" /> | <img src="docs/screenshots/flash-cards.jpg" alt="Uniliteral flash card quiz, hieroglyph to transliteration" width="440" /> |
 
 ---
 
@@ -92,6 +106,17 @@ HieroDict includes a dedicated Swift MdC parser and CoreText/AppKit layout solve
 - **Epigraphic Modifiers:** Quarter-turn rotations (`\R90`, `\R180`, `\R270`), horizontal mirroring (`\H`), scaling percentages, rubricated/red ink (`\red`), damage hatching/lacuna overlays (`#`, `//`), and royal enclosures (`<- ... ->`, `<-S ... ->`).
 - **True Atlas Proportions:** Polychrome sprites normalize to the native `236px = 1.0em` epigraphic baseline (`ColorHieroglyphStore`) so compact signs such as `X1` (`t`), `Z1`, and `N5` retain authentic proportions alongside tall signs like `M17`, `A1`, and `G5`.
 
+<p align="center">
+  <img src="docs/screenshots/quadrats/jmnt.png" alt="jmnt, MdC imnt-t:N25" height="150" />
+  <img src="docs/screenshots/quadrats/jrt.png" alt="jrt, MdC D4:t*Z1" height="150" />
+  <img src="docs/screenshots/quadrats/jst.png" alt="jst, MdC st-t:pr" height="150" />
+  <br />
+  <img src="docs/screenshots/quadrats/jsst.png" alt="jšst, MdC M17-S:V6-s-t:Y1" height="150" />
+  <img src="docs/screenshots/quadrats/jti.png" alt="jti, MdC M17-t:f-A1" height="150" />
+  <img src="docs/screenshots/quadrats/nt-a.png" alt="nt-ꜥ, MdC N35:t-a:Z1-Y1:Z2" height="150" />
+</p>
+<p align="center"><sub>Quadrat layouts rendered from MdC: vertical stacking (<code>:</code>), ligatures (<code>*</code>) and plural strokes, with polychrome sprites at true atlas proportions.</sub></p>
+
 ---
 
 ## Keyboard Shortcuts
@@ -113,7 +138,7 @@ HieroDict includes a dedicated Swift MdC parser and CoreText/AppKit layout solve
 ## Installation & Build
 
 ### Prebuilt Release (macOS 14.0+)
-Download the latest `HieroDict-macOS-Universal.dmg` from [GitHub Releases](https://github.com/mustafabilgin/HieroDict/releases), open the `.dmg`, and drag **HieroDict.app** into `/Applications`.
+Download the latest `HieroDict-macOS-Universal.dmg` from [GitHub Releases](https://github.com/mnkhprre/HieroDictMacOS/releases), open the `.dmg`, and drag **HieroDict.app** into `/Applications`.
 
 ### Build & Package from Source
 
@@ -122,8 +147,8 @@ Download the latest `HieroDict-macOS-Universal.dmg` from [GitHub Releases](https
 - **Xcode 15+** or Swift Command Line Tools (`xcode-select --install`)
 
 ```bash
-git clone https://github.com/mustafabilgin/HieroDict.git
-cd HieroDict/macos
+git clone https://github.com/mnkhprre/HieroDictMacOS.git
+cd HieroDictMacOS/macos
 bash build_macos.sh
 open dist/HieroDict-macOS-Universal.dmg
 ```
@@ -154,6 +179,7 @@ cd macos && swift run
 HieroDict/
 ├── database/
 │   └── hierodict.sql              # Core dictionary SQL dump
+├── docs/screenshots/              # README screenshots & quadrat samples
 ├── macos/
 │   ├── Package.swift              # Swift Package Manager manifest (macOS 14+)
 │   ├── build_macos.sh             # Universal app bundle + DMG/ZIP packager
